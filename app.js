@@ -1435,24 +1435,26 @@
       const sisaLabel = sisaDays <= 0 ? 'Lewat Jatuh Tempo' : `Sisa ${sisaDays} Hari`;
 
       return `
-        <div class="alert-panel-item flex items-center justify-between gap-3 text-xs">
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-1.5 mb-0.5">
-              <span class="font-bold text-slate-100 truncate text-[11px]">${escapeHtml(item.pelanggan || 'Pelanggan')}</span>
-              <span class="px-1.5 py-0.2 rounded text-[9px] font-bold border ${badgeBg} whitespace-nowrap shrink-0">
-                ${sisaLabel}
-              </span>
+        <div class="alert-panel-item text-xs">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-1 mb-0.5">
+                <span class="font-bold text-slate-100 truncate text-[11px] max-w-[180px] sm:max-w-none">${escapeHtml(item.pelanggan || 'Pelanggan')}</span>
+                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold border ${badgeBg} whitespace-nowrap shrink-0">
+                  ${sisaLabel}
+                </span>
+              </div>
+              <div class="text-[10px] text-slate-400 flex items-center gap-1.5 flex-wrap">
+                <span class="text-cyan-400 font-semibold truncate max-w-[120px]">${escapeHtml(item.pengelola || '-')}</span>
+                <span>•</span>
+                <span class="font-mono text-slate-300 whitespace-nowrap">Tgl: ${item.end_date || '-'}</span>
+              </div>
+              ${item.sid ? `<div class="text-[9px] font-mono text-slate-500 mt-0.5">SID: ${escapeHtml(item.sid)}</div>` : ''}
             </div>
-            <div class="text-[10px] text-slate-400 flex items-center gap-2">
-              <span class="text-cyan-400 font-semibold truncate max-w-[130px]">${escapeHtml(item.pengelola || '-')}</span>
-              <span>•</span>
-              <span class="font-mono text-slate-300">Tgl: ${item.end_date || '-'}</span>
-            </div>
-            ${item.sid ? `<div class="text-[9px] font-mono text-slate-500 mt-0.5">SID: ${escapeHtml(item.sid)}</div>` : ''}
+            <button type="button" class="btn btn-primary text-[10px] py-1 px-2 rounded-lg shrink-0 font-bold btn-renew-contract-quick whitespace-nowrap" data-id="${item.id}" title="Perbaharui masa sewa / nomor PO kontrak ini">
+              <i class="fa-solid fa-pen-to-square sm:mr-1"></i><span class="hidden sm:inline"> Perbaharui</span>
+            </button>
           </div>
-          <button type="button" class="btn btn-primary text-[10px] py-1 px-2.5 rounded-lg shrink-0 font-bold btn-renew-contract-quick" data-id="${item.id}" title="Perbaharui masa sewa / nomor PO kontrak ini">
-            <i class="fa-solid fa-pen-to-square mr-1"></i> Perbaharui
-          </button>
         </div>
       `;
     }).join('');
