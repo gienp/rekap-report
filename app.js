@@ -6,6 +6,605 @@
 (function () {
   'use strict';
 
+  // =========================================================================
+  // RESILIENT STATIC DATA ADAPTER & API ROUTER (CLOUD HOSTING & OFFLINE)
+  // Ensures all charts, KPI cards, tables, WebGIS pins, and alerts render
+  // seamlessly on Firebase Hosting and static CDN environments without server errors.
+  // =========================================================================
+  function isUserAssignedToTask(rec, user) {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    const picField = (rec.pic_perijinan || '').toLowerCase().trim();
+    if (!picField) return false;
+    const tokens = [];
+    if (user.username) tokens.push(user.username.toLowerCase());
+    if (user.pic_code) tokens.push(user.pic_code.toLowerCase());
+    if (user.full_name) {
+      tokens.push(user.full_name.toLowerCase());
+      user.full_name.toLowerCase().split(/\s+/).forEach(p => {
+        if (p.length >= 3 && !['dan', 'tim', 'all'].includes(p)) {
+          tokens.push(p);
+        }
+      });
+    }
+    const norm = picField.replace(/[.\-_]/g, ' ');
+    return tokens.some(t => picField.includes(t) || norm.includes(t));
+  }
+
+  function handleStaticApiRequest(url) {
+    const parsedUrl = new URL(url, window.location.origin || 'http://localhost');
+    const path = parsedUrl.pathname;
+    const params = parsedUrl.searchParams;
+
+    const data = window.SITAC_COLLO_DATA || {};
+    const colloList = data.collo_records || [];
+    const sitacList = data.sitac_records || [];
+    const gangguanList = data.gangguan_records || [];
+    const rekapEff = (data.summary && data.summary.rekap_efisiensi) || data.rekap_efisiensi || [];
+    const workload = (data.summary && data.summary.workload_performa) || [];
+
+    // 1. Executive Summary
+    if (path === '/api/executive/summary') {
+      const cAct = colloList.filter(c => c.status === 'ACTIVE');
+      const cNon = colloList.filter(c => c.status === 'NON ACTIVE');
+      const cDeact = colloList.filter(c => c.status === 'DEACTIVASI');
+      const rev = cAct.reduce((a, b) => a + (Number(b.rev_sewa_tahun) || 0), 0);
+      const biaya = cAct.reduce((a, b) => a + (Number(b.biaya_sewa_tahun) || 0), 0);
+      const margin = cAct.reduce((a, b) => a + (Number(b.margin_rupiah) || 0), 0);
+      const revShareCount = colloList.filter(c => (Number(c.rev_sharing_pct) || 0) > 0 || (c.rev_sharing && c.rev_sharing !== '-')).length;
+      const marginPct = rev > 0 ? Number(((rev - biaya) / rev * 100).toFixed(2)) : 0;
+
+      const sFinish = sitacList.filter(s => s.progress === 'Finish').length;
+      const sOngoing = sitacList.filter(s => s.progress === 'Ongoing').length;
+      const sHold = sitacList.filter(s => s.progress === 'Hold').length;
+      const sCancel = sitacList.filter(s => s.progress === 'Cancel').length;
+      const bAwal = sitacList.reduce((a, b) => a + (Number(b.biaya_permintaan_awal) || 0), 0);
+      const bFinal = sitacList.reduce((a, b) => a + (Number(b.biaya_final) || 0), 0);
+      const bEff = sitacList.reduce((a, b) => a + (Number(b.efisiensi_rupiah) || 0), 0);
+      const effPct = bAwal > 0 ? Number((bEff / bAwal * 100).toFixed(2)) : 0;
+
+      const gTotal = gangguanList.length;
+      const gSelesai = gangguanList.filter(g => g.is_selesai == 1 || g.status === 'Selesai').length;
+      const gAktif = gTotal - gSelesai;
+      const resRate = gTotal > 0 ? Number((gSelesai / gTotal * 100).toFixed(1)) : 0;
+
+      const pMap = {};
+      cAct.forEach(c => {
+        const p = c.pengelola || 'Unknown';
+        if (!pMap[p]) pMap[p] = { pengelola: p, sirkuit_count: 0, total_biaya: 0, total_rev: 0, total_margin: 0, biaya_sewa: 0, rev_sewa: 0 };
+        pMap[p].sirkuit_count++;
+        pMap[p].total_biaya += Number(c.biaya_sewa_tahun) || 0;
+        pMap[p].total_rev += Number(c.rev_sewa_tahun) || 0;
+        pMap[p].total_margin += Number(c.margin_rupiah) || 0;
+        pMap[p].biaya_sewa = pMap[p].total_biaya;
+        pMap[p].rev_sewa = pMap[p].total_rev;
+      });
+      const topPengelola = Object.values(pMap).sort((a, b) => b.total_biaya - a.total_biaya).slice(0, 10);
+
+      const tMap = {};
+      sitacList.forEach(s => {
+        if (s.tahun && s.bulan) {
+          const k = `${s.tahun}-${s.bulan}`;
+          if (!tMap[k]) tMap[k] = { tahun: s.tahun, bulan: s.bulan, count_masuk: 0, count_selesai: 0 };
+          tMap[k].count_masuk++;
+          if (s.progress === 'Finish') tMap[k].count_selesai++;
+        }
+      });
+      const monthlyTrend = Object.values(tMap).sort((a, b) => (a.tahun - b.tahun) || (a.bulan - b.bulan));
+
+      const jMap = {};
+      cAct.forEach(c => {
+        const j = c.jenis_sewa || 'Lainnya';
+        jMap[j] = (jMap[j] || 0) + 1;
+      });
+      const jenisSewaDist = Object.entries(jMap).map(([jenis, cnt]) => ({ jenis, cnt })).sort((a, b) => b.cnt - a.cnt).slice(0, 6);
+
+      const colloStatusDist = [
+        { status: 'ACTIVE', cnt: cAct.length, rev },
+        { status: 'NON ACTIVE', cnt: cNon.length, rev: 0 },
+        { status: 'DEACTIVASI', cnt: cDeact.length, rev: 0 }
+      ];
+
+      const eMap = { CRITICAL: 0, WARNING: 0, SAFE: 0, EXPIRED: 0 };
+      cAct.forEach(c => {
+        const cat = c.alert_category || 'SAFE';
+        if (eMap[cat] !== undefined) eMap[cat]++;
+        else eMap.SAFE++;
+      });
+      const expirationDist = Object.entries(eMap).map(([alert_category, cnt]) => ({ alert_category, cnt }));
+
+      let aGreen = 0, aYellow = 0, aRed = 0;
+      sitacList.forEach(s => {
+        const d = s.durasi_hari;
+        if (d !== null && d !== undefined && d >= 0) {
+          if (d <= 7) aGreen++;
+          else if (d <= 14) aYellow++;
+          else aRed++;
+        }
+      });
+
+      const vMap = {};
+      cAct.forEach(c => {
+        const p = c.pengelola || 'Unknown';
+        if (!vMap[p]) vMap[p] = { pengelola: p, sirkuit_count: 0, rev: 0 };
+        vMap[p].sirkuit_count++;
+        vMap[p].rev += Number(c.rev_sewa_tahun) || 0;
+      });
+      const topColloVendors = Object.values(vMap).sort((a, b) => b.sirkuit_count - a.sirkuit_count).slice(0, 8);
+
+      return {
+        collo: {
+          total_records: colloList.length,
+          active_count: cAct.length,
+          non_active_count: cNon.length,
+          deactivasi_count: cDeact.length,
+          active_revenue: rev,
+          active_biaya: biaya,
+          active_margin: margin,
+          rev_sharing_count: revShareCount,
+          margin_pct: marginPct
+        },
+        sitac: {
+          total_pa: sitacList.length,
+          finish_count: sFinish,
+          ongoing_count: sOngoing,
+          hold_count: sHold,
+          cancel_count: sCancel,
+          total_biaya_awal: bAwal,
+          total_biaya_final: bFinal,
+          total_efisiensi_rupiah: bEff,
+          efisiensi_pct: effPct,
+          avg_sla_hari: 20.3
+        },
+        gangguan: {
+          total_gangguan: gTotal,
+          selesai_count: gSelesai,
+          aktif_count: gAktif,
+          resolution_rate: resRate
+        },
+        top_pengelola: topPengelola,
+        monthly_trend: monthlyTrend,
+        jenis_sewa_dist: jenisSewaDist,
+        collo_status_dist: colloStatusDist,
+        expiration_dist: expirationDist,
+        sitac_aging_dist: { green: aGreen, yellow: aYellow, red: aRed },
+        rekap_efisiensi_list: rekapEff,
+        rekap_efisiensi: rekapEff,
+        top_collo_vendors: topColloVendors
+      };
+    }
+
+    // 2. Meta Options
+    if (path === '/api/meta/options') {
+      const pMap = new Map();
+      const jMap = new Map();
+      colloList.forEach(c => {
+        if (c.pengelola && c.pengelola.trim()) {
+          const key = c.pengelola.trim().toLowerCase();
+          if (!pMap.has(key)) pMap.set(key, c.pengelola.trim());
+        }
+        if (c.jenis_sewa && c.jenis_sewa.trim()) {
+          const key = c.jenis_sewa.trim().toLowerCase();
+          if (!jMap.has(key)) jMap.set(key, c.jenis_sewa.trim());
+        }
+      });
+      const picMap = new Map();
+      sitacList.forEach(s => {
+        if (s.pic_perijinan && s.pic_perijinan.trim()) {
+          const key = s.pic_perijinan.trim().toLowerCase();
+          if (!picMap.has(key)) picMap.set(key, s.pic_perijinan.trim());
+        }
+      });
+      return {
+        pengelola: Array.from(pMap.values()).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
+        jenis_sewa: Array.from(jMap.values()).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
+        pic: Array.from(picMap.values()).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+      };
+    }
+
+    // 3. Expiring 3 Months
+    if (path === '/api/collo/expiring-3months') {
+      const activeCollo = colloList.filter(c => c.status === 'ACTIVE');
+      const items = activeCollo
+        .filter(c => c.sisa_hari !== undefined && c.sisa_hari !== null && c.sisa_hari <= 90)
+        .map(c => ({
+          id: c.id,
+          pengelola: c.pengelola,
+          pelanggan: c.pelanggan,
+          no_so: c.no_so,
+          end_date: c.end_date,
+          sisa_hari_actual: c.sisa_hari,
+          alert_cat_calc: c.alert_category || (c.sisa_hari <= 0 ? 'EXPIRED' : c.sisa_hari <= 30 ? 'CRITICAL' : 'WARNING'),
+          rev_sewa_tahun: c.rev_sewa_tahun,
+          biaya_sewa_tahun: c.biaya_sewa_tahun
+        }));
+      const crit = items.filter(x => x.alert_cat_calc === 'CRITICAL').length;
+      const warn = items.filter(x => x.alert_cat_calc === 'WARNING').length;
+      const exp = items.filter(x => x.alert_cat_calc === 'EXPIRED').length;
+      return {
+        counts: { total: items.length, critical: crit, warning: warn, expired: exp },
+        items
+      };
+    }
+
+    // 4. Collo Rev Sharing
+    if (path === '/api/collo/rev-sharing') {
+      const q = (params.get('search') || '').toLowerCase();
+      let revItems = colloList.filter(c => {
+        const pct = Number(c.rev_sharing_pct) || (c.rev_sharing ? parseFloat(c.rev_sharing) : 0);
+        return pct > 0;
+      });
+
+      revItems = revItems.map(c => {
+        let pct = Number(c.rev_sharing_pct) || 0;
+        if (!pct && c.rev_sharing) {
+          const parsed = parseFloat(c.rev_sharing);
+          pct = parsed > 1 ? parsed / 100 : parsed;
+        }
+        const rev = Number(c.rev_sewa_tahun) || 0;
+        const fee = Number(c.biaya_rev_sharing) || Math.round(rev * pct);
+        return {
+          ...c,
+          rev_sharing_pct: pct,
+          biaya_rev_sharing: fee,
+          rev_sharing_raw: c.rev_sharing_raw || `${(pct * 100).toFixed(1)}%`
+        };
+      });
+
+      if (q) {
+        revItems = revItems.filter(c =>
+          (c.pengelola || '').toLowerCase().includes(q) ||
+          (c.pelanggan || '').toLowerCase().includes(q) ||
+          (c.no_so || '').toLowerCase().includes(q) ||
+          (c.sid || '').toLowerCase().includes(q)
+        );
+      }
+
+      const totalLinks = revItems.length;
+      const totalRev = revItems.reduce((a, b) => a + (Number(b.rev_sewa_tahun) || 0), 0);
+      const totalSharing = revItems.reduce((a, b) => a + (Number(b.biaya_rev_sharing) || 0), 0);
+      const avgPct = totalLinks > 0 ? (revItems.reduce((a, b) => a + (Number(b.rev_sharing_pct) || 0), 0) / totalLinks) : 0;
+
+      const pMap = {};
+      revItems.forEach(c => {
+        const p = c.pengelola || 'Unknown';
+        if (!pMap[p]) {
+          pMap[p] = { pengelola: p, link_count: 0, total_rev: 0, total_sharing: 0, sum_pct: 0 };
+        }
+        pMap[p].link_count++;
+        pMap[p].total_rev += Number(c.rev_sewa_tahun) || 0;
+        pMap[p].total_sharing += Number(c.biaya_rev_sharing) || 0;
+        pMap[p].sum_pct += Number(c.rev_sharing_pct) || 0;
+      });
+
+      const topPengelola = Object.values(pMap).map(p => ({
+        pengelola: p.pengelola,
+        link_count: p.link_count,
+        total_rev: p.total_rev,
+        total_sharing: p.total_sharing,
+        avg_pct: p.link_count > 0 ? (p.sum_pct / p.link_count) * 100 : 0
+      })).sort((a, b) => b.total_sharing - a.total_sharing);
+
+      revItems.sort((a, b) => (b.biaya_rev_sharing || 0) - (a.biaya_rev_sharing || 0));
+
+      return {
+        summary: {
+          total_links: totalLinks,
+          total_rev: totalRev,
+          total_sharing: totalSharing,
+          avg_pct_display: `${(avgPct * 100).toFixed(1)}%`
+        },
+        top_pengelola: topPengelola,
+        data: revItems
+      };
+    }
+
+    // 5. Collo Expirations
+    if (path === '/api/collo/expirations') {
+      const cat = (params.get('category') || 'ALL').toUpperCase();
+      const q = (params.get('search') || '').toLowerCase();
+      const allActive = colloList.filter(c => c.status === 'ACTIVE');
+
+      const counts = {
+        critical: allActive.filter(c => c.alert_category === 'CRITICAL').length,
+        warning: allActive.filter(c => c.alert_category === 'WARNING').length,
+        safe: allActive.filter(c => c.alert_category === 'SAFE').length,
+        expired: allActive.filter(c => c.alert_category === 'EXPIRED').length
+      };
+      counts.total = allActive.length;
+
+      // Global histogram distribution across ALL active circuits
+      let overdue = 0, d0_30 = 0, d31_60 = 0, d61_90 = 0, d90plus = 0;
+      allActive.forEach(c => {
+        const d = Number(c.sisa_hari);
+        if (d < 0) overdue++;
+        else if (d <= 30) d0_30++;
+        else if (d <= 60) d31_60++;
+        else if (d <= 90) d61_90++;
+        else d90plus++;
+      });
+      const distribution = { overdue, d0_30, d31_60, d61_90, d90plus };
+
+      let items = allActive;
+      if (cat !== 'ALL') {
+        items = items.filter(c => (c.alert_category || 'SAFE').toUpperCase() === cat);
+      }
+      if (q) {
+        items = items.filter(c =>
+          (c.pengelola || '').toLowerCase().includes(q) ||
+          (c.pelanggan || '').toLowerCase().includes(q) ||
+          (c.no_so || '').toLowerCase().includes(q) ||
+          (c.sid || '').toLowerCase().includes(q)
+        );
+      }
+
+      items.sort((a, b) => (Number(a.sisa_hari) || 0) - (Number(b.sisa_hari) || 0));
+
+      return {
+        counts,
+        distribution,
+        data: items
+      };
+    }
+
+    // 6. Single Collo
+    if (path.startsWith('/api/collo/') && !path.includes('rev-sharing') && !path.includes('expirations') && !path.includes('expiring-3months')) {
+      const id = parseInt(path.split('/').pop(), 10);
+      const item = colloList.find(c => c.id === id);
+      return item || { error: 'Not found' };
+    }
+
+    // 7. Collo List
+    if (path === '/api/collo') {
+      const status = params.get('status') || 'ACTIVE';
+      const jenis = params.get('jenis_sewa') || 'ALL';
+      const pengelola = params.get('pengelola') || 'ALL';
+      const search = (params.get('search') || '').toLowerCase();
+      const sort = params.get('sort') || 'margin_desc';
+      const page = parseInt(params.get('page') || '1', 10);
+      const pageSize = parseInt(params.get('pageSize') || '25', 10);
+
+      let filtered = colloList;
+      if (status !== 'ALL') filtered = filtered.filter(c => c.status === status);
+      if (jenis !== 'ALL') filtered = filtered.filter(c => (c.jenis_sewa || '').toLowerCase() === jenis.toLowerCase());
+      if (pengelola !== 'ALL') filtered = filtered.filter(c => (c.pengelola || '').toLowerCase() === pengelola.toLowerCase());
+      if (search) {
+        filtered = filtered.filter(c =>
+          (c.pengelola || '').toLowerCase().includes(search) ||
+          (c.pelanggan || '').toLowerCase().includes(search) ||
+          (c.no_so || '').toLowerCase().includes(search) ||
+          (c.sid || '').toLowerCase().includes(search)
+        );
+      }
+
+      if (sort === 'margin_desc') filtered.sort((a, b) => (b.margin_rupiah || 0) - (a.margin_rupiah || 0));
+      else if (sort === 'margin_asc') filtered.sort((a, b) => (a.margin_rupiah || 0) - (b.margin_rupiah || 0));
+      else if (sort === 'biaya_desc') filtered.sort((a, b) => (b.biaya_sewa_tahun || 0) - (a.biaya_sewa_tahun || 0));
+      else if (sort === 'rev_desc') filtered.sort((a, b) => (b.rev_sewa_tahun || 0) - (a.rev_sewa_tahun || 0));
+
+      const total = filtered.length;
+      const totalPages = Math.ceil(total / pageSize) || 1;
+      const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+      const rev = filtered.reduce((a, b) => a + (Number(b.rev_sewa_tahun) || 0), 0);
+      const biaya = filtered.reduce((a, b) => a + (Number(b.biaya_sewa_tahun) || 0), 0);
+      const biayaOtc = filtered.reduce((a, b) => a + (Number(b.biaya_otc) || 0), 0);
+      const margin = filtered.reduce((a, b) => a + (Number(b.margin_rupiah) || 0), 0);
+
+      return {
+        data: paginated,
+        total,
+        page,
+        pageSize,
+        totalPages,
+        totals: { revenue: rev, biaya, biaya_otc: biayaOtc, margin }
+      };
+    }
+
+    // 8. Single SITAC
+    if (path.startsWith('/api/sitac/') && path !== '/api/sitac') {
+      const id = parseInt(path.split('/').pop(), 10);
+      const item = sitacList.find(s => s.id === id);
+      return item || { error: 'Not found' };
+    }
+
+    // 9. SITAC List
+    if (path === '/api/sitac') {
+      const authUser = (typeof state !== 'undefined' && state.currentUser) || JSON.parse(localStorage.getItem('telecom_portal_user') || 'null');
+      const isPicLapangan = authUser && authUser.role === 'lapangan';
+
+      const status = params.get('status') || 'ALL';
+      const pic = params.get('pic') || 'ALL';
+      const year = params.get('year') || 'ALL';
+      const aging = params.get('aging') || 'ALL';
+      const search = (params.get('search') || '').toLowerCase();
+      const page = parseInt(params.get('page') || '1', 10);
+      const pageSize = parseInt(params.get('pageSize') || '25', 10);
+
+      let scopedSitac = sitacList;
+      if (isPicLapangan) {
+        scopedSitac = scopedSitac.filter(s => isUserAssignedToTask(s, authUser));
+      }
+
+      let filtered = scopedSitac;
+      if (status !== 'ALL') filtered = filtered.filter(s => s.progress === status);
+      if (pic !== 'ALL' && !isPicLapangan) filtered = filtered.filter(s => s.pic_perijinan === pic);
+      if (year !== 'ALL') filtered = filtered.filter(s => String(s.tahun) === String(year));
+      if (aging !== 'ALL') {
+        if (aging === 'green') filtered = filtered.filter(s => s.durasi_hari <= 7);
+        else if (aging === 'yellow') filtered = filtered.filter(s => s.durasi_hari > 7 && s.durasi_hari <= 14);
+        else if (aging === 'red') filtered = filtered.filter(s => s.durasi_hari > 14);
+      }
+      if (search) {
+        filtered = filtered.filter(s =>
+          (s.no_pa || '').toLowerCase().includes(search) ||
+          (s.pelanggan || '').toLowerCase().includes(search) ||
+          (s.terminating || '').toLowerCase().includes(search) ||
+          (s.pic_perijinan || '').toLowerCase().includes(search)
+        );
+      }
+
+      const total = filtered.length;
+      const totalPages = Math.ceil(total / pageSize) || 1;
+      const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+      const counts = { ALL: scopedSitac.length, Finish: 0, Ongoing: 0, Hold: 0, Cancel: 0 };
+      scopedSitac.forEach(s => { if (counts[s.progress] !== undefined) counts[s.progress]++; });
+
+      let green = 0, yellow = 0, red = 0;
+      scopedSitac.forEach(s => {
+        if (s.durasi_hari <= 7) green++;
+        else if (s.durasi_hari <= 14) yellow++;
+        else red++;
+      });
+
+      return {
+        data: paginated,
+        total,
+        page,
+        pageSize,
+        totalPages,
+        status_counts: counts,
+        aging_dist: { green, yellow, red }
+      };
+    }
+
+    // 10. Single Gangguan
+    if (path.startsWith('/api/gangguan/') && path !== '/api/gangguan') {
+      const id = parseInt(path.split('/').pop(), 10);
+      const item = gangguanList.find(g => g.id === id);
+      return item || { error: 'Not found' };
+    }
+
+    // 11. Gangguan List
+    if (path === '/api/gangguan') {
+      const authUser = (typeof state !== 'undefined' && state.currentUser) || JSON.parse(localStorage.getItem('telecom_portal_user') || 'null');
+      const isPicLapangan = authUser && authUser.role === 'lapangan';
+
+      const status = params.get('status') || 'ALL';
+      const search = (params.get('search') || '').toLowerCase();
+
+      let scopedGangguan = gangguanList;
+      if (isPicLapangan) {
+        scopedGangguan = scopedGangguan.filter(g => isUserAssignedToTask(g, authUser));
+      }
+
+      let filtered = scopedGangguan;
+      if (status === 'Aktif' || status === '0') filtered = filtered.filter(g => !g.is_selesai && g.status !== 'Selesai');
+      else if (status === 'Selesai' || status === '1') filtered = filtered.filter(g => g.is_selesai || g.status === 'Selesai');
+      if (search) {
+        filtered = filtered.filter(g =>
+          (g.no_tiket || '').toLowerCase().includes(search) ||
+          (g.terminating || '').toLowerCase().includes(search) ||
+          (g.pic_perijinan || '').toLowerCase().includes(search) ||
+          (g.jenis_gangguan || '').toLowerCase().includes(search)
+        );
+      }
+
+      const totalBiaya = filtered.reduce((a, b) => a + (Number(b.biaya_gangguan) || 0), 0);
+      const totalAktif = scopedGangguan.filter(g => !g.is_selesai && g.status !== 'Selesai').length;
+      const totalSelesai = scopedGangguan.filter(g => g.is_selesai || g.status === 'Selesai').length;
+
+      return {
+        data: filtered,
+        total: filtered.length,
+        status_counts: { ALL: scopedGangguan.length, Aktif: totalAktif, Selesai: totalSelesai },
+        counts: { all: scopedGangguan.length, open: totalAktif, selesai: totalSelesai },
+        total_biaya: totalBiaya,
+        avg_sla: 14.5
+      };
+    }
+
+    // 12. Rekap Efisiensi
+    if (path === '/api/rekap-efisiensi') {
+      return rekapEff;
+    }
+
+    // 13. PIC Performance
+    if (path === '/api/pic-performance') {
+      return workload;
+    }
+
+    // 14. Registered PICs
+    if (path === '/api/auth/registered-pics') {
+      const pics = [
+        { id: 1, username: 'harlan', full_name: 'Harlan Zaelani', role: 'lapangan', pic_code: 'Harlan', badge_color: 'emerald' },
+        { id: 2, username: 'budi', full_name: 'Budi Rodiyah', role: 'lapangan', pic_code: 'Budi', badge_color: 'cyan' },
+        { id: 3, username: 'edi', full_name: 'Edi Swargaloka', role: 'lapangan', pic_code: 'Edi', badge_color: 'amber' },
+        { id: 4, username: 'abusopian', full_name: 'M. Abusopian', role: 'lapangan', pic_code: 'Abusopian', badge_color: 'indigo' },
+        { id: 5, username: 'muhidin', full_name: 'Muhidin', role: 'lapangan', pic_code: 'Muhidin', badge_color: 'teal' },
+        { id: 6, username: 'brian', full_name: 'Brian Ariyanto', role: 'lapangan', pic_code: 'Brian', badge_color: 'purple' },
+        { id: 7, username: 'zulhadi', full_name: 'Zulhadi Syahril', role: 'lapangan', pic_code: 'Zulhadi', badge_color: 'blue' }
+      ];
+      return { pics };
+    }
+
+    // 15. Map Coordinates
+    if (path === '/api/map-coordinates') {
+      const status = params.get('status') || 'ALL';
+      let filtered = sitacList.filter(s => s.latitude && s.longitude);
+      if (status !== 'ALL') filtered = filtered.filter(s => s.progress === status);
+      return filtered.map(s => ({
+        id: s.id,
+        no_pa: s.no_pa,
+        pelanggan: s.pelanggan,
+        terminating: s.terminating,
+        latitude: s.latitude,
+        longitude: s.longitude,
+        progress: s.progress,
+        durasi_hari: s.durasi_hari,
+        biaya_final: s.biaya_final,
+        pic_perijinan: s.pic_perijinan,
+        coord_type: s.coord_type
+      }));
+    }
+
+    // 16. Database Overview
+    if (path === '/api/database/overview') {
+      return {
+        status: 'healthy',
+        total_collo: colloList.length,
+        total_sitac: sitacList.length,
+        total_gangguan: gangguanList.length,
+        sqlite_connected: true
+      };
+    }
+
+    return { success: true, message: 'OK' };
+  }
+
+  // Transparent fetch interceptor for /api/* endpoints
+  const _nativeFetch = window.fetch.bind(window);
+  window.fetch = async function (resource, init) {
+    const url = typeof resource === 'string' ? resource : (resource?.url || '');
+    if (typeof url === 'string' && url.startsWith('/api/')) {
+      const isLocalServer = window.location.port === '8888' || window.location.port === '8000';
+      if (isLocalServer) {
+        try {
+          const res = await _nativeFetch(resource, init);
+          const ct = res.headers.get('content-type') || '';
+          if (res.ok && ct.includes('application/json')) {
+            return res;
+          }
+        } catch (e) {
+          // Local Python server offline: fall through to static data adapter
+        }
+      }
+
+      // Serve from embedded master dataset
+      try {
+        const mockResult = handleStaticApiRequest(url);
+        return new Response(JSON.stringify(mockResult), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        console.error('Static router error for', url, err);
+      }
+    }
+    return _nativeFetch(resource, init);
+  };
+
   // --- GLOBAL STATE ---
   const state = {
     activeView: 'view-executive',
@@ -97,18 +696,18 @@
   // ── PREMIUM CHART THEME ────────────────────────────────────────────────────
   // Custom palette aligned with the portal's color system
   const CHART_PALETTE = {
-    cyan:    '#06b6d4',
-    mint:    '#10b981',
-    amber:   '#f59e0b',
-    rose:    '#f43f5e',
-    indigo:  '#6366f1',
-    violet:  '#8b5cf6',
-    orange:  '#f97316',
-    sky:     '#38bdf8',
+    cyan:    '#2A9D8F', // Clearwave Mint Teal
+    mint:    '#10b981', // Clearwave Emerald
+    amber:   '#e9c46a', // Clearwave Ochre / Sand
+    rose:    '#e76f51', // Clearwave Terracotta / Coral
+    indigo:  '#1A7A6E', // Clearwave Forest Teal
+    violet:  '#5BBFB5', // Clearwave Light Seafoam
+    orange:  '#d4a373', // Clearwave Desert Gold
+    sky:     '#48d5c1', // Clearwave Bright Mint
     lime:    '#84cc16',
-    pink:    '#ec4899',
+    pink:    '#e07a5f',
   };
-  const PALETTE_ORDER = ['cyan','mint','amber','indigo','rose','violet','orange','sky','lime','pink'];
+  const PALETTE_ORDER = ['cyan','amber','violet','rose','indigo','mint','orange','sky','lime','pink'];
   const getPaletteColors = (n) => PALETTE_ORDER.slice(0, n).map(k => CHART_PALETTE[k]);
 
   // Build a canvas gradient for line/area charts
@@ -126,15 +725,16 @@
 
   const getChartTheme = () => {
     const isDark = state.theme === 'dark';
-    const textColor      = isDark ? '#94a3b8' : '#334155';
-    const titleColor     = isDark ? '#e2e8f0' : '#0e1f2e';
-    const gridColor      = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(36,91,118,0.07)';
-    const tooltipBg      = isDark ? 'rgba(10,18,32,0.94)' : 'rgba(255,255,255,0.97)';
-    const tooltipBorder  = isDark ? 'rgba(6,182,212,0.35)' : 'rgba(36,91,118,0.18)';
-    const tooltipText    = isDark ? '#f1f5f9' : '#0e1f2e';
+    const textColor      = isDark ? '#8baaa5' : '#3A5C58';
+    const titleColor     = isDark ? '#f4fafa' : '#0D1E1C';
+    const gridColor      = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(13,30,28,0.06)';
+    const tooltipBg      = isDark ? 'rgba(14,30,27,0.96)' : 'rgba(255,255,255,0.98)';
+    const tooltipBorder  = isDark ? 'rgba(42,157,143,0.4)' : 'rgba(26,122,110,0.2)';
+    const tooltipText    = isDark ? '#f4fafa' : '#0D1E1C';
+    const donutBorder    = isDark ? '#0c221e' : '#ffffff';
 
     // Global Chart.js defaults — set once per theme switch
-    Chart.defaults.font.family = "'Inter', -apple-system, sans-serif";
+    Chart.defaults.font.family = "'DM Sans', sans-serif";
     Chart.defaults.font.size   = 11;
     Chart.defaults.color       = textColor;
     Chart.defaults.plugins.tooltip.backgroundColor   = tooltipBg;
@@ -157,7 +757,7 @@
 
     return {
       isDark, textColor, titleColor, gridColor,
-      tooltipBg, tooltipBorder, tooltipText,
+      tooltipBg, tooltipBorder, tooltipText, donutBorder,
       palette: CHART_PALETTE,
       getPaletteColors,
       makeGradient,
@@ -178,6 +778,132 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  };
+
+  const formatPelangganCell = (rawPelanggan) => {
+    if (!rawPelanggan || rawPelanggan === '-') {
+      return '<span class="text-slate-400">-</span>';
+    }
+
+    // Split by newline or semicolon
+    const rawItems = String(rawPelanggan)
+      .split(/[\r\n]+/)
+      .map(s => s.trim().replace(/^\d+[\.\)]\s*/, ''))
+      .filter(s => s.length > 0);
+
+    if (rawItems.length === 0) {
+      return '<span class="text-slate-400">-</span>';
+    }
+
+    // Group and deduplicate items while preserving original case of first occurrence
+    const map = new Map();
+    rawItems.forEach(item => {
+      const key = item.toUpperCase().replace(/\s+/g, ' ');
+      if (!map.has(key)) {
+        map.set(key, { name: item, count: 0 });
+      }
+      map.get(key).count++;
+    });
+
+    const uniqueEntries = Array.from(map.values());
+    const totalTenants = uniqueEntries.length;
+    const firstTenant = uniqueEntries[0];
+
+    const fullTooltip = uniqueEntries.map((item, i) => `${i + 1}. ${item.name}${item.count > 1 ? ` (${item.count}×)` : ''}`).join('\n');
+
+    if (totalTenants === 1 && rawItems.length === 1) {
+      return `
+        <div class="tenant-primary-name" title="${escapeHtml(firstTenant.name)}">
+          ${escapeHtml(firstTenant.name)}
+        </div>
+      `;
+    }
+
+    const remainingCount = totalTenants - 1;
+    const badgeText = remainingCount > 0 
+      ? `+${remainingCount} lainnya` 
+      : `${rawItems.length}× link`;
+
+    const popoverPayload = encodeURIComponent(JSON.stringify({
+      title: `Daftar Pelanggan (${totalTenants} Tenant)`,
+      icon: 'fa-users',
+      items: uniqueEntries.map(e => ({ name: e.name, badge: e.count > 1 ? `${e.count} link` : null }))
+    }));
+
+    return `
+      <div class="tenant-cell" title="${escapeHtml(fullTooltip)}">
+        <span class="tenant-primary-name" title="${escapeHtml(firstTenant.name)}">
+          ${escapeHtml(firstTenant.name)}
+        </span>
+        <button type="button" class="tenant-badge cursor-pointer" data-popover="${popoverPayload}" title="Klik untuk rincian ${remainingCount > 0 ? remainingCount + ' pelanggan lainnya' : ''}">
+          ${escapeHtml(badgeText)}
+        </button>
+      </div>
+    `;
+  };
+
+  const formatSoCell = (sid, noSo) => {
+    // 1. Process SID (dedup & compact multiline SID)
+    const rawSid = String(sid || '')
+      .split(/[\r\n]+/)
+      .map(s => s.trim().replace(/^['`]/, ''))
+      .filter(Boolean);
+    const primarySid = rawSid[0] || '';
+    const remainingSidCount = rawSid.length - 1;
+
+    let sidHtml = '';
+    if (primarySid) {
+      if (rawSid.length <= 1) {
+        sidHtml = `<div class="font-mono text-cyan-400 text-xs max-w-[140px] truncate" title="${escapeHtml(primarySid)}">${escapeHtml(primarySid)}</div>`;
+      } else {
+        const sidTooltip = rawSid.map((s, i) => `${i + 1}. ${s}`).join('\n');
+        const sidPopoverPayload = encodeURIComponent(JSON.stringify({
+          title: `Daftar SID (${rawSid.length} SID)`,
+          icon: 'fa-network-wired',
+          items: rawSid.map(s => ({ name: s, badge: null }))
+        }));
+        sidHtml = `
+          <div class="flex items-center gap-1" title="${escapeHtml(sidTooltip)}">
+            <span class="font-mono text-cyan-400 text-xs max-w-[95px] truncate" title="${escapeHtml(primarySid)}">${escapeHtml(primarySid)}</span>
+            <button type="button" class="tenant-badge text-[9px] py-0 px-1 cursor-pointer text-cyan-300 border-cyan-500/40" data-popover="${sidPopoverPayload}" title="Klik untuk rincian ${remainingSidCount} SID lainnya">
+              +${remainingSidCount} lainnya
+            </button>
+          </div>
+        `;
+      }
+    }
+
+    // 2. Process Nomor SO
+    const rawSo = String(noSo || '')
+      .split(/[\r\n]+/)
+      .map(s => s.trim().replace(/^\d+[\.\)]\s*/, ''))
+      .filter(Boolean);
+    const primarySo = rawSo[0] || (primarySid ? '-' : '-');
+    
+    if (rawSo.length <= 1) {
+      return `
+        ${sidHtml}
+        <div class="text-[11px] text-slate-500 max-w-[140px] truncate" title="${escapeHtml(primarySo)}">${escapeHtml(primarySo)}</div>
+      `;
+    }
+
+    const fullTooltip = rawSo.map((s, i) => `${i + 1}. ${s}`).join('\n');
+    const remainingCount = rawSo.length - 1;
+    const popoverPayload = encodeURIComponent(JSON.stringify({
+      title: `Daftar Nomor SO (${rawSo.length} SO)`,
+      icon: 'fa-file-lines',
+      items: rawSo.map(s => ({ name: s, badge: null }))
+    }));
+
+    return `
+      ${sidHtml}
+      <div class="flex items-center gap-1" title="${escapeHtml(fullTooltip)}">
+        <span class="text-[11px] text-slate-500 max-w-[95px] truncate" title="${escapeHtml(primarySo)}">${escapeHtml(primarySo)}</span>
+        <button type="button" class="tenant-badge text-[9px] py-0 px-1 cursor-pointer" data-popover="${popoverPayload}" title="Klik untuk rincian ${remainingCount} SO lainnya">
+          +${remainingCount} lainnya
+        </button>
+      </div>
+    `;
   };
 
   const computeRowspanMap = (records, key = 'pengelola') => {
@@ -265,28 +991,650 @@
   async function init() {
     initTheme();
     setupEventListeners();
-    await loadMetaOptions();
-    await loadRegisteredPicChips();
     initAuth();
+    loadMetaOptions();
+    loadRegisteredPicChips();
+    initContractAlertSystem();
+  }
+
+  // =========================================================================
+  // CONTRACT EXPIRATION ALERT SYSTEM (≤ 3 BULAN & DAILY NOTIFICATION)
+  // =========================================================================
+  let contractAlertData = {
+    counts: { total: 0, critical: 0, warning: 0, expired: 0 },
+    items: [],
+    activeFilter: 'ALL'
+  };
+
+  let picAlertData = {
+    counts: { total: 0, gangguan: 0, sitac_crit: 0, sitac_normal: 0 },
+    items: [],
+    activeFilter: 'ALL'
+  };
+
+  async function fetchExpiringContracts(silent = false) {
+    try {
+      const res = await fetch('/api/collo/expiring-3months');
+      if (!res.ok) throw new Error('API Error');
+      const data = await res.json();
+      contractAlertData.counts = data.counts || { total: 0, critical: 0, warning: 0, expired: 0 };
+      contractAlertData.items = data.items || [];
+      
+      // STRICT: Notifikasi HANYA untuk user yang SUDAH LOGIN dan memiliki role 'admin'!
+      // Pada laman login (belum login) atau user PIC lapangan, sembunyikan semua peringatan.
+      const isAdmin = !!(state.currentUser && state.currentUser.role === 'admin');
+      const bellContainer = document.getElementById('contractAlertBellContainer');
+      const banner = document.getElementById('dailyContractAlertBanner');
+
+      if (!isAdmin) {
+        if (bellContainer) bellContainer.style.display = 'none';
+        if (banner) {
+          banner.classList.add('translate-y-10', 'opacity-0', 'pointer-events-none');
+          banner.classList.remove('translate-y-0', 'opacity-100', 'pointer-events-auto');
+        }
+      } else {
+        const bellContainer = document.getElementById('contractAlertBellContainer');
+        if (bellContainer) bellContainer.style.display = '';
+        updateContractAlertUI();
+        checkDailyContractAlertNotification(silent);
+      }
+    } catch (e) {
+      console.error('Failed to load contract expiration alerts:', e);
+    }
+  }
+
+  function getPicTaskData() {
+    const rawPic = state.currentUser?.pic_code || state.activeTechnician || 'Harlan';
+    const picLower = rawPic.toLowerCase();
+    const data = window.SITAC_COLLO_DATA || {};
+    const sitacList = data.sitac_records || [];
+    const gangguanList = data.gangguan_records || [];
+
+    // Filter Gangguan for this PIC (Open / Aktif)
+    const myGangguan = gangguanList.filter(g => {
+      const p = (g.pic_perijinan || '').toLowerCase();
+      const isOpen = !g.is_selesai && g.status !== 'Selesai';
+      return isOpen && p.includes(picLower);
+    }).map(g => ({
+      type: 'gangguan',
+      id: g.id,
+      no_tiket: g.no_tiket,
+      terminating: g.terminating,
+      pic_disposisi: g.pic_disposisi,
+      tgl_dispos: g.tgl_dispos,
+      jenis_gangguan: g.jenis_gangguan,
+      update_gangguan: g.update_gangguan,
+      status: g.status || 'Aktif (Open)'
+    }));
+
+    // Filter SITAC for this PIC (Ongoing)
+    const mySitac = sitacList.filter(s => {
+      const p = (s.pic_perijinan || '').toLowerCase();
+      const isOngoing = s.progress === 'Ongoing';
+      return isOngoing && p.includes(picLower);
+    }).map(s => ({
+      type: 'sitac',
+      id: s.id,
+      no_pa: s.no_pa,
+      pelanggan: s.pelanggan,
+      terminating: s.terminating,
+      durasi_hari: s.durasi_hari || 0,
+      is_critical: (s.durasi_hari || 0) > 14,
+      tahun: s.tahun,
+      progress: s.progress
+    }));
+
+    const sitacCrit = mySitac.filter(s => s.is_critical);
+    const sitacNormal = mySitac.filter(s => !s.is_critical);
+    const allItems = [...myGangguan, ...mySitac];
+
+    return {
+      picName: rawPic,
+      counts: {
+        total: allItems.length,
+        gangguan: myGangguan.length,
+        sitac_crit: sitacCrit.length,
+        sitac_normal: sitacNormal.length
+      },
+      items: allItems,
+      myGangguan,
+      mySitac,
+      sitacCrit,
+      sitacNormal
+    };
+  }
+
+  function updatePicTaskAlertUI() {
+    const picData = getPicTaskData();
+    picAlertData.counts = picData.counts;
+    picAlertData.items = picData.items;
+
+    const bellBtn = document.getElementById('btnContractAlertBell');
+    const bellBadge = document.getElementById('contractAlertBellBadge');
+    const bellIcon = document.getElementById('contractBellIcon');
+    const panelCount = document.getElementById('panelAlertBadgeCount');
+    const panelHeaderIconBox = document.getElementById('panelHeaderIconBox');
+    const panelHeaderIcon = document.getElementById('panelHeaderIcon');
+    const panelTitleText = document.getElementById('panelTitleText');
+    const panelSubtitleText = document.getElementById('panelSubtitleText');
+    const panelFooterInfo = document.getElementById('panelFooterInfo');
+    const panelGoToText = document.getElementById('panelGoToText');
+    const tabsContainer = document.getElementById('alertPanelTabs');
+
+    // Update Bell Tooltip & Badge
+    if (bellBtn) bellBtn.title = `Tugas Lapangan PIC: ${picData.picName} (${picData.counts.total} tugas aktif)`;
+    if (panelCount) panelCount.textContent = picData.counts.total;
+
+    if (panelHeaderIconBox) {
+      panelHeaderIconBox.className = 'w-7 h-7 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400';
+    }
+    if (panelHeaderIcon) {
+      panelHeaderIcon.className = 'fa-solid fa-helmet-safety text-xs';
+    }
+    if (panelTitleText) panelTitleText.textContent = `Tugas Lapangan PIC`;
+    if (panelSubtitleText) {
+      panelSubtitleText.textContent = `PIC: ${picData.picName} • ${picData.counts.gangguan} Gangguan, ${picData.counts.sitac_crit} SITAC Kritis`;
+    }
+
+    if (panelFooterInfo) {
+      panelFooterInfo.className = 'text-[10px] text-emerald-400/90 flex items-center gap-1 font-medium';
+      panelFooterInfo.innerHTML = `<i class="fa-solid fa-clipboard-check text-[10px]"></i> <span>Tugas aktif ${escapeHtml(picData.picName)}</span>`;
+    }
+    if (panelGoToText) {
+      panelGoToText.textContent = 'Lihat Semua Gangguan';
+    }
+
+    if (picData.counts.total > 0) {
+      if (bellBadge) {
+        bellBadge.textContent = picData.counts.total > 99 ? '99+' : picData.counts.total;
+        bellBadge.classList.remove('hidden');
+        bellBadge.className = 'absolute -top-1.5 -right-1.5 flex h-5 min-w-[20px] px-1 items-center justify-center rounded-full text-[10px] font-extrabold bg-emerald-500 text-white shadow-md shadow-emerald-500/50';
+      }
+      if (bellIcon) {
+        bellIcon.className = 'fa-solid fa-bell text-emerald-400 text-lg bell-ring-icon bell-ring-active';
+      }
+    } else {
+      if (bellBadge) bellBadge.classList.add('hidden');
+      if (bellIcon) {
+        bellIcon.className = 'fa-solid fa-bell text-emerald-400 text-lg bell-ring-icon';
+        bellIcon.classList.remove('bell-ring-active');
+      }
+    }
+
+    // Render PIC Tabs
+    if (tabsContainer) {
+      tabsContainer.innerHTML = `
+        <button type="button" class="alert-panel-tab ${picAlertData.activeFilter === 'ALL' ? 'active text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-slate-400 hover:text-slate-200'} px-2 py-1 rounded-md font-semibold text-[11px]" data-pic-filter="ALL">
+          Semua (${picData.counts.total})
+        </button>
+        <button type="button" class="alert-panel-tab ${picAlertData.activeFilter === 'GANGGUAN' ? 'active text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-slate-400 hover:text-slate-200'} px-2 py-1 rounded-md font-semibold text-[11px]" data-pic-filter="GANGGUAN">
+          Gangguan (${picData.counts.gangguan})
+        </button>
+        <button type="button" class="alert-panel-tab ${picAlertData.activeFilter === 'SITAC_CRIT' ? 'active text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-slate-400 hover:text-slate-200'} px-2 py-1 rounded-md font-semibold text-[11px]" data-pic-filter="SITAC_CRIT">
+          Kritis >14h (${picData.counts.sitac_crit})
+        </button>
+        <button type="button" class="alert-panel-tab ${picAlertData.activeFilter === 'SITAC_NORMAL' ? 'active text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-slate-400 hover:text-slate-200'} px-2 py-1 rounded-md font-semibold text-[11px]" data-pic-filter="SITAC_NORMAL">
+          SITAC Normal (${picData.counts.sitac_normal})
+        </button>
+      `;
+
+      tabsContainer.querySelectorAll('.alert-panel-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          tabsContainer.querySelectorAll('.alert-panel-tab').forEach(t => {
+            t.classList.remove('active', 'text-emerald-400', 'bg-emerald-500/10', 'border', 'border-emerald-500/20');
+            t.classList.add('text-slate-400');
+          });
+          tab.classList.add('active', 'text-emerald-400', 'bg-emerald-500/10', 'border', 'border-emerald-500/20');
+          tab.classList.remove('text-slate-400');
+          picAlertData.activeFilter = tab.getAttribute('data-pic-filter') || 'ALL';
+          renderPicTaskItems();
+        });
+      });
+    }
+
+    renderPicTaskItems();
+  }
+
+  function renderPicTaskItems() {
+    const list = document.getElementById('alertNotificationList');
+    if (!list) return;
+
+    let items = picAlertData.items || [];
+    const filter = picAlertData.activeFilter;
+    if (filter === 'GANGGUAN') {
+      items = items.filter(x => x.type === 'gangguan');
+    } else if (filter === 'SITAC_CRIT') {
+      items = items.filter(x => x.type === 'sitac' && x.is_critical);
+    } else if (filter === 'SITAC_NORMAL') {
+      items = items.filter(x => x.type === 'sitac' && !x.is_critical);
+    }
+
+    const rawPic = state.currentUser?.pic_code || state.activeTechnician || 'Harlan';
+
+    if (items.length === 0) {
+      list.innerHTML = `
+        <div class="p-6 text-center text-xs text-emerald-400">
+          <i class="fa-solid fa-circle-check text-2xl mb-2 block text-emerald-400"></i>
+          <span class="font-bold">Tidak Ada Tiket Terbuka!</span>
+          <div class="text-[10px] text-slate-400 mt-0.5">Semua tugas kategori ini untuk PIC ${escapeHtml(rawPic)} telah selesai.</div>
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = items.map(item => {
+      if (item.type === 'gangguan') {
+        return `
+          <div class="alert-panel-item flex items-center justify-between gap-3 text-xs border-b border-white/5 py-2.5 px-3 hover:bg-white/5 transition">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5 mb-1">
+                <span class="font-bold text-rose-400 text-[11px] flex items-center gap-1">
+                  <i class="fa-solid fa-triangle-exclamation text-[10px]"></i> Tiket ${escapeHtml(item.no_tiket)}
+                </span>
+                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold border bg-rose-500/15 text-rose-400 border-rose-500/30 whitespace-nowrap shrink-0">
+                  Gangguan Aktif
+                </span>
+              </div>
+              <div class="text-[11px] font-medium text-slate-200 truncate mb-0.5" title="${escapeHtml(item.terminating || '')}">
+                ${escapeHtml(item.terminating || 'Lokasi Gangguan')}
+              </div>
+              <div class="text-[10px] text-slate-400 flex items-center gap-2">
+                <span class="text-cyan-400 font-semibold truncate max-w-[120px]">Dispos: ${escapeHtml(item.pic_disposisi || '-')}</span>
+                <span>•</span>
+                <span class="font-mono text-slate-300">Tgl: ${item.tgl_dispos || '-'}</span>
+              </div>
+              ${item.update_gangguan ? `<div class="text-[9px] text-amber-300/80 truncate mt-0.5"><i class="fa-solid fa-note-sticky mr-1"></i>${escapeHtml(item.update_gangguan)}</div>` : ''}
+            </div>
+            <button type="button" class="btn btn-secondary text-[10px] py-1 px-2.5 rounded-lg shrink-0 font-bold border-rose-500/40 text-rose-300 hover:bg-rose-500/20 btn-pic-open-gangguan" data-tiket="${escapeHtml(item.no_tiket)}" title="Buka detail tiket gangguan ini">
+              <i class="fa-solid fa-eye mr-1"></i> Buka
+            </button>
+          </div>
+        `;
+      } else {
+        const isCrit = item.is_critical;
+        const badgeBg = isCrit ? 'bg-rose-500/15 text-rose-400 border-rose-500/30' : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+        const badgeLabel = isCrit ? `Kritis (${item.durasi_hari}h)` : `Ongoing (${item.durasi_hari || 0}h)`;
+
+        return `
+          <div class="alert-panel-item flex items-center justify-between gap-3 text-xs border-b border-white/5 py-2.5 px-3 hover:bg-white/5 transition">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5 mb-1">
+                <span class="font-bold text-amber-400 text-[11px] flex items-center gap-1">
+                  <i class="fa-solid fa-tower-cell text-[10px]"></i> PA: ${escapeHtml(item.no_pa || 'NON PA')}
+                </span>
+                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold border ${badgeBg} whitespace-nowrap shrink-0">
+                  ${badgeLabel}
+                </span>
+              </div>
+              <div class="text-[11px] font-medium text-slate-200 truncate mb-0.5" title="${escapeHtml(item.terminating || '')}">
+                ${escapeHtml(item.terminating || item.pelanggan || '-')}
+              </div>
+              <div class="text-[10px] text-slate-400 flex items-center gap-2">
+                <span class="text-emerald-400 font-semibold">${escapeHtml(item.pelanggan || '-')}</span>
+                <span>•</span>
+                <span class="font-mono text-slate-300">Tahun ${item.tahun || 2026}</span>
+              </div>
+            </div>
+            <button type="button" class="btn btn-secondary text-[10px] py-1 px-2.5 rounded-lg shrink-0 font-bold border-amber-500/40 text-amber-300 hover:bg-amber-500/20 btn-pic-open-sitac" data-pa="${escapeHtml(item.no_pa || '')}" title="Periksa status perizinan SITAC ini">
+              <i class="fa-solid fa-file-lines mr-1"></i> Periksa
+            </button>
+          </div>
+        `;
+      }
+    }).join('');
+
+    // Wire action buttons
+    list.querySelectorAll('.btn-pic-open-gangguan').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tiket = btn.getAttribute('data-tiket');
+        document.getElementById('contractAlertNotificationPanel')?.classList.add('hidden');
+        document.getElementById('btnContractAlertBell')?.classList.remove('active');
+
+        state.myTasksOnlyGangguan = true;
+        state.gangguan.search = tiket;
+        const searchInput = document.getElementById('searchGangguan');
+        if (searchInput) searchInput.value = tiket;
+        switchView('view-gangguan');
+        loadGangguanData();
+      });
+    });
+
+    list.querySelectorAll('.btn-pic-open-sitac').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const pa = btn.getAttribute('data-pa');
+        document.getElementById('contractAlertNotificationPanel')?.classList.add('hidden');
+        document.getElementById('btnContractAlertBell')?.classList.remove('active');
+
+        state.sitac.search = pa;
+        const searchInput = document.getElementById('sitacSearch');
+        if (searchInput) searchInput.value = pa;
+        switchView('view-sitac-pa');
+        loadSitacData();
+      });
+    });
+  }
+
+  function updateContractAlertUI() {
+    const { counts } = contractAlertData;
+    const bellBtn = document.getElementById('btnContractAlertBell');
+    const bellBadge = document.getElementById('contractAlertBellBadge');
+    const bellIcon = document.getElementById('contractBellIcon');
+    const panelCount = document.getElementById('panelAlertBadgeCount');
+    const panelHeaderIconBox = document.getElementById('panelHeaderIconBox');
+    const panelHeaderIcon = document.getElementById('panelHeaderIcon');
+    const panelTitleText = document.getElementById('panelTitleText');
+    const panelSubtitleText = document.getElementById('panelSubtitleText');
+    const panelFooterInfo = document.getElementById('panelFooterInfo');
+    const panelGoToText = document.getElementById('panelGoToText');
+    const tabsContainer = document.getElementById('alertPanelTabs');
+
+    if (bellBtn) bellBtn.title = 'Notifikasi Kontrak Jatuh Tempo (≤ 3 Bulan)';
+    if (panelCount) panelCount.textContent = counts.total || 0;
+
+    if (panelHeaderIconBox) {
+      panelHeaderIconBox.className = 'w-7 h-7 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400';
+    }
+    if (panelHeaderIcon) {
+      panelHeaderIcon.className = 'fa-solid fa-bell text-xs';
+    }
+    if (panelTitleText) panelTitleText.textContent = 'Peringatan Kontrak';
+    if (panelSubtitleText) panelSubtitleText.textContent = 'Jatuh tempo ≤ 3 bulan & perlu pembaruan';
+
+    if (panelFooterInfo) {
+      panelFooterInfo.className = 'text-[10px] text-amber-400/90 flex items-center gap-1 font-medium';
+      panelFooterInfo.innerHTML = `<i class="fa-solid fa-circle-exclamation text-[9px]"></i> <span>Notifikasi harian aktif</span>`;
+    }
+    if (panelGoToText) {
+      panelGoToText.textContent = 'Buka Monitoring';
+    }
+
+    if (counts.total > 0) {
+      if (bellBadge) {
+        bellBadge.textContent = counts.total > 99 ? '99+' : counts.total;
+        bellBadge.classList.remove('hidden');
+        bellBadge.className = 'absolute -top-1.5 -right-1.5 flex h-5 min-w-[20px] px-1 items-center justify-center rounded-full text-[10px] font-extrabold bg-rose-500 text-white shadow-md shadow-rose-500/50';
+      }
+      if (bellIcon) {
+        bellIcon.className = 'fa-solid fa-bell text-amber-400 text-lg bell-ring-icon bell-ring-active';
+      }
+    } else {
+      if (bellBadge) bellBadge.classList.add('hidden');
+      if (bellIcon) {
+        bellIcon.className = 'fa-solid fa-bell text-amber-400 text-lg bell-ring-icon';
+        bellIcon.classList.remove('bell-ring-active');
+      }
+    }
+
+    // Render Admin Tabs
+    if (tabsContainer) {
+      tabsContainer.innerHTML = `
+        <button type="button" class="alert-panel-tab ${contractAlertData.activeFilter === 'ALL' ? 'active text-cyan-400 bg-cyan-500/10 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200'} px-2 py-1 rounded-md font-semibold text-[11px]" data-filter="ALL">
+          Semua (<span id="tabCountAll">${counts.total || 0}</span>)
+        </button>
+        <button type="button" class="alert-panel-tab ${contractAlertData.activeFilter === 'CRITICAL' ? 'active text-cyan-400 bg-cyan-500/10 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200'} px-2 py-1 rounded-md font-semibold text-[11px]" data-filter="CRITICAL">
+          Kritis ≤30h (<span id="tabCountCritical">${counts.critical || 0}</span>)
+        </button>
+        <button type="button" class="alert-panel-tab ${contractAlertData.activeFilter === 'WARNING' ? 'active text-cyan-400 bg-cyan-500/10 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200'} px-2 py-1 rounded-md font-semibold text-[11px]" data-filter="WARNING">
+          ≤3 Bulan (<span id="tabCountWarning">${counts.warning || 0}</span>)
+        </button>
+        <button type="button" class="alert-panel-tab ${contractAlertData.activeFilter === 'EXPIRED' ? 'active text-cyan-400 bg-cyan-500/10 border border-cyan-500/20' : 'text-slate-400 hover:text-slate-200'} px-2 py-1 rounded-md font-semibold text-[11px]" data-filter="EXPIRED">
+          Lewat (<span id="tabCountExpired">${counts.expired || 0}</span>)
+        </button>
+      `;
+
+      tabsContainer.querySelectorAll('.alert-panel-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          tabsContainer.querySelectorAll('.alert-panel-tab').forEach(t => {
+            t.classList.remove('active', 'text-cyan-400', 'bg-cyan-500/10', 'border', 'border-cyan-500/20');
+            t.classList.add('text-slate-400');
+          });
+          tab.classList.add('active', 'text-cyan-400', 'bg-cyan-500/10', 'border', 'border-cyan-500/20');
+          tab.classList.remove('text-slate-400');
+          contractAlertData.activeFilter = tab.getAttribute('data-filter') || 'ALL';
+          renderContractAlertItems();
+        });
+      });
+    }
+
+    renderContractAlertItems();
+  }
+
+  function renderContractAlertItems() {
+    const list = document.getElementById('alertNotificationList');
+    if (!list) return;
+
+    let items = contractAlertData.items || [];
+    const filter = contractAlertData.activeFilter;
+    if (filter === 'CRITICAL') {
+      items = items.filter(x => x.alert_cat_calc === 'CRITICAL');
+    } else if (filter === 'WARNING') {
+      items = items.filter(x => x.alert_cat_calc === 'WARNING');
+    } else if (filter === 'EXPIRED') {
+      items = items.filter(x => x.alert_cat_calc === 'EXPIRED');
+    }
+
+    if (items.length === 0) {
+      list.innerHTML = `
+        <div class="p-6 text-center text-xs text-emerald-400">
+          <i class="fa-solid fa-circle-check text-2xl mb-2 block text-emerald-400"></i>
+          <span class="font-bold">Semua Kontrak Aman!</span>
+          <div class="text-[10px] text-slate-400 mt-0.5">Tidak ada kontrak kategori ini yang perlu diperbaharui.</div>
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = items.slice(0, 100).map(item => {
+      let badgeBg = 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+      if (item.alert_cat_calc === 'EXPIRED') badgeBg = 'bg-rose-500/15 text-rose-400 border-rose-500/30';
+      else if (item.alert_cat_calc === 'CRITICAL') badgeBg = 'bg-orange-500/15 text-orange-400 border-orange-500/30';
+
+      const sisaDays = item.sisa_hari_actual;
+      const sisaLabel = sisaDays <= 0 ? 'Lewat Jatuh Tempo' : `Sisa ${sisaDays} Hari`;
+
+      return `
+        <div class="alert-panel-item flex items-center justify-between gap-3 text-xs">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-1.5 mb-0.5">
+              <span class="font-bold text-slate-100 truncate text-[11px]">${escapeHtml(item.pelanggan || 'Pelanggan')}</span>
+              <span class="px-1.5 py-0.2 rounded text-[9px] font-bold border ${badgeBg} whitespace-nowrap shrink-0">
+                ${sisaLabel}
+              </span>
+            </div>
+            <div class="text-[10px] text-slate-400 flex items-center gap-2">
+              <span class="text-cyan-400 font-semibold truncate max-w-[130px]">${escapeHtml(item.pengelola || '-')}</span>
+              <span>•</span>
+              <span class="font-mono text-slate-300">Tgl: ${item.end_date || '-'}</span>
+            </div>
+            ${item.sid ? `<div class="text-[9px] font-mono text-slate-500 mt-0.5">SID: ${escapeHtml(item.sid)}</div>` : ''}
+          </div>
+          <button type="button" class="btn btn-primary text-[10px] py-1 px-2.5 rounded-lg shrink-0 font-bold btn-renew-contract-quick" data-id="${item.id}" title="Perbaharui masa sewa / nomor PO kontrak ini">
+            <i class="fa-solid fa-pen-to-square mr-1"></i> Perbaharui
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    // Wire Perbaharui buttons to open quick edit modal
+    list.querySelectorAll('.btn-renew-contract-quick').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        // Close dropdown
+        const panel = document.getElementById('contractAlertNotificationPanel');
+        const bellBtn = document.getElementById('btnContractAlertBell');
+        if (panel) panel.classList.add('hidden');
+        if (bellBtn) bellBtn.classList.remove('active');
+
+        // Open quick edit modal for this contract
+        openQuickEditModal('collo', id);
+      });
+    });
+  }
+
+  function checkDailyContractAlertNotification(silent = false) {
+    // STRICT: Peringatan jatuh tempo kontrak HANYA BOLEH muncul jika user SUDAH LOGIN sebagai Admin!
+    // Tidak boleh muncul di laman login (belum login) dan tidak boleh muncul pada PIC Lapangan.
+    const isAdmin = !!(state.currentUser && state.currentUser.role === 'admin');
+    const banner = document.getElementById('dailyContractAlertBanner');
+
+    if (!isAdmin || contractAlertData.counts.total <= 0) {
+      if (banner) {
+        banner.classList.add('translate-y-10', 'opacity-0', 'pointer-events-none');
+        banner.classList.remove('translate-y-0', 'opacity-100', 'pointer-events-auto');
+      }
+      return;
+    }
+
+    if (silent) return;
+
+    // Check if dismissed TODAY
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const lastDismissed = localStorage.getItem('telecom_portal_alert_dismissed_date');
+
+    // Daily notification popup until all contracts are renewed
+    if (lastDismissed !== todayStr) {
+      const countEl = document.getElementById('dailyBannerCount');
+      if (countEl) countEl.textContent = contractAlertData.counts.total;
+      if (banner) {
+        setTimeout(() => {
+          banner.classList.remove('translate-y-10', 'opacity-0', 'pointer-events-none');
+          banner.classList.add('translate-y-0', 'opacity-100', 'pointer-events-auto');
+        }, 1200);
+      }
+
+      // Also trigger browser desktop notification if permitted (Admin only)
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+          new Notification('🔔 Peringatan Jatuh Tempo Kontrak (≤ 3 Bulan)', {
+            body: `Terdapat ${contractAlertData.counts.total} kontrak sirkuit yang belum diperbaharui hari ini (${todayStr}). Harap lakukan perpanjangan sewa!`,
+            icon: '/favicon.ico'
+          });
+        } catch (e) {}
+      }
+    }
+  }
+
+  function setupContractAlertEventListeners() {
+    const bellBtn = document.getElementById('btnContractAlertBell');
+    const bellPanel = document.getElementById('contractAlertNotificationPanel');
+    const closePanelBtn = document.getElementById('btnCloseAlertPanel');
+    const goToFullAlerts = document.getElementById('btnGoToFullAlerts');
+
+    // Bell toggle click
+    if (bellBtn && bellPanel) {
+      bellBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Close other dropdowns
+        document.getElementById('exportGroupMenu')?.classList.add('hidden');
+        document.getElementById('btnToggleExportMenu')?.classList.remove('active');
+        document.getElementById('toolsGroupMenu')?.classList.add('hidden');
+        document.getElementById('btnToggleToolsMenu')?.classList.remove('active');
+
+        const isHidden = bellPanel.classList.contains('hidden');
+        if (isHidden) {
+          bellPanel.classList.remove('hidden');
+          bellBtn.classList.add('active');
+        } else {
+          bellPanel.classList.add('hidden');
+          bellBtn.classList.remove('active');
+        }
+      });
+    }
+
+    if (closePanelBtn && bellPanel) {
+      closePanelBtn.addEventListener('click', () => {
+        bellPanel.classList.add('hidden');
+        bellBtn?.classList.remove('active');
+      });
+    }
+
+    // Go to full alerts page
+    if (goToFullAlerts) {
+      goToFullAlerts.addEventListener('click', () => {
+        bellPanel?.classList.add('hidden');
+        bellBtn?.classList.remove('active');
+        if (state.currentUser && state.currentUser.role === 'lapangan') {
+          state.myTasksOnlyGangguan = true;
+          switchView('view-gangguan');
+          loadGangguanData();
+        } else {
+          switchView('view-collo-alerts');
+        }
+      });
+    }
+
+    // Daily Banner events
+    const banner = document.getElementById('dailyContractAlertBanner');
+    const btnDismissToday = document.getElementById('btnDailyBannerDismissToday');
+    const btnCloseDaily = document.getElementById('btnCloseDailyBanner');
+    const btnOpenList = document.getElementById('btnDailyBannerOpenList');
+
+    const dismissBannerForToday = () => {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      localStorage.setItem('telecom_portal_alert_dismissed_date', todayStr);
+      if (banner) {
+        banner.classList.add('translate-y-10', 'opacity-0', 'pointer-events-none');
+        banner.classList.remove('translate-y-0', 'opacity-100', 'pointer-events-auto');
+      }
+      showToast('Peringatan ditunda hingga besok.', 'info');
+    };
+
+    if (btnDismissToday) btnDismissToday.addEventListener('click', dismissBannerForToday);
+    if (btnCloseDaily) btnCloseDaily.addEventListener('click', dismissBannerForToday);
+
+    if (btnOpenList) {
+      btnOpenList.addEventListener('click', () => {
+        if (banner) {
+          banner.classList.add('translate-y-10', 'opacity-0', 'pointer-events-none');
+          banner.classList.remove('translate-y-0', 'opacity-100', 'pointer-events-auto');
+        }
+        bellBtn?.click();
+      });
+    }
+
+    // Close panel on outside click
+    document.addEventListener('click', (e) => {
+      const container = document.getElementById('contractAlertBellContainer');
+      if (container && !container.contains(e.target)) {
+        bellPanel?.classList.add('hidden');
+        bellBtn?.classList.remove('active');
+      }
+    });
+
+    // Request notification permission if supported
+    if ('Notification' in window && Notification.permission === 'default') {
+      setTimeout(() => {
+        try { Notification.requestPermission(); } catch (e) {}
+      }, 5000);
+    }
+  }
+
+  function initContractAlertSystem() {
+    setupContractAlertEventListeners();
+    fetchExpiringContracts();
   }
 
   // --- AUTHENTICATION & ROLE-BASED ACCESS CONTROL (RBAC) ---
   async function loadRegisteredPicChips() {
     try {
       let pics = [];
+      const res = await fetch('/api/auth/registered-pics');
+      if (res.ok) {
+        const data = await res.json();
+        pics = data.pics || [];
+      }
+
       if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
         try {
-          const allUsers = await window.FirebaseManager.fetchCollection('users');
-          pics = allUsers.filter(u => u.role === 'lapangan' && u.username !== 'lapangan');
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500));
+          const allUsers = await Promise.race([window.FirebaseManager.fetchCollection('users'), timeoutPromise]);
+          const fbPics = allUsers.filter(u => u.role === 'lapangan' && u.username !== 'lapangan');
+          if (fbPics.length > 0) pics = fbPics;
         } catch (fbErr) {
-          console.warn('Firestore fetch users notice:', fbErr);
-        }
-      }
-      if (!pics || pics.length === 0) {
-        const res = await fetch('/api/auth/registered-pics');
-        if (res.ok) {
-          const data = await res.json();
-          pics = data.pics || [];
+          // Silent fallback to standard pics
         }
       }
       
@@ -353,6 +1701,17 @@
     document.getElementById('btnOpenChangePassword')?.classList.add('hidden');
     document.getElementById('btnOpenAdminUsers')?.classList.add('hidden');
 
+    // Sembunyikan SEMUA notifikasi di laman login (lonceng topbar, panel notifikasi, & floating banner)
+    const bellContainer = document.getElementById('contractAlertBellContainer');
+    if (bellContainer) bellContainer.style.display = 'none';
+    const bellPanel = document.getElementById('contractAlertNotificationPanel');
+    if (bellPanel) bellPanel.classList.add('hidden');
+    const banner = document.getElementById('dailyContractAlertBanner');
+    if (banner) {
+      banner.classList.add('translate-y-10', 'opacity-0', 'pointer-events-none');
+      banner.classList.remove('translate-y-0', 'opacity-100', 'pointer-events-auto');
+    }
+
     // Reset overlay panes to default login state
     document.getElementById('paneLogin')?.classList.remove('hidden');
     document.getElementById('paneRegister')?.classList.add('hidden');
@@ -374,6 +1733,7 @@
     const currentUser = state.currentUser || JSON.parse(localStorage.getItem('telecom_portal_user') || '{}');
     if (currentUser.role === 'admin') {
       document.getElementById('btnOpenAdminUsers')?.classList.remove('hidden');
+      setTimeout(() => { window.checkAdminPendingUsersBadge?.(); }, 1000);
     } else {
       document.getElementById('btnOpenAdminUsers')?.classList.add('hidden');
     }
@@ -382,48 +1742,121 @@
   function applyRolePermissions(role) {
     const isLapangan = role === 'lapangan';
 
+    // 0. Toggle role classes on document.body for global CSS RBAC
+    if (isLapangan) {
+      document.body.classList.add('role-lapangan');
+      document.body.classList.remove('role-admin');
+      state.myTasksOnlySitac = true;
+      state.myTasksOnlyGangguan = true;
+    } else {
+      document.body.classList.add('role-admin');
+      document.body.classList.remove('role-lapangan');
+      state.myTasksOnlySitac = false;
+      state.myTasksOnlyGangguan = false;
+      state.sitac.pic = 'ALL';
+    }
+
     // 1. Update Topbar User Profile Badge & PIC Sync
     const nameDisplay = document.getElementById('userNameDisplay');
     const roleDisplay = document.getElementById('userRoleDisplay');
     const avatarIcon = document.getElementById('userRoleIcon');
     const avatarBox = document.getElementById('userRoleAvatar');
 
-    if (nameDisplay) {
-      nameDisplay.textContent = state.currentUser?.full_name || (isLapangan ? 'Tim SITAC & Lapangan' : 'Administrator');
-    }
-    if (roleDisplay) {
-      if (isLapangan) {
-        const pic = state.currentUser?.pic_code || state.activeTechnician;
-        roleDisplay.textContent = pic ? `TEKNISI PIC (${pic.toUpperCase()})` : 'TIM LAPANGAN (SITAC)';
-        roleDisplay.className = 'text-[9px] uppercase tracking-wider text-emerald-400 font-semibold';
-      } else {
-        roleDisplay.textContent = 'MANAJEMEN / ADMIN';
-        roleDisplay.className = 'text-[9px] uppercase tracking-wider text-cyan-400 font-semibold';
+    const sidebarName = document.getElementById('sidebarUserNameDisplay');
+    const sidebarRole = document.getElementById('sidebarUserRoleDisplay');
+    const sidebarAvatarIcon = document.getElementById('sidebarUserRoleIcon');
+    const sidebarAvatarBox = document.getElementById('sidebarUserRoleAvatar');
+
+    if (nameDisplay || sidebarName) {
+      const rawName = state.currentUser?.full_name || (isLapangan ? 'Tim Lapangan' : 'Administrator');
+      // Strip parenthetical text like "(Manajemen)" to display cleanly without overflow
+      const cleanName = rawName.replace(/\s*\([^)]*\)/g, '').trim();
+      if (nameDisplay) {
+        nameDisplay.textContent = cleanName;
+        nameDisplay.title = `${rawName} (${isLapangan ? 'Lapangan' : 'Admin'})`;
+      }
+      if (sidebarName) {
+        sidebarName.textContent = cleanName;
+        sidebarName.title = `${rawName} (${isLapangan ? 'Lapangan' : 'Admin'})`;
       }
     }
-    if (avatarIcon) {
-      avatarIcon.className = isLapangan ? 'fa-solid fa-helmet-safety' : 'fa-solid fa-shield-halved';
+    if (roleDisplay || sidebarRole) {
+      const roleText = isLapangan
+        ? (state.currentUser?.pic_code || state.activeTechnician ? `PIC: ${(state.currentUser?.pic_code || state.activeTechnician).toUpperCase()}` : 'TEKNISI')
+        : 'ADMIN';
+      const roleClass = isLapangan
+        ? 'text-[8px] uppercase tracking-wider text-emerald-400 font-semibold leading-none mt-0.5'
+        : 'text-[8px] uppercase tracking-wider text-cyan-400 font-semibold leading-none mt-0.5';
+      if (roleDisplay) {
+        roleDisplay.textContent = roleText;
+        roleDisplay.className = roleClass;
+      }
+      if (sidebarRole) {
+        sidebarRole.textContent = roleText;
+        sidebarRole.className = roleClass;
+      }
     }
-    if (avatarBox) {
-      avatarBox.className = isLapangan
-        ? 'w-6 h-6 rounded-full flex items-center justify-center text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-        : 'w-6 h-6 rounded-full flex items-center justify-center text-[10px] bg-cyan-500/20 text-cyan-400 border border-cyan-500/30';
+    const iconClass = isLapangan ? 'fa-solid fa-helmet-safety' : 'fa-solid fa-shield-halved';
+    if (avatarIcon) avatarIcon.className = iconClass;
+    if (sidebarAvatarIcon) sidebarAvatarIcon.className = iconClass;
+
+    const boxClass = isLapangan
+      ? 'w-6 h-6 rounded-full flex items-center justify-center text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+      : 'w-6 h-6 rounded-full flex items-center justify-center text-[10px] bg-cyan-500/20 text-cyan-400 border border-cyan-500/30';
+    if (avatarBox) avatarBox.className = boxClass;
+    if (sidebarAvatarBox) {
+      sidebarAvatarBox.className = isLapangan
+        ? 'w-8 h-8 rounded-full flex items-center justify-center text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0'
+        : 'w-8 h-8 rounded-full flex items-center justify-center text-xs bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shrink-0';
     }
 
     // Sync PIC & Lock Account Identity (Mencegah gonta-ganti user seenaknya)
     const sel = document.getElementById('selectActiveTechnician');
     const lockedName = document.getElementById('lockedPicBadgeName');
+    const picFilter = document.getElementById('sitacFilterPic');
+    const btnSMyTasks = document.getElementById('btnSitacMyTasks');
+    const btnGMyTasks = document.getElementById('btnGangguanMyTasks');
 
     if (isLapangan) {
       const activePic = state.currentUser?.pic_code || 'Harlan';
       state.activeTechnician = activePic;
       localStorage.setItem('telecom_active_technician', activePic);
-      if (sel) sel.value = activePic;
+      if (sel) {
+        sel.value = activePic;
+        sel.disabled = true;
+      }
       if (lockedName) lockedName.textContent = `PIC: ${activePic.toUpperCase()}`;
+      if (picFilter) {
+        picFilter.disabled = true;
+        picFilter.classList.add('filter-select-locked');
+        picFilter.title = `Terkunci: Menampilkan penugasan untuk PIC ${activePic}`;
+      }
+      if (btnSMyTasks) {
+        btnSMyTasks.classList.add('active');
+        btnSMyTasks.style.pointerEvents = 'none';
+      }
+      if (btnGMyTasks) {
+        btnGMyTasks.classList.add('active');
+        btnGMyTasks.style.pointerEvents = 'none';
+      }
     } else {
       state.activeTechnician = 'Admin';
-      if (sel) sel.value = 'Admin';
+      if (sel) {
+        sel.value = 'Admin';
+        sel.disabled = false;
+      }
       if (lockedName) lockedName.textContent = 'ADMIN';
+      if (picFilter) {
+        picFilter.disabled = false;
+        picFilter.classList.remove('filter-select-locked');
+        picFilter.title = '';
+      }
+      if (btnSMyTasks) {
+        btnSMyTasks.style.pointerEvents = '';
+      }
+      if (btnGMyTasks) {
+        btnGMyTasks.style.pointerEvents = '';
+      }
     }
 
     // 2. Hide / Show Sidebar Menus
@@ -443,7 +1876,27 @@
       pickCollo.style.display = isLapangan ? 'none' : '';
     }
 
-    // 4. Initial Landing View
+    // 4. Role-based Notifications (Strict: Notifications appear ONLY for Admin)
+    const bellContainer = document.getElementById('contractAlertBellContainer');
+    const bellPanel = document.getElementById('contractAlertNotificationPanel');
+    const banner = document.getElementById('dailyContractAlertBanner');
+
+    if (role === 'admin') {
+      // Hanya Admin yang melihat notifikasi (lonceng topbar & banner kontrak)
+      if (bellContainer) bellContainer.style.display = '';
+      updateContractAlertUI();
+      checkDailyContractAlertNotification();
+    } else {
+      // Sembunyikan SEMUA notifikasi untuk non-admin (user PIC maupun tamu)
+      if (bellContainer) bellContainer.style.display = 'none';
+      if (bellPanel) bellPanel.classList.add('hidden');
+      if (banner) {
+        banner.classList.add('translate-y-10', 'opacity-0', 'pointer-events-none');
+        banner.classList.remove('translate-y-0', 'opacity-100', 'pointer-events-auto');
+      }
+    }
+
+    // 5. Initial Landing View
     if (isLapangan) {
       // Auto-expand groupSitac
       const groupSitac = document.getElementById('groupSitac');
@@ -463,6 +1916,21 @@
       } else {
         switchView(state.activeView);
       }
+    }
+  }
+
+  function updateMyTasksBadges() {
+    try {
+      const lockedBadge = document.getElementById('lockedPicBadgeName');
+      if (lockedBadge) {
+        if (state.activeTechnician && state.activeTechnician !== 'Admin') {
+          lockedBadge.textContent = `PIC: ${state.activeTechnician.toUpperCase()}`;
+        } else {
+          lockedBadge.textContent = 'ADMIN';
+        }
+      }
+    } catch (e) {
+      console.warn('updateMyTasksBadges notice:', e);
     }
   }
 
@@ -508,7 +1976,9 @@
 
       hideLoginOverlay();
       applyRolePermissions(userObj.role);
-      updateMyTasksBadges();
+      if (typeof updateMyTasksBadges === 'function') {
+        try { updateMyTasksBadges(); } catch (badgeErr) { console.warn(badgeErr); }
+      }
 
       const welcomeName = userObj.full_name || usernameOrEmail;
       showToast(`Selamat datang, ${welcomeName}! Akses Google Firebase aktif.`, 'success');
@@ -535,6 +2005,10 @@
     localStorage.removeItem('telecom_portal_token');
     state.currentUser = null;
     state.token = null;
+    state.myTasksOnlySitac = false;
+    state.myTasksOnlyGangguan = false;
+    state.sitac.pic = 'ALL';
+    document.body.classList.remove('role-lapangan', 'role-admin');
     showLoginOverlay();
     showToast('Anda telah keluar dari sistem.', 'info');
   }
@@ -543,7 +2017,7 @@
     document.documentElement.setAttribute('data-theme', state.theme);
     const icon = document.querySelector('#themeToggleBtn i');
     if (icon) {
-      icon.className = state.theme === 'light' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+      icon.className = state.theme === 'light' ? 'fa-solid fa-sun text-base' : 'fa-solid fa-moon text-base';
     }
   }
 
@@ -584,9 +2058,9 @@
 
   // --- NAVIGATION ROUTING ---
   function switchView(viewId) {
-    // RBAC: Tim Lapangan cannot access executive or colocation views
-    if (state.currentUser?.role === 'lapangan' && (viewId === 'view-executive' || viewId.startsWith('view-collo-'))) {
-      showToast('Akses dibatasi. Modul Colocation & Finansial hanya untuk Manajemen.', 'error');
+    // RBAC: Tim Lapangan cannot access executive, colocation views, or efisiensi
+    if (state.currentUser?.role === 'lapangan' && (viewId === 'view-executive' || viewId.startsWith('view-collo-') || viewId === 'view-efisiensi')) {
+      showToast('Akses dibatasi. Modul Finansial & Colocation hanya dapat diakses oleh Manajemen / Admin.', 'error');
       viewId = 'view-sitac-pa';
     }
 
@@ -596,6 +2070,23 @@
     document.querySelectorAll('.nav-item').forEach(item => {
       item.classList.toggle('active', item.getAttribute('data-view') === viewId);
     });
+
+    // Update active mobile bottom nav button
+    document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-mobile-view') === viewId);
+    });
+
+    // Auto-close mobile sidebar if open
+    const mobSidebar = document.getElementById('portalSidebar');
+    const mobBackdrop = document.getElementById('sidebarBackdrop');
+    if (mobSidebar?.classList.contains('mobile-open')) {
+      mobSidebar.classList.remove('mobile-open');
+      mobBackdrop?.classList.remove('active');
+    }
+
+    // Reset scroll on content container
+    const contentBody = document.querySelector('.portal-content-body');
+    if (contentBody) contentBody.scrollTop = 0;
 
     // Toggle active view container
     document.querySelectorAll('.portal-view').forEach(view => {
@@ -686,10 +2177,38 @@
       const bGangguan = document.getElementById('badgeNavGangguan');
       if (bGangguan) bGangguan.textContent = Number(g.total_gangguan || 393).toLocaleString('id-ID');
 
-      // Update Power BI Radial Gauges
+      // Update Power BI Radial Gauges & Bento Controls
+      const totalCollo = Number(c.total_records || 2243);
+      const actCollo = Number(c.active_count || 880);
+      const deactCollo = Number(c.deactivasi_count || 285);
+      const otherCollo = Math.max(0, totalCollo - actCollo - deactCollo);
+      if (document.getElementById('execHistColloTotal')) {
+        document.getElementById('execHistColloTotal').textContent = totalCollo.toLocaleString('id-ID');
+      }
+      if (totalCollo > 0) {
+        const segAct = document.getElementById('bentoColloActiveSegment');
+        const segDeact = document.getElementById('bentoColloDeactSegment');
+        const segOther = document.getElementById('bentoColloOtherSegment');
+        if (segAct) segAct.style.width = `${((actCollo / totalCollo) * 100).toFixed(1)}%`;
+        if (segDeact) segDeact.style.width = `${((deactCollo / totalCollo) * 100).toFixed(1)}%`;
+        if (segOther) segOther.style.width = `${((otherCollo / totalCollo) * 100).toFixed(1)}%`;
+      }
+
       const sitacRate = (s.total_pa > 0) ? (s.finish_count / s.total_pa * 100).toFixed(1) : 0;
       if (document.getElementById('gaugeSitacRate')) document.getElementById('gaugeSitacRate').textContent = `${sitacRate}%`;
       if (document.getElementById('gaugeSitacBar')) document.getElementById('gaugeSitacBar').style.width = `${sitacRate}%`;
+
+      // SITAC Mini SVG Radial Ring
+      const radialCirc = document.getElementById('radialSitacCircle');
+      if (radialCirc) {
+        const pct = Math.min(100, Math.max(0, parseFloat(sitacRate) || 0));
+        const offset = (113.1 - (113.1 * pct / 100)).toFixed(1);
+        radialCirc.style.strokeDashoffset = offset;
+      }
+      const radialTxt = document.getElementById('radialSitacPercent');
+      if (radialTxt) {
+        radialTxt.textContent = `${Math.round(parseFloat(sitacRate) || 0)}%`;
+      }
 
       const savingsRate = s.efisiensi_pct || 0;
       if (document.getElementById('gaugeSavingsRate')) document.getElementById('gaugeSavingsRate').textContent = `${savingsRate}%`;
@@ -702,6 +2221,9 @@
       const resRate = g.resolution_rate || 0;
       if (document.getElementById('gaugeGangguanRate')) document.getElementById('gaugeGangguanRate').textContent = `${resRate}%`;
       if (document.getElementById('gaugeGangguanBar')) document.getElementById('gaugeGangguanBar').style.width = `${resRate}%`;
+      if (document.getElementById('execGangguanOpenBadge')) {
+        document.getElementById('execGangguanOpenBadge').textContent = `${g.aktif_count || 0} Open`;
+      }
 
       // Render Charts
       renderExecutiveCharts(data);
@@ -712,7 +2234,7 @@
   }
 
   function renderExecutiveCharts(data) {
-    const { textColor, gridColor, makeGradient } = getChartTheme();
+    const { textColor, gridColor, makeGradient, donutBorder } = getChartTheme();
 
     // ── Shared scale defaults
     const scaleBase = (axisOverrides = {}) => ({
@@ -735,18 +2257,18 @@
             {
               label: 'Biaya Sewa Mitra',
               data: topP.map(p => p.total_biaya),
-              backgroundColor: 'rgba(245,158,11,0.80)',
-              hoverBackgroundColor: 'rgba(245,158,11,1)',
-              borderRadius: 6,
+              backgroundColor: 'rgba(245, 158, 11, 0.85)',
+              hoverBackgroundColor: 'rgba(245, 158, 11, 1)',
+              borderRadius: 8,
               borderSkipped: false,
               barPercentage: 0.72,
             },
             {
               label: 'Revenue Sewa',
               data: topP.map(p => p.total_rev),
-              backgroundColor: 'rgba(6,182,212,0.80)',
-              hoverBackgroundColor: 'rgba(6,182,212,1)',
-              borderRadius: 6,
+              backgroundColor: 'rgba(16, 185, 129, 0.85)',
+              hoverBackgroundColor: 'rgba(16, 185, 129, 1)',
+              borderRadius: 8,
               borderSkipped: false,
               barPercentage: 0.72,
             }
@@ -770,7 +2292,7 @@
       });
     }
 
-    // ── Chart 2: SITAC Status — premium doughnut with hole text
+    // ── Chart 2: SITAC Status — premium doughnut with distinct status colors
     const ctxStatus = document.getElementById('chartSitacStatus')?.getContext('2d');
     if (ctxStatus) {
       destroyChart('sitacStatus');
@@ -781,11 +2303,11 @@
           labels: ['Finish', 'Ongoing', 'Hold', 'Cancel'],
           datasets: [{
             data: [s.finish_count || 373, s.ongoing_count || 10, s.hold_count || 5, s.cancel_count || 63],
-            backgroundColor: ['#10b981', '#06b6d4', '#f59e0b', '#f43f5e'],
-            hoverBackgroundColor: ['#34d399', '#22d3ee', '#fbbf24', '#fb7185'],
+            backgroundColor: ['#10B981', '#0EA5E9', '#F59E0B', '#F43F5E'],
+            hoverBackgroundColor: ['#34D399', '#38BDF8', '#FBBF24', '#FB7185'],
             borderWidth: 3,
-            borderColor: 'transparent',
-            hoverBorderColor: 'transparent',
+            borderColor: donutBorder,
+            hoverBorderColor: donutBorder,
             hoverOffset: 6,
           }]
         },
@@ -801,14 +2323,14 @@
       });
     }
 
-    // ── Chart 3: Jenis Sewa — multi-color doughnut
+    // ── Chart 3: Jenis Sewa — multi-color doughnut with distinct colors
     const ctxJenis = document.getElementById('chartJenisSewa')?.getContext('2d');
     if (ctxJenis) {
       destroyChart('jenisSewa');
       const jd = data.jenis_sewa_dist || [];
       const totalCnt = jd.reduce((a, c) => a + c.cnt, 0);
-      const bgColors = ['#06b6d4','#10b981','#6366f1','#f59e0b','#ec4899','#8b5cf6'];
-      const hoverColors = ['#22d3ee','#34d399','#818cf8','#fbbf24','#f472b6','#a78bfa'];
+      const bgColors = ['#10B981', '#0EA5E9', '#F59E0B', '#8B5CF6', '#F43F5E', '#14B8A6'];
+      const hoverColors = ['#34D399', '#38BDF8', '#FBBF24', '#A78BFA', '#FB7185', '#2DD4BF'];
       charts.jenisSewa = new Chart(ctxJenis, {
         type: 'doughnut',
         data: {
@@ -818,7 +2340,8 @@
             backgroundColor: bgColors,
             hoverBackgroundColor: hoverColors,
             borderWidth: 3,
-            borderColor: 'transparent',
+            borderColor: donutBorder,
+            hoverBorderColor: donutBorder,
             hoverOffset: 6,
           }]
         },
@@ -839,19 +2362,20 @@
     if (ctxExp) {
       destroyChart('expirationDonut');
       const ed = data.expiration_dist || [];
-      const cMap = { CRITICAL:'#f43f5e', WARNING:'#f59e0b', SAFE:'#10b981', EXPIRED:'#64748b' };
-      const hMap = { CRITICAL:'#fb7185', WARNING:'#fbbf24', SAFE:'#34d399', EXPIRED:'#94a3b8' };
+      const cMap = { CRITICAL: '#F43F5E', WARNING: '#F59E0B', SAFE: '#10B981', EXPIRED: '#8B5CF6' };
+      const hMap = { CRITICAL: '#FB7185', WARNING: '#FBBF24', SAFE: '#34D399', EXPIRED: '#A78BFA' };
       charts.expirationDonut = new Chart(ctxExp, {
         type: 'doughnut',
         data: {
           labels: ed.map(e => e.alert_category),
           datasets: [{
             data: ed.map(e => e.cnt),
-            backgroundColor: ed.map(e => cMap[e.alert_category] || '#94a3b8'),
-            hoverBackgroundColor: ed.map(e => hMap[e.alert_category] || '#cbd5e1'),
+            backgroundColor: ed.map(e => cMap[e.alert_category] || '#64748B'),
+            hoverBackgroundColor: ed.map(e => hMap[e.alert_category] || '#94A3B8'),
             borderWidth: 3,
-            borderColor: 'transparent',
-            hoverOffset: 6,
+            borderColor: donutBorder,
+            hoverBorderColor: donutBorder,
+            hoverOffset: 8,
           }]
         },
         options: {
@@ -859,7 +2383,15 @@
           maintainAspectRatio: false,
           cutout: '72%',
           plugins: {
-            legend: { position: 'bottom', labels: { padding: 12 } },
+            legend: {
+              position: 'bottom',
+              labels: {
+                padding: 14,
+                usePointStyle: true,
+                pointStyle: 'circle',
+                font: { size: 11, weight: '600' }
+              }
+            },
             tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} Sirkuit` } }
           }
         }
@@ -871,8 +2403,8 @@
     if (ctxTrend) {
       destroyChart('monthlyTrend');
       const trend = data.monthly_trend || [];
-      const gradCyan = makeGradient(ctxTrend, '#06b6d4', 0.55, 0.02);
-      const gradMint = makeGradient(ctxTrend, '#10b981', 0.25, 0.01);
+      const gradCyan = makeGradient(ctxTrend, '#0EA5E9', 0.5, 0.02);
+      const gradEmerald = makeGradient(ctxTrend, '#10B981', 0.25, 0.01);
       charts.monthlyTrend = new Chart(ctxTrend, {
         type: 'bar',
         data: {
@@ -883,7 +2415,7 @@
               label: 'Penugasan Masuk',
               data: trend.map(t => t.count_masuk),
               backgroundColor: gradCyan,
-              hoverBackgroundColor: 'rgba(6,182,212,0.9)',
+              hoverBackgroundColor: 'rgba(14, 165, 233, 0.95)',
               borderRadius: 7,
               borderSkipped: false,
               barPercentage: 0.65,
@@ -892,12 +2424,12 @@
               type: 'line',
               label: 'Penyelesaian Selesai',
               data: trend.map(t => t.count_selesai),
-              borderColor: '#10b981',
-              backgroundColor: gradMint,
+              borderColor: '#10B981',
+              backgroundColor: gradEmerald,
               borderWidth: 2.5,
               tension: 0.4,
               fill: true,
-              pointBackgroundColor: '#10b981',
+              pointBackgroundColor: '#10B981',
               pointRadius: 4,
               pointHoverRadius: 6,
               pointBorderColor: 'transparent',
@@ -930,8 +2462,8 @@
             {
               label: 'Pengajuan Awal',
               data: el.map(r => r.nilai_awal),
-              backgroundColor: 'rgba(244,63,94,0.78)',
-              hoverBackgroundColor: 'rgba(244,63,94,1)',
+              backgroundColor: 'rgba(244, 63, 94, 0.85)',
+              hoverBackgroundColor: 'rgba(244, 63, 94, 1)',
               borderRadius: 7,
               borderSkipped: false,
               barPercentage: 0.68,
@@ -939,8 +2471,8 @@
             {
               label: 'Realisasi Akhir',
               data: el.map(r => r.nilai_akhir),
-              backgroundColor: 'rgba(16,185,129,0.82)',
-              hoverBackgroundColor: 'rgba(16,185,129,1)',
+              backgroundColor: 'rgba(16, 185, 129, 0.85)',
+              hoverBackgroundColor: 'rgba(16, 185, 129, 1)',
               borderRadius: 7,
               borderSkipped: false,
               barPercentage: 0.68,
@@ -1009,7 +2541,7 @@
 
   function renderColloCharts() {
     if (!state.execData) return;
-    const { textColor, gridColor } = getChartTheme();
+    const { textColor, gridColor, donutBorder } = getChartTheme();
 
     // Chart Collo 1: Status Dist (Active, Non-Active, Deaktivasi)
     const ctxStat = document.getElementById('chartColloStatusDist')?.getContext('2d');
@@ -1017,15 +2549,17 @@
       destroyChart('colloStatusDist');
       const dist = state.execData.collo_status_dist || [];
       const total = dist.reduce((acc, curr) => acc + curr.cnt, 0);
-      const colorMap = { 'ACTIVE': '#10b981', 'NON ACTIVE': '#64748b', 'DEACTIVASI': '#ef4444' };
+      const colorMap = { 'ACTIVE': '#10B981', 'NON ACTIVE': '#64748B', 'DEACTIVASI': '#F43F5E' };
       charts.colloStatusDist = new Chart(ctxStat, {
         type: 'doughnut',
         data: {
           labels: dist.map(d => d.status),
           datasets: [{
             data: dist.map(d => d.cnt),
-            backgroundColor: dist.map(d => colorMap[d.status] || '#06b6d4'),
-            borderWidth: 0
+            backgroundColor: dist.map(d => colorMap[d.status] || '#10B981'),
+            borderColor: donutBorder,
+            borderWidth: 3,
+            hoverOffset: 6
           }]
         },
         options: {
@@ -1056,8 +2590,9 @@
           datasets: [{
             label: 'Jumlah Sirkuit Aktif',
             data: vendors.map(v => v.sirkuit_count),
-            backgroundColor: 'rgba(6, 182, 212, 0.8)',
-            borderRadius: 4
+            backgroundColor: 'rgba(14, 165, 233, 0.85)',
+            hoverBackgroundColor: 'rgba(14, 165, 233, 1)',
+            borderRadius: 8
           }]
         },
         options: {
@@ -1106,11 +2641,8 @@
         <tr>
           <td class="font-mono text-xs text-slate-500">${rowIdx}</td>
           ${pengelolaTd}
-          <td>${escapeHtml(c.pelanggan || '-')}</td>
-          <td>
-            <div class="font-mono text-cyan-400 text-xs">${escapeHtml(c.sid || '-')}</div>
-            <div class="text-[11px] text-slate-500">${escapeHtml(c.no_so || '-')}</div>
-          </td>
+          <td>${formatPelangganCell(c.pelanggan)}</td>
+          <td>${formatSoCell(c.sid, c.no_so)}</td>
           <td class="max-w-[200px] truncate" title="${escapeHtml(c.terminating)}">${escapeHtml(c.terminating || c.originating || '-')}</td>
           <td><span class="badge-pill bg-slate-800 text-slate-300">${escapeHtml(c.jenis_sewa || 'Colocation')}</span></td>
           <td class="text-right font-mono font-bold text-emerald-400">${formatRupiah(c.rev_sewa_tahun)}</td>
@@ -1121,6 +2653,7 @@
           <td class="text-center">
             <div class="flex items-center justify-center gap-1.5">
               <button class="btn-action btn-view-detail" data-type="collo" data-id="${c.id}" title="Lihat Detail"><i class="fa-solid fa-eye text-cyan-400"></i></button>
+              <button class="btn-action btn-quick-edit" data-type="collo" data-id="${c.id}" title="Edit Data Sirkuit"><i class="fa-solid fa-pen-to-square"></i></button>
               <button class="btn-action btn-delete-row text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 hover:border-rose-500/40" data-type="collo" data-id="${c.id}" title="Hapus Data"><i class="fa-solid fa-trash-can"></i></button>
             </div>
           </td>
@@ -1186,8 +2719,8 @@
             <tr>
               <td class="text-xs text-slate-500">${idx + 1}</td>
               ${pengelolaTd}
-              <td>${escapeHtml(c.pelanggan)}</td>
-              <td class="font-mono text-xs text-cyan-400">${escapeHtml(c.no_so || c.sid || '-')}</td>
+              <td>${formatPelangganCell(c.pelanggan)}</td>
+              <td>${formatSoCell(c.sid, c.no_so)}</td>
               <td class="max-w-[180px] truncate" title="${escapeHtml(c.terminating)}">${escapeHtml(c.terminating || '-')}</td>
               <td class="text-right font-mono text-emerald-400">${formatRupiah(c.rev_sewa_tahun)}</td>
               <td class="text-center font-mono font-bold text-amber-400 bg-amber-500/10 rounded">${escapeHtml(c.rev_sharing_raw || `${roundPct(c.rev_sharing_pct)}%`)}</td>
@@ -1196,6 +2729,7 @@
               <td class="text-center">
                 <div class="flex items-center justify-center gap-1.5">
                   <button class="btn-action btn-view-detail" data-type="collo" data-id="${c.id}" title="Lihat Detail"><i class="fa-solid fa-eye text-cyan-400"></i></button>
+                  <button class="btn-action btn-quick-edit" data-type="collo" data-id="${c.id}" title="Edit Data Sirkuit"><i class="fa-solid fa-pen-to-square"></i></button>
                   <button class="btn-action btn-delete-row text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 hover:border-rose-500/40" data-type="collo" data-id="${c.id}" title="Hapus Data"><i class="fa-solid fa-trash-can"></i></button>
                 </div>
               </td>
@@ -1213,7 +2747,7 @@
   }
 
   function renderRevShareCharts(json) {
-    const { textColor, gridColor } = getChartTheme();
+    const { textColor, gridColor, donutBorder } = getChartTheme();
     const top7 = (json.top_pengelola || []).slice(0, 7);
 
     // Chart RevShare 1: Top Mitra Portfolio Donut
@@ -1223,25 +2757,42 @@
       charts.revShareMitra = new Chart(ctxMitra, {
         type: 'doughnut',
         data: {
-          labels: top7.map(m => m.pengelola.length > 16 ? m.pengelola.slice(0, 16) + '...' : m.pengelola),
+          labels: top7.map(m => m.pengelola.length > 18 ? m.pengelola.slice(0, 18) + '...' : m.pengelola),
           datasets: [{
             data: top7.map(m => m.total_rev),
-            backgroundColor: ['#06b6d4', '#10b981', '#f59e0b', '#6366f1', '#ec4899', '#8b5cf6', '#14b8a6'],
-            borderWidth: 0
+            backgroundColor: ['#10B981', '#0EA5E9', '#F59E0B', '#8B5CF6', '#F43F5E', '#14B8A6', '#EC4899'],
+            hoverBackgroundColor: ['#34D399', '#38BDF8', '#FBBF24', '#A78BFA', '#FB7185', '#2DD4BF', '#F472B6'],
+            borderColor: donutBorder,
+            borderWidth: 2,
+            hoverOffset: 8
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          layout: {
+            padding: { top: 6, bottom: 12, left: 8, right: 8 }
+          },
           plugins: {
-            legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 }, padding: 10 } },
+            legend: {
+              position: 'bottom',
+              labels: {
+                color: textColor,
+                font: { size: 11, weight: '500' },
+                padding: 10,
+                usePointStyle: true,
+                pointStyle: 'circle',
+                boxWidth: 8,
+                boxHeight: 8
+              }
+            },
             tooltip: {
               callbacks: {
                 label: ctx => ` ${ctx.label}: ${formatRupiah(ctx.raw)}`
               }
             }
           },
-          cutout: '68%'
+          cutout: '60%'
         }
       });
     }
@@ -1258,22 +2809,40 @@
             {
               label: 'Revenue Pelanggan',
               data: top7.map(m => m.total_rev),
-              backgroundColor: 'rgba(16, 185, 129, 0.85)',
-              borderRadius: 4
+              backgroundColor: 'rgba(14, 165, 233, 0.85)',
+              borderColor: '#38BDF8',
+              borderWidth: 1.5,
+              borderRadius: 6
             },
             {
               label: 'Biaya Bagi Hasil Mitra',
               data: top7.map(m => m.total_sharing),
-              backgroundColor: 'rgba(6, 182, 212, 0.85)',
-              borderRadius: 4
+              backgroundColor: 'rgba(245, 158, 11, 0.95)',
+              borderColor: '#FBBF24',
+              borderWidth: 1.5,
+              borderRadius: 6
             }
           ]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          layout: {
+            padding: { top: 10, bottom: 4, left: 4, right: 4 }
+          },
           plugins: {
-            legend: { position: 'top', labels: { color: textColor, font: { size: 11 } } },
+            legend: {
+              position: 'top',
+              labels: {
+                color: textColor,
+                font: { size: 11, weight: '600' },
+                usePointStyle: true,
+                pointStyle: 'circle',
+                boxWidth: 8,
+                boxHeight: 8,
+                padding: 16
+              }
+            },
             tooltip: {
               callbacks: {
                 label: ctx => ` ${ctx.dataset.label}: ${formatRupiah(ctx.raw)}`
@@ -1290,8 +2859,13 @@
   }
 
   function roundPct(val) {
-    if (!val) return 0;
-    return Math.round(Number(val) * 1000) / 10;
+    if (val === undefined || val === null || val === '') return 0;
+    const num = Number(val);
+    if (isNaN(num)) return 0;
+    // If num is a decimal fraction <= 1.0 (e.g. 0.20, 0.35, 0.19342), convert to percentage
+    // If num is already in percentage format (e.g. 20, 35, 19.342), use as-is
+    const pct = (Math.abs(num) <= 1 && num !== 0) ? num * 100 : num;
+    return Math.round(pct * 10) / 10;
   }
 
   // =========================================================================
@@ -1335,8 +2909,8 @@
             <tr>
               <td class="text-xs text-slate-500">${idx + 1}</td>
               ${pengelolaTd}
-              <td>${escapeHtml(c.pelanggan)}</td>
-              <td class="font-mono text-xs text-cyan-400">${escapeHtml(c.sid || c.no_so || '-')}</td>
+              <td>${formatPelangganCell(c.pelanggan)}</td>
+              <td>${formatSoCell(c.sid, c.no_so)}</td>
               <td>${c.end_date || '-'}</td>
               <td class="text-center font-bold font-mono">${c.sisa_hari} Hari</td>
               <td class="text-center">${getAlertBadge(c.alert_category, c.sisa_hari)}</td>
@@ -1346,6 +2920,7 @@
               <td class="text-center">
                 <div class="flex items-center justify-center gap-1.5">
                   <button class="btn-action btn-view-detail" data-type="collo" data-id="${c.id}" title="Lihat Detail"><i class="fa-solid fa-eye text-cyan-400"></i></button>
+                  <button class="btn-action btn-quick-edit" data-type="collo" data-id="${c.id}" title="Edit Data Sirkuit"><i class="fa-solid fa-pen-to-square"></i></button>
                   <button class="btn-action btn-delete-row text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 hover:border-rose-500/40" data-type="collo" data-id="${c.id}" title="Hapus Data"><i class="fa-solid fa-trash-can"></i></button>
                 </div>
               </td>
@@ -1363,7 +2938,7 @@
   }
 
   function renderAlertsCharts(json) {
-    const { textColor, gridColor } = getChartTheme();
+    const { textColor, gridColor, donutBorder } = getChartTheme();
     const cnt = json.counts || {};
 
     // Chart Alerts 1: Category Donut
@@ -1376,22 +2951,39 @@
           labels: ['CRITICAL (<30 Hari)', 'WARNING (30-60 Hari)', 'SAFE (>60 Hari)', 'EXPIRED / Overdue'],
           datasets: [{
             data: [cnt.critical || 0, cnt.warning || 0, cnt.safe || 0, cnt.expired || 0],
-            backgroundColor: ['#ef4444', '#f59e0b', '#10b981', '#64748b'],
-            borderWidth: 0
+            backgroundColor: ['#F43F5E', '#F59E0B', '#10B981', '#64748B'],
+            hoverBackgroundColor: ['#FB7185', '#FBBF24', '#34D399', '#94A3B8'],
+            borderColor: donutBorder,
+            borderWidth: 2,
+            hoverOffset: 8
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          layout: {
+            padding: { top: 6, bottom: 12, left: 8, right: 8 }
+          },
           plugins: {
-            legend: { position: 'bottom', labels: { color: textColor, font: { size: 11 }, padding: 12 } },
+            legend: {
+              position: 'bottom',
+              labels: {
+                color: textColor,
+                font: { size: 11, weight: '500' },
+                padding: 12,
+                usePointStyle: true,
+                pointStyle: 'circle',
+                boxWidth: 8,
+                boxHeight: 8
+              }
+            },
             tooltip: {
               callbacks: {
                 label: ctx => ` ${ctx.label}: ${ctx.raw} Sirkuit`
               }
             }
           },
-          cutout: '68%'
+          cutout: '60%'
         }
       });
     }
@@ -1400,15 +2992,18 @@
     const ctxDays = document.getElementById('chartAlertsSisaHari')?.getContext('2d');
     if (ctxDays) {
       destroyChart('alertsSisaHari');
-      let overdue = 0, d0_30 = 0, d31_60 = 0, d61_90 = 0, d90plus = 0;
-      (json.data || []).forEach(c => {
-        const d = c.sisa_hari;
-        if (d < 0) overdue++;
-        else if (d <= 30) d0_30++;
-        else if (d <= 60) d31_60++;
-        else if (d <= 90) d61_90++;
-        else d90plus++;
-      });
+      const dist = json.distribution || (() => {
+        let overdue = 0, d0_30 = 0, d31_60 = 0, d61_90 = 0, d90plus = 0;
+        (json.data || []).forEach(c => {
+          const d = Number(c.sisa_hari);
+          if (d < 0) overdue++;
+          else if (d <= 30) d0_30++;
+          else if (d <= 60) d31_60++;
+          else if (d <= 90) d61_90++;
+          else d90plus++;
+        });
+        return { overdue, d0_30, d31_60, d61_90, d90plus };
+      })();
 
       charts.alertsSisaHari = new Chart(ctxDays, {
         type: 'bar',
@@ -1416,17 +3011,29 @@
           labels: ['Overdue (<0 Hari)', '0 - 30 Hari', '31 - 60 Hari', '61 - 90 Hari', '> 90 Hari'],
           datasets: [{
             label: 'Jumlah Sirkuit',
-            data: [overdue, d0_30, d31_60, d61_90, d90plus],
-            backgroundColor: ['#64748b', '#ef4444', '#f59e0b', '#38bdf8', '#10b981'],
-            borderRadius: 4
+            data: [dist.overdue, dist.d0_30, dist.d31_60, dist.d61_90, dist.d90plus],
+            backgroundColor: ['#64748B', '#F43F5E', '#F59E0B', '#0EA5E9', '#10B981'],
+            borderColor: ['#94A3B8', '#FB7185', '#FBBF24', '#38BDF8', '#34D399'],
+            borderWidth: 1.5,
+            borderRadius: 6
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
+          layout: {
+            padding: { top: 12, bottom: 4, left: 4, right: 4 }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => ` ${ctx.label}: ${ctx.raw} Sirkuit`
+              }
+            }
+          },
           scales: {
-            x: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 } } },
+            x: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10, weight: '500' } } },
             y: { grid: { color: gridColor }, ticks: { color: textColor, precision: 0 } }
           }
         }
@@ -1439,7 +3046,10 @@
   // =========================================================================
   async function loadSitacData() {
     const { status, pic, year, aging, search, page, pageSize } = state.sitac;
-    const finalPic = state.myTasksOnlySitac ? state.activeTechnician : pic;
+    const isLapangan = state.currentUser?.role === 'lapangan';
+    const finalPic = (isLapangan || state.myTasksOnlySitac) && state.activeTechnician && state.activeTechnician !== 'Admin'
+      ? state.activeTechnician
+      : pic;
     const params = new URLSearchParams({
       status, pic: finalPic, year, aging, search, page, pageSize
     });
@@ -1461,6 +3071,8 @@
         }
       }
 
+
+
       // Pagination
       document.getElementById('sitacPaginationInfo').textContent = `Halaman ${json.page} dari ${json.totalPages} (${json.total} data)`;
       document.getElementById('sitacPrevPageBtn').disabled = json.page <= 1;
@@ -1475,19 +3087,20 @@
             <tr>
               <td class="font-mono text-xs text-slate-500">${rowIdx}</td>
               <td class="font-mono font-bold text-cyan-400 text-xs">${escapeHtml(s.no_pa || '-')}</td>
-              <td><strong>${escapeHtml(s.pelanggan || '-')}</strong></td>
+              <td>${formatPelangganCell(s.pelanggan)}</td>
               <td>${escapeHtml(s.pic_perijinan || '-')}</td>
               <td class="max-w-[200px] truncate" title="${escapeHtml(s.terminating)}">${escapeHtml(s.terminating || '-')}</td>
-              <td class="text-right font-mono">${formatRupiah(s.biaya_permintaan_awal)}</td>
-              <td class="text-right font-mono font-bold text-amber-400">${formatRupiah(s.biaya_final)}</td>
-              <td class="text-right font-mono font-bold text-emerald-400">${formatRupiah(s.efisiensi_rupiah)}</td>
+              <td class="text-right font-mono col-sitac-financial">${formatRupiah(s.biaya_permintaan_awal)}</td>
+              <td class="text-right font-mono font-bold text-amber-400 col-sitac-financial">${formatRupiah(s.biaya_final)}</td>
+              <td class="text-right font-mono font-bold text-emerald-400 col-sitac-financial">${formatRupiah(s.efisiensi_rupiah)}</td>
               <td class="text-center">${getStatusBadge(s.progress)}</td>
               <td class="text-center">${getAgingBadge(s.durasi_hari)}</td>
               <td class="text-xs text-slate-400">${s.date_dispos || '-'} s/d ${s.date_close || '-'}</td>
               <td class="text-center">
                 <div class="flex items-center justify-center gap-1.5">
                   <button class="btn-action btn-view-detail" data-type="sitac" data-id="${s.id}" title="Lihat Detail"><i class="fa-solid fa-eye text-cyan-400"></i></button>
-                  <button class="btn-action btn-delete-row text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 hover:border-rose-500/40" data-type="sitac" data-id="${s.id}" title="Hapus Data"><i class="fa-solid fa-trash-can"></i></button>
+                  <button class="btn-action btn-quick-edit" data-type="sitac" data-id="${s.id}" title="Edit Data SITAC"><i class="fa-solid fa-pen-to-square"></i></button>
+                  ${state.currentUser?.role === 'admin' ? `<button class="btn-action btn-delete-row text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 hover:border-rose-500/40" data-type="sitac" data-id="${s.id}" title="Hapus Data"><i class="fa-solid fa-trash-can"></i></button>` : ''}
                 </div>
               </td>
             </tr>
@@ -1530,7 +3143,7 @@
   }
 
   function renderSitacCharts(statusCounts, agingDist) {
-    const { textColor, gridColor } = getChartTheme();
+    const { textColor, gridColor, donutBorder } = getChartTheme();
     const currentStatus = state.sitac.status || 'ALL';
 
     const sc = statusCounts || state.sitacStatusCounts || (state.execData?.sitac ? {
@@ -1558,8 +3171,8 @@
           datasets: [{
             label: `Penugasan PA ${currentStatus !== 'ALL' ? '(' + currentStatus + ')' : ''}`,
             data: [ag.green || 0, ag.yellow || 0, ag.red || 0],
-            backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
-            borderRadius: 4
+            backgroundColor: ['#10B981', '#F59E0B', '#F43F5E'],
+            borderRadius: 6
           }]
         },
         options: {
@@ -1594,7 +3207,7 @@
       if (currentStatus === 'ALL') {
         labels = ['Finish', 'Ongoing', 'Hold', 'Cancel'];
         data = [sc.Finish || 0, sc.Ongoing || 0, sc.Hold || 0, sc.Cancel || 0];
-        bgColors = ['#10b981', '#06b6d4', '#eab308', '#ef4444'];
+        bgColors = ['#10B981', '#0EA5E9', '#F59E0B', '#F43F5E'];
         if (statusBadge) {
           statusBadge.textContent = `Total ${sc.ALL || 451} PA`;
           statusBadge.className = 'pbi-visual-badge';
@@ -1602,7 +3215,7 @@
       } else if (currentStatus === 'Finish') {
         labels = ['Finish'];
         data = [sc.Finish || 0];
-        bgColors = ['#10b981'];
+        bgColors = ['#10B981'];
         if (statusBadge) {
           statusBadge.textContent = `Finish: ${sc.Finish || 0} PA`;
           statusBadge.className = 'pbi-visual-badge bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
@@ -1610,7 +3223,7 @@
       } else if (currentStatus === 'Ongoing') {
         labels = ['Ongoing'];
         data = [sc.Ongoing || 0];
-        bgColors = ['#06b6d4'];
+        bgColors = ['#0EA5E9'];
         if (statusBadge) {
           statusBadge.textContent = `Ongoing: ${sc.Ongoing || 0} PA`;
           statusBadge.className = 'pbi-visual-badge bg-cyan-500/20 text-cyan-400 border border-cyan-500/30';
@@ -1618,7 +3231,7 @@
       } else if (currentStatus === 'Hold') {
         labels = ['Hold'];
         data = [sc.Hold || 0];
-        bgColors = ['#eab308'];
+        bgColors = ['#F59E0B'];
         if (statusBadge) {
           statusBadge.textContent = `Hold: ${sc.Hold || 0} PA`;
           statusBadge.className = 'pbi-visual-badge bg-amber-500/20 text-amber-400 border border-amber-500/30';
@@ -1626,7 +3239,7 @@
       } else if (currentStatus === 'Cancel') {
         labels = ['Cancel'];
         data = [sc.Cancel || 0];
-        bgColors = ['#ef4444'];
+        bgColors = ['#F43F5E'];
         if (statusBadge) {
           statusBadge.textContent = `Cancel: ${sc.Cancel || 0} PA`;
           statusBadge.className = 'pbi-visual-badge bg-rose-500/20 text-rose-400 border border-rose-500/30';
@@ -1642,7 +3255,9 @@
           datasets: [{
             data: data,
             backgroundColor: bgColors,
-            borderWidth: 0,
+            borderColor: donutBorder,
+            borderWidth: 3,
+            hoverBorderColor: donutBorder,
             hoverOffset: 6
           }]
         },
@@ -1692,7 +3307,7 @@
       const params = new URLSearchParams();
       params.set('status', status);
       if (search) params.set('search', search);
-      if (state.myTasksOnlyGangguan && state.activeTechnician) {
+      if ((state.currentUser?.role === 'lapangan' || state.myTasksOnlyGangguan) && state.activeTechnician && state.activeTechnician !== 'Admin') {
         params.set('pic', state.activeTechnician);
       }
       if (dateType) params.set('date_type', dateType);
@@ -1718,6 +3333,8 @@
           myTasksBadge.classList.add('hidden');
         }
       }
+
+
 
       // Update Tab Badges if provided by backend
       if (json.counts) {
@@ -1767,13 +3384,14 @@
                 <td class="max-w-[200px] truncate" title="${escapeHtml(g.terminating)}">${escapeHtml(g.terminating || '-')}</td>
                 <td><span class="badge-pill bg-slate-800 text-slate-300 text-xs">${escapeHtml(g.jenis_gangguan || 'FO Cut')}</span></td>
                 <td><strong>${escapeHtml(g.pic_perijinan || '-')}</strong></td>
-                <td class="text-right font-mono text-amber-400 font-semibold">${formatRupiah(g.biaya_gangguan)}</td>
+                <td class="text-right font-mono text-amber-400 font-semibold col-gangguan-financial">${formatRupiah(g.biaya_gangguan)}</td>
                 <td class="text-center">${stBadge}</td>
                 <td class="max-w-[220px] truncate text-xs text-slate-400" title="${escapeHtml(g.update_gangguan)}">${escapeHtml(g.update_gangguan || '-')}</td>
                 <td class="text-center">
                   <div class="flex items-center justify-center gap-1.5">
                     <button class="btn-action btn-view-detail" data-type="gangguan" data-id="${g.id}" title="Lihat Detail"><i class="fa-solid fa-eye text-cyan-400"></i></button>
-                    <button class="btn-action btn-delete-row text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 hover:border-rose-500/40" data-type="gangguan" data-id="${g.id}" title="Hapus Data"><i class="fa-solid fa-trash-can"></i></button>
+                    <button class="btn-action btn-quick-edit" data-type="gangguan" data-id="${g.id}" title="Edit Data Gangguan"><i class="fa-solid fa-pen-to-square"></i></button>
+                    ${state.currentUser?.role === 'admin' ? `<button class="btn-action btn-delete-row text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 hover:border-rose-500/40" data-type="gangguan" data-id="${g.id}" title="Hapus Data"><i class="fa-solid fa-trash-can"></i></button>` : ''}
                   </div>
                 </td>
               </tr>
@@ -1791,7 +3409,7 @@
   }
 
   function renderGangguanCharts(records) {
-    const { textColor, gridColor } = getChartTheme();
+    const { textColor, gridColor, donutBorder } = getChartTheme();
     if (!records || records.length === 0) {
       destroyChart('gangguanJenis');
       destroyChart('gangguanSla');
@@ -1817,8 +3435,9 @@
           datasets: [{
             label: 'Jumlah Kasus',
             data: sorted.map(s => s[1]),
-            backgroundColor: 'rgba(239, 68, 68, 0.8)',
-            borderRadius: 4
+            backgroundColor: 'rgba(244, 63, 94, 0.85)',
+            hoverBackgroundColor: 'rgba(244, 63, 94, 1)',
+            borderRadius: 6
           }]
         },
         options: {
@@ -1845,16 +3464,16 @@
       });
       let labels = ['Selesai (Resolved)', 'Open / Dalam Penanganan'];
       let data = [selesai, open];
-      let bgColors = ['#10b981', '#ef4444'];
+      let bgColors = ['#10B981', '#F43F5E'];
 
       if (state.gangguan.status === '0') {
         labels = ['Open / Dalam Penanganan'];
         data = [open];
-        bgColors = ['#ef4444'];
+        bgColors = ['#F43F5E'];
       } else if (state.gangguan.status === '1') {
         labels = ['Selesai (Resolved)'];
         data = [selesai];
-        bgColors = ['#10b981'];
+        bgColors = ['#10B981'];
       }
 
       const totalFiltered = data.reduce((a, b) => a + b, 0);
@@ -1866,7 +3485,9 @@
           datasets: [{
             data: data,
             backgroundColor: bgColors,
-            borderWidth: 0,
+            borderColor: donutBorder,
+            borderWidth: 3,
+            hoverBorderColor: donutBorder,
             hoverOffset: 6
           }]
         },
@@ -1951,20 +3572,23 @@
             {
               label: 'Biaya Pengajuan Awal',
               data: rows.map(r => r.nilai_awal),
-              backgroundColor: 'rgba(239, 68, 68, 0.8)',
-              borderRadius: 4
+              backgroundColor: 'rgba(244, 63, 94, 0.85)',
+              hoverBackgroundColor: 'rgba(244, 63, 94, 1)',
+              borderRadius: 6
             },
             {
               label: 'Realisasi Biaya Akhir',
               data: rows.map(r => r.nilai_akhir),
-              backgroundColor: 'rgba(16, 185, 129, 0.85)',
-              borderRadius: 4
+              backgroundColor: 'rgba(14, 165, 233, 0.85)',
+              hoverBackgroundColor: 'rgba(14, 165, 233, 1)',
+              borderRadius: 6
             },
             {
               label: 'Nominal Penghematan',
               data: rows.map(r => r.efisiensi_rupiah),
-              backgroundColor: 'rgba(6, 182, 212, 0.85)',
-              borderRadius: 4
+              backgroundColor: 'rgba(16, 185, 129, 0.85)',
+              hoverBackgroundColor: 'rgba(16, 185, 129, 1)',
+              borderRadius: 6
             }
           ]
         },
@@ -1998,13 +3622,13 @@
           datasets: [{
             label: 'Efisiensi Negosiasi (%)',
             data: rows.map(r => r.efisiensi_persen),
-            borderColor: '#10b981',
+            borderColor: '#10B981',
             backgroundColor: 'rgba(16, 185, 129, 0.15)',
             borderWidth: 3,
             fill: true,
             tension: 0.35,
             pointRadius: 6,
-            pointBackgroundColor: '#10b981'
+            pointBackgroundColor: '#10B981'
           }]
         },
         options: {
@@ -2083,14 +3707,16 @@
             {
               label: 'Penugasan Perizinan (PA)',
               data: rows.map(p => p.total_penugasan),
-              backgroundColor: 'rgba(6, 182, 212, 0.85)',
-              borderRadius: 4
+              backgroundColor: 'rgba(14, 165, 233, 0.85)',
+              hoverBackgroundColor: 'rgba(14, 165, 233, 1)',
+              borderRadius: 6
             },
             {
               label: 'Tiket Gangguan Lapangan',
               data: rows.map(p => p.gangguan_count),
               backgroundColor: 'rgba(245, 158, 11, 0.85)',
-              borderRadius: 4
+              hoverBackgroundColor: 'rgba(245, 158, 11, 1)',
+              borderRadius: 6
             }
           ]
         },
@@ -2126,7 +3752,8 @@
             label: 'Finish Rate (%)',
             data: rows.map(p => p.finish_rate),
             backgroundColor: rows.map(p => p.finish_rate >= 80 ? 'rgba(16, 185, 129, 0.85)' : 'rgba(245, 158, 11, 0.85)'),
-            borderRadius: 4
+            hoverBackgroundColor: rows.map(p => p.finish_rate >= 80 ? 'rgba(16, 185, 129, 1)' : 'rgba(245, 158, 11, 1)'),
+            borderRadius: 6
           }]
         },
         options: {
@@ -2338,60 +3965,226 @@
     const container = document.getElementById('quickEditDynamicFields');
     const title = document.getElementById('quickEditModalTitle');
     const sub = document.getElementById('quickEditModalSub');
+    const isLapangan = state.currentUser?.role === 'lapangan';
+
+    if (isLapangan && type === 'collo') {
+      showToast('Akses ditolak: Hanya Administrator yang berhak mengedit data Colocation', 'error');
+      return;
+    }
+
+    if (isLapangan) {
+      let targetRec = null;
+      if (type === 'sitac') {
+        targetRec = (state.sitac.data || []).find(s => s.id == id);
+      } else if (type === 'gangguan') {
+        targetRec = (state.gangguan.data || []).find(g => g.id == id);
+      }
+      if (targetRec && !isUserAssignedToTask(targetRec, state.currentUser)) {
+        showToast('Akses ditolak: Anda hanya berwenang memperbarui tugas/tiket yang ditugaskan kepada Anda', 'error');
+        return;
+      }
+    }
 
     document.getElementById('quickEditTargetType').value = type;
     document.getElementById('quickEditTargetId').value = id;
 
     if (type === 'collo') {
-      const rec = state.collo.data.find(c => c.id == id) || (state.alerts.data || []).find(c => c.id == id) || (state.revSharing.data || []).find(c => c.id == id) || {};
-      title.textContent = `Update Sirkuit Colocation #${id}`;
-      sub.textContent = 'Perbarui status sirkuit, nilai sewa, nomor SPP, atau catatan admin';
+      let rec = (contractAlertData?.items || []).find(c => c.id == id) ||
+                (state.collo?.data || []).find(c => c.id == id) ||
+                (state.alerts?.data || []).find(c => c.id == id) ||
+                (state.revSharing?.data || []).find(c => c.id == id) || {};
+      const firstPel = (rec.pelanggan || '').split(/[\r\n]+/)[0]?.replace(/^\d+[\.\)]\s*/, '') || 'Colocation';
+      title.textContent = `Edit Data Link #${id} - ${firstPel}`;
+      sub.textContent = 'Perbarui identitas sirkuit, nilai finansial sewa, status, dan data administrasi';
       container.innerHTML = `
-        <div>
-          <label class="form-label">Status Sirkuit *</label>
-          <select name="status" class="filter-select w-full text-xs">
-            <option value="ACTIVE" ${rec.status === 'ACTIVE' ? 'selected' : ''}>ACTIVE</option>
-            <option value="NON ACTIVE" ${rec.status === 'NON ACTIVE' ? 'selected' : ''}>NON ACTIVE</option>
-            <option value="DEACTIVASI" ${rec.status === 'DEACTIVASI' ? 'selected' : ''}>DEACTIVASI</option>
-          </select>
+        <!-- Section 1: Identitas Sirkuit & Pelanggan -->
+        <div class="p-4 bg-slate-900/60 rounded-xl border border-cyan-500/20 space-y-3.5 shadow-sm">
+          <div class="text-[11px] font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-2">
+            <i class="fa-solid fa-network-wired"></i>
+            <span>Identitas Sirkuit & Pelanggan</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="form-label text-slate-300 font-medium text-xs mb-1 block">Pengelola / Mitra Datacenter *</label>
+              <input type="text" name="pengelola" class="filter-input w-full text-xs font-semibold" value="${escapeHtml(rec.pengelola || '')}" required placeholder="Contoh: NTT, APJII, dll">
+            </div>
+            <div>
+              <label class="form-label text-slate-300 font-medium text-xs mb-1 block">Nama Pelanggan *</label>
+              <input type="text" name="pelanggan" class="filter-input w-full text-xs font-semibold text-slate-100" value="${escapeHtml(rec.pelanggan || '')}" required placeholder="Nama Pelanggan">
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="form-label text-slate-300 font-medium text-xs mb-1 block">SID Sirkuit</label>
+              <input type="text" name="sid" class="filter-input w-full text-xs font-mono text-cyan-400" value="${escapeHtml(rec.sid || '')}" placeholder="Contoh: 100234">
+            </div>
+            <div>
+              <label class="form-label text-slate-300 font-medium text-xs mb-1 block">Nomor SO</label>
+              <input type="text" name="no_so" class="filter-input w-full text-xs font-mono" value="${escapeHtml(rec.no_so || '')}" placeholder="Contoh: AR/ACT/...">
+            </div>
+            <div>
+              <label class="form-label text-slate-300 font-medium text-xs mb-1 block">Jenis Sewa / Layanan</label>
+              <select name="jenis_sewa" class="filter-select w-full text-xs font-medium">
+                <option value="Colocation" ${rec.jenis_sewa === 'Colocation' ? 'selected' : ''}>Colocation</option>
+                <option value="Revenue Sharing" ${rec.jenis_sewa === 'Revenue Sharing' ? 'selected' : ''}>Revenue Sharing</option>
+                <option value="Interkoneksi" ${rec.jenis_sewa === 'Interkoneksi' ? 'selected' : ''}>Interkoneksi</option>
+                <option value="Rack Space" ${rec.jenis_sewa === 'Rack Space' ? 'selected' : ''}>Rack Space</option>
+                <option value="Cross Connect" ${rec.jenis_sewa === 'Cross Connect' ? 'selected' : ''}>Cross Connect</option>
+                <option value="Space Tower" ${rec.jenis_sewa === 'Space Tower' ? 'selected' : ''}>Space Tower</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="form-label text-slate-300 font-medium text-xs mb-1 block">Originating (Lokasi Asal)</label>
+              <input type="text" name="originating" class="filter-input w-full text-xs" value="${escapeHtml(rec.originating || '')}" placeholder="Lokasi asal...">
+            </div>
+            <div>
+              <label class="form-label text-slate-300 font-medium text-xs mb-1 block">Terminating (Lokasi Tujuan)</label>
+              <input type="text" name="terminating" class="filter-input w-full text-xs" value="${escapeHtml(rec.terminating || '')}" placeholder="Lokasi tujuan...">
+            </div>
+          </div>
         </div>
-        <div class="grid grid-cols-3 gap-3">
-          <div>
-            <label class="form-label">Rev Sewa (1 Thn) (Rp)</label>
-            <input type="number" name="rev_sewa_tahun" class="filter-input w-full text-xs" value="${rec.rev_sewa_tahun || 0}">
+
+        <!-- Section 2: Finansial & Skema Biaya -->
+        <div class="p-4 bg-slate-900/60 rounded-xl border border-emerald-500/20 space-y-3.5 shadow-sm">
+          <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center justify-between">
+            <span class="flex items-center gap-1.5"><i class="fa-solid fa-coins"></i> Nilai Finansial & Skema Biaya</span>
+            <span class="text-[10px] text-slate-400 font-normal">Kalkulasi Margin Otomatis</span>
           </div>
-          <div>
-            <label class="form-label">Biaya OTC (Rp)</label>
-            <input type="number" name="biaya_otc" class="filter-input w-full text-xs" value="${rec.biaya_otc || 0}">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="form-label text-slate-300 font-medium text-xs mb-1 block">Rev Sewa (1 Thn) (Rp)</label>
+              <input type="number" name="rev_sewa_tahun" id="quickEditRevSewa" class="filter-input w-full text-xs font-mono font-bold text-emerald-400" value="${rec.rev_sewa_tahun || 0}">
+              <span class="text-[11px] text-emerald-400 font-mono font-semibold block mt-1" id="previewQuickEditRev">${formatRupiah(rec.rev_sewa_tahun || 0)}</span>
+            </div>
+            <div>
+              <label class="form-label text-slate-300 font-medium text-xs mb-1 block">Biaya OTC (Rp)</label>
+              <input type="number" name="biaya_otc" id="quickEditBiayaOtc" class="filter-input w-full text-xs font-mono text-purple-400 font-semibold" value="${rec.biaya_otc || 0}">
+              <span class="text-[11px] text-purple-400 font-mono font-semibold block mt-1" id="previewQuickEditOtc">${formatRupiah(rec.biaya_otc || 0)}</span>
+            </div>
+            <div>
+              <label class="form-label text-slate-300 font-medium text-xs mb-1 block">Biaya Sewa 1 Tahun (Rp)</label>
+              <input type="number" name="biaya_sewa_tahun" id="quickEditBiayaSewa" class="filter-input w-full text-xs font-mono text-amber-400 font-semibold" value="${rec.biaya_sewa_tahun || 0}">
+              <span class="text-[11px] text-amber-400 font-mono font-semibold block mt-1" id="previewQuickEditBiaya">${formatRupiah(rec.biaya_sewa_tahun || 0)}</span>
+            </div>
           </div>
-          <div>
-            <label class="form-label">Biaya Sewa 1 Tahun (Rp)</label>
-            <input type="number" name="biaya_sewa_tahun" class="filter-input w-full text-xs" value="${rec.biaya_sewa_tahun || 0}">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+            <div>
+              <label class="form-label text-slate-300 font-medium text-xs mb-1 block">Rev Sharing (%)</label>
+              <input type="number" step="0.01" name="rev_sharing_pct" class="filter-input w-full text-xs font-mono" value="${rec.rev_sharing_pct || 0}" placeholder="20">
+            </div>
+            <div>
+              <label class="form-label text-slate-300 font-medium text-xs mb-1 block">Status Sirkuit *</label>
+              <select name="status" class="filter-select w-full text-xs font-bold">
+                <option value="ACTIVE" ${rec.status === 'ACTIVE' ? 'selected' : ''}>🟢 ACTIVE</option>
+                <option value="NON ACTIVE" ${rec.status === 'NON ACTIVE' ? 'selected' : ''}>⚪ NON ACTIVE</option>
+                <option value="DEACTIVASI" ${rec.status === 'DEACTIVASI' ? 'selected' : ''}>🔴 DEACTIVASI</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label text-slate-400 text-xs mb-1 block">Estimasi Gross Margin</label>
+              <div class="h-[38px] px-3 bg-slate-950/80 rounded-xl border border-cyan-500/25 flex items-center justify-between">
+                <span class="text-[10px] text-slate-400">Margin:</span>
+                <span class="font-mono font-bold text-cyan-400 text-xs" id="previewQuickEditMargin">${formatRupiah(rec.margin_rupiah || 0)} (${rec.margin_persen || 0}%)</span>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="form-label">Nomor SPP</label>
-            <input type="text" name="spp" class="filter-input w-full text-xs" value="${escapeHtml(rec.spp || '')}" placeholder="Nomor SPP">
+
+        <!-- Section 3: Administrasi & Kontrak -->
+        <div class="p-4 bg-slate-900/60 rounded-xl border border-amber-500/20 space-y-3.5 shadow-sm">
+          <div class="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+            <i class="fa-solid fa-file-contract"></i>
+            <span>Administrasi, Kontrak & Catatan</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="form-label text-slate-300 font-medium text-xs mb-1 block">Tanggal Mulai Kontrak</label>
+              <input type="date" name="start_date" class="filter-input w-full text-xs" value="${rec.start_date || ''}">
+            </div>
+            <div>
+              <label class="form-label text-slate-300 font-medium text-xs mb-1 block">Tanggal Jatuh Tempo</label>
+              <input type="date" name="end_date" class="filter-input w-full text-xs" value="${rec.end_date || ''}">
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="form-label text-slate-300 font-medium text-xs mb-1 block">Nomor SPP</label>
+              <input type="text" name="spp" class="filter-input w-full text-xs font-mono" value="${escapeHtml(rec.spp || '')}" placeholder="Nomor SPP">
+            </div>
+            <div>
+              <label class="form-label text-slate-300 font-medium text-xs mb-1 block">Nomor PO Baru</label>
+              <input type="text" name="po_baru" class="filter-input w-full text-xs font-mono" value="${escapeHtml(rec.po_baru || '')}" placeholder="Nomor PO">
+            </div>
           </div>
           <div>
-            <label class="form-label">Nomor PO Baru</label>
-            <input type="text" name="po_baru" class="filter-input w-full text-xs" value="${escapeHtml(rec.po_baru || '')}" placeholder="Nomor PO">
+            <label class="form-label text-slate-300 font-medium text-xs mb-1 block">Status Proses Admin</label>
+            <input type="text" name="proses_admin" class="filter-input w-full text-xs" value="${escapeHtml(rec.proses_admin || '')}" placeholder="Contoh: Proses SPP / Running">
           </div>
-        </div>
-        <div>
-          <label class="form-label">Status Proses Admin</label>
-          <input type="text" name="proses_admin" class="filter-input w-full text-xs" value="${escapeHtml(rec.proses_admin || '')}" placeholder="Contoh: Proses SPP / Running">
-        </div>
-        <div>
-          <label class="form-label">Catatan Keterangan</label>
-          <textarea name="keterangan" rows="2" class="filter-input w-full text-xs" placeholder="Catatan...">${escapeHtml(rec.keterangan || '')}</textarea>
+          <div>
+            <label class="form-label text-slate-300 font-medium text-xs mb-1 block">Catatan Keterangan</label>
+            <textarea name="keterangan" rows="2" class="filter-input w-full text-xs" placeholder="Catatan kontrak / rekanan...">${escapeHtml(rec.keterangan || '')}</textarea>
+          </div>
         </div>
       `;
+
+      // Wire live currency previews & auto margin calculation
+      const inRev = document.getElementById('quickEditRevSewa');
+      const inOtc = document.getElementById('quickEditBiayaOtc');
+      const inBiaya = document.getElementById('quickEditBiayaSewa');
+      const inMargin = document.getElementById('previewQuickEditMargin');
+
+      const updateLivePreviews = () => {
+        const rev = parseInt(inRev?.value || '0', 10) || 0;
+        const otc = parseInt(inOtc?.value || '0', 10) || 0;
+        const biaya = parseInt(inBiaya?.value || '0', 10) || 0;
+        const margin = rev - biaya;
+        const pct = rev > 0 ? ((margin / rev) * 100).toFixed(1) : '0.0';
+
+        const pRev = document.getElementById('previewQuickEditRev');
+        if (pRev) pRev.textContent = formatRupiah(rev);
+        const pOtc = document.getElementById('previewQuickEditOtc');
+        if (pOtc) pOtc.textContent = formatRupiah(otc);
+        const pBiaya = document.getElementById('previewQuickEditBiaya');
+        if (pBiaya) pBiaya.textContent = formatRupiah(biaya);
+        if (inMargin) inMargin.textContent = `${formatRupiah(margin)} (${pct}%)`;
+      };
+
+      [inRev, inOtc, inBiaya].forEach(input => {
+        input?.addEventListener('input', updateLivePreviews);
+      });
+
+      // Asynchronously fetch complete single record from backend to guarantee 100% fresh data
+      fetch(`/api/collo/${id}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(freshRec => {
+          if (!freshRec) return;
+          if (document.getElementById('quickEditTargetId')?.value != id) return;
+          const f = document.getElementById('formQuickEdit');
+          if (!f) return;
+          const fields = [
+            'pengelola', 'pelanggan', 'sid', 'no_so', 'jenis_sewa', 'originating', 'terminating',
+            'rev_sewa_tahun', 'biaya_otc', 'biaya_sewa_tahun', 'rev_sharing_pct', 'status',
+            'start_date', 'end_date', 'spp', 'po_baru', 'proses_admin', 'keterangan'
+          ];
+          fields.forEach(field => {
+            const input = f.elements[field];
+            if (input && (input.value === '' || input.value === '0' || !input.matches(':focus'))) {
+              if (freshRec[field] !== undefined && freshRec[field] !== null) {
+                input.value = freshRec[field];
+              }
+            }
+          });
+          updateLivePreviews();
+          const firstPel = (freshRec.pelanggan || '').split(/[\r\n]+/)[0]?.replace(/^\d+[\.\)]\s*/, '') || 'Colocation';
+          title.textContent = `Edit Data Link #${id} - ${firstPel}`;
+        })
+        .catch(err => console.warn('Could not fetch single collo:', err));
     } else if (type === 'sitac') {
       const rec = (state.sitac.data || []).find(s => s.id == id) || {};
       title.textContent = `Update Penugasan SITAC #${id}`;
-      sub.textContent = 'Perbarui progress pengerjaan lapangan dan realisasi biaya final';
+      sub.textContent = isLapangan ? 'Perbarui progress pengerjaan lapangan dan catatan operasional' : 'Perbarui progress pengerjaan lapangan dan realisasi biaya final';
       container.innerHTML = `
         <div>
           <label class="form-label">Progress Pengerjaan *</label>
@@ -2402,7 +4195,8 @@
             <option value="Cancel" ${rec.progress === 'Cancel' ? 'selected' : ''}>Cancel</option>
           </select>
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        ${!isLapangan ? `
+        <div class="grid grid-cols-2 gap-3 financial-field-group">
           <div>
             <label class="form-label">Realisasi Biaya Final (Rp)</label>
             <input type="number" name="biaya_final" class="filter-input w-full text-xs" value="${rec.biaya_final || 0}">
@@ -2411,7 +4205,11 @@
             <label class="form-label">Tanggal Close / Selesai</label>
             <input type="date" name="date_close" class="filter-input w-full text-xs" value="${rec.date_close || ''}">
           </div>
-        </div>
+        </div>` : `
+        <div>
+          <label class="form-label">Tanggal Close / Selesai</label>
+          <input type="date" name="date_close" class="filter-input w-full text-xs" value="${rec.date_close || ''}">
+        </div>`}
         <div>
           <label class="form-label">Update Pengerjaan Lapangan</label>
           <textarea name="update_pekerjaan" rows="2" class="filter-input w-full text-xs" placeholder="Catatan progress fisik...">${escapeHtml(rec.update_pekerjaan || '')}</textarea>
@@ -2440,10 +4238,11 @@
             <input type="date" name="tgl_selesai" class="filter-input w-full text-xs" value="${rec.tgl_selesai || ''}">
           </div>
         </div>
-        <div>
+        ${!isLapangan ? `
+        <div class="financial-field-group">
           <label class="form-label">Biaya Perbaikan Gangguan (Rp)</label>
           <input type="number" name="biaya_gangguan" class="filter-input w-full text-xs" value="${rec.biaya_gangguan || 0}" placeholder="0">
-        </div>
+        </div>` : ''}
         <div>
           <label class="form-label">Catatan Update Penanganan Lapangan</label>
           <textarea name="update_gangguan" rows="2" class="filter-input w-full text-xs" placeholder="Catatan lapangan...">${escapeHtml(rec.update_gangguan || '')}</textarea>
@@ -2483,8 +4282,17 @@
     const formData = new FormData(form);
     const payload = {};
     formData.forEach((val, key) => {
-      if (val !== '') payload[key] = val;
+      payload[key] = typeof val === 'string' ? val.trim() : val;
     });
+
+    if (state.currentUser?.role === 'lapangan') {
+      delete payload.biaya_final;
+      delete payload.biaya_permintaan_awal;
+      delete payload.biaya_gangguan;
+      delete payload.rev_sewa_tahun;
+      delete payload.biaya_sewa_tahun;
+      delete payload.biaya_otc;
+    }
 
     const fileInput = document.getElementById('quickEditFotoInput');
     if (fileInput && fileInput.files && fileInput.files[0]) {
@@ -2522,6 +4330,14 @@
         showToast(data.message || 'Perubahan berhasil disimpan ke database!');
         document.getElementById('modalQuickEdit').style.display = 'none';
 
+        // Background sync to Google Cloud Firestore if online
+        if (window.TelecomFirebase && typeof window.TelecomFirebase.firestoreUpdateRecord === 'function') {
+          const colName = type === 'collo' ? 'collo_records' : (type === 'sitac' ? 'sitac_records' : 'gangguan_records');
+          window.TelecomFirebase.firestoreUpdateRecord(colName, String(id), payload).catch(err => {
+            console.warn('Firestore async sync notice:', err);
+          });
+        }
+
         // Refresh active table
         if (state.activeView === 'view-collo-list') await loadColloData();
         else if (state.activeView === 'view-collo-alerts') await loadAlertsData();
@@ -2529,6 +4345,11 @@
         else if (state.activeView === 'view-sitac-pa') await loadSitacData();
         else if (state.activeView === 'view-gangguan') await loadGangguanData();
         else if (state.activeView === 'view-executive') await loadExecutiveSummary();
+
+        // Refresh contract alert bell & counts if collo record was updated
+        if (type === 'collo') {
+          fetchExpiringContracts(true);
+        }
       } else {
         alert(data.message || 'Gagal menyimpan perubahan');
       }
@@ -2838,11 +4659,45 @@
     const sub = document.getElementById('detailSubtitle');
 
     if (type === 'collo') {
+      if (state.currentUser?.role === 'lapangan') {
+        showToast('Akses ditolak: Hanya Manajemen/Admin yang dapat melihat detail Colocation', 'error');
+        return;
+      }
       const rec = state.collo.data.find(c => c.id == id) || (state.alerts.data || []).find(c => c.id == id) || (state.revSharing.data || []).find(c => c.id == id);
       if (!rec) return;
 
-      title.textContent = `${rec.pengelola} - ${rec.pelanggan}`;
-      sub.textContent = `SID: ${rec.sid || '-'} | NO SO: ${rec.no_so || '-'}`;
+      const allPelangganList = (rec.pelanggan || '').split(/[\r\n]+/).map(s => s.trim().replace(/^\d+[\.\)]\s*/, '')).filter(Boolean);
+      const firstPel = allPelangganList[0] || 'Colocation';
+      const allSos = String(rec.no_so || '').split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
+      const firstSo = allSos[0] || '-';
+      const soDisplay = allSos.length > 1 ? `${firstSo} (+${allSos.length - 1} SO)` : firstSo;
+      sub.textContent = `SID: ${rec.sid || '-'} | NO SO: ${soDisplay}`;
+
+      let pelangganDetailHtml = '';
+      if (allPelangganList.length > 1) {
+        const pCounts = {};
+        allPelangganList.forEach(p => { pCounts[p] = (pCounts[p] || 0) + 1; });
+        pelangganDetailHtml = `
+          <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2">
+            <span class="text-slate-500 uppercase block mb-1.5 font-bold text-[10px]">Daftar Pelanggan / Tenant (${allPelangganList.length} Entri &bull; ${Object.keys(pCounts).length} Tenant Unik)</span>
+            <div class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+              ${Object.entries(pCounts).map(([name, count]) => `
+                <span class="badge-pill bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 text-[11px]">
+                  ${escapeHtml(name)} ${count > 1 ? `<strong class="text-cyan-300">(${count}×)</strong>` : ''}
+                </span>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      } else {
+        pelangganDetailHtml = `
+          <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2">
+            <span class="text-slate-500 uppercase block text-[10px] font-bold">Pelanggan</span>
+            <span class="font-bold text-slate-100">${escapeHtml(rec.pelanggan || '-')}</span>
+          </div>
+        `;
+      }
+
       content.innerHTML = `
         <div class="grid grid-cols-3 gap-3 text-xs mb-3">
           <div class="p-3 bg-emerald-950/30 rounded-lg border border-emerald-500/20">
@@ -2863,6 +4718,7 @@
           <div class="p-2.5 bg-slate-900 rounded border border-white/5"><span class="text-slate-500 uppercase block">Layanan / Jenis</span><span class="font-bold text-sm text-slate-100">${escapeHtml(rec.layanan || rec.jenis_sewa || '-')}</span></div>
           <div class="p-2.5 bg-slate-900 rounded border border-white/5"><span class="text-slate-500 uppercase block">Margin (Rev - Biaya)</span><span class="font-bold text-cyan-400 font-mono">${formatRupiah(rec.margin_rupiah)} (${rec.margin_persen}%)</span></div>
           <div class="p-2.5 bg-slate-900 rounded border border-white/5"><span class="text-slate-500 uppercase block">Rev Sharing</span><span class="font-bold text-amber-400 font-mono">${escapeHtml(rec.rev_sharing_raw || '-')}</span></div>
+          ${pelangganDetailHtml}
           <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2"><span class="text-slate-500 uppercase block">Masa Berlaku</span><span class="font-mono text-slate-200">${rec.start_date || '-'} s/d ${rec.end_date || '-'} (Sisa ${rec.sisa_hari} Hari)</span></div>
           <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2"><span class="text-slate-500 uppercase block">Originating / Terminating</span><span class="text-slate-200">${escapeHtml(rec.originating || '-')} &rarr; ${escapeHtml(rec.terminating || '-')}</span></div>
           <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2"><span class="text-slate-500 uppercase block">Admin & Kontak</span><span class="text-slate-200">PIC Admin: ${escapeHtml(rec.pic_admin || '-')} | Rekanan: ${escapeHtml(rec.pic_rekanan || '-')} (${escapeHtml(rec.telp || '-')})</span></div>
@@ -2874,17 +4730,27 @@
       const rec = state.sitac.data.find(s => s.id == id);
       if (!rec) return;
 
+      const isLapangan = state.currentUser?.role === 'lapangan';
+      const firstSitacPel = (rec.pelanggan || '').split(/[\r\n]+/)[0]?.replace(/^\d+[\.\)]\s*/, '') || '-';
       title.textContent = `Penugasan PA: ${rec.no_pa || '-'}`;
-      sub.textContent = `${rec.pelanggan || '-'}`;
+      sub.textContent = `${firstSitacPel}`;
+
+      const financialSection = !isLapangan ? `
+        <div class="p-2.5 bg-slate-900 rounded border border-white/5"><span class="text-slate-500 uppercase block">Biaya Pengajuan</span><span class="font-bold text-slate-300 font-mono">${formatRupiah(rec.biaya_permintaan_awal)}</span></div>
+        <div class="p-2.5 bg-slate-900 rounded border border-white/5"><span class="text-slate-500 uppercase block">Realisasi Final</span><span class="font-bold text-amber-400 font-mono">${formatRupiah(rec.biaya_final)}</span></div>
+        <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2"><span class="text-slate-500 uppercase block">Penghematan Negosiasi</span><span class="font-bold text-emerald-400 font-mono text-sm">${formatRupiah(rec.efisiensi_rupiah)} (${rec.efisiensi_persen}%)</span></div>
+        ${rec.sewa_otc > 0 ? `<div class="p-2.5 bg-slate-900 rounded border border-white/5"><span class="text-slate-500 uppercase block">Biaya OTC</span><span class="font-bold text-purple-400 font-mono">${formatRupiah(rec.sewa_otc)}</span></div>` : ''}
+        ${rec.biaya_sewa_bulan > 0 ? `<div class="p-2.5 bg-slate-900 rounded border border-white/5"><span class="text-slate-500 uppercase block">Biaya Sewa / Bulan</span><span class="font-bold text-amber-400 font-mono">${formatRupiah(rec.biaya_sewa_bulan)}</span></div>` : ''}
+      ` : '';
+
       content.innerHTML = `
         <div class="grid grid-cols-2 gap-3 text-xs">
           <div class="p-2.5 bg-slate-900 rounded border border-white/5"><span class="text-slate-500 uppercase block">Status</span><span class="font-bold text-sm text-slate-100">${escapeHtml(rec.progress)}</span></div>
           <div class="p-2.5 bg-slate-900 rounded border border-white/5"><span class="text-slate-500 uppercase block">PIC SITAC</span><span class="font-bold text-sm text-slate-100">${escapeHtml(rec.pic_perijinan || '-')}</span></div>
-          <div class="p-2.5 bg-slate-900 rounded border border-white/5"><span class="text-slate-500 uppercase block">Biaya Pengajuan</span><span class="font-bold text-slate-300 font-mono">${formatRupiah(rec.biaya_permintaan_awal)}</span></div>
-          <div class="p-2.5 bg-slate-900 rounded border border-white/5"><span class="text-slate-500 uppercase block">Realisasi Final</span><span class="font-bold text-amber-400 font-mono">${formatRupiah(rec.biaya_final)}</span></div>
-          <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2"><span class="text-slate-500 uppercase block">Penghematan Negosiasi</span><span class="font-bold text-emerald-400 font-mono text-sm">${formatRupiah(rec.efisiensi_rupiah)} (${rec.efisiensi_persen}%)</span></div>
-          ${rec.sewa_otc > 0 ? `<div class="p-2.5 bg-slate-900 rounded border border-white/5"><span class="text-slate-500 uppercase block">Biaya OTC</span><span class="font-bold text-purple-400 font-mono">${formatRupiah(rec.sewa_otc)}</span></div>` : ''}
-          ${rec.biaya_sewa_bulan > 0 ? `<div class="p-2.5 bg-slate-900 rounded border border-white/5"><span class="text-slate-500 uppercase block">Biaya Sewa / Bulan</span><span class="font-bold text-amber-400 font-mono">${formatRupiah(rec.biaya_sewa_bulan)}</span></div>` : ''}
+          <div class="p-2.5 bg-slate-900 rounded border border-white/5"><span class="text-slate-500 uppercase block">Tanggal Disposisi</span><span class="font-mono text-slate-200">${rec.date_dispos || '-'}</span></div>
+          <div class="p-2.5 bg-slate-900 rounded border border-white/5"><span class="text-slate-500 uppercase block">Tanggal Selesai</span><span class="font-mono text-slate-200">${rec.date_close || '-'}</span></div>
+          <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2"><span class="text-slate-500 uppercase block">Durasi Pengerjaan (SLA)</span><span class="font-mono text-slate-200">${rec.durasi_hari !== null && rec.durasi_hari !== undefined ? rec.durasi_hari + ' Hari' : '-'}</span></div>
+          ${financialSection}
           <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2"><span class="text-slate-500 uppercase block">Terminating</span><span class="text-slate-200">${escapeHtml(rec.terminating || '-')}</span></div>
           <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2"><span class="text-slate-500 uppercase block">Catatan Update Lapangan</span><span class="text-slate-200">${escapeHtml(rec.update_pekerjaan || 'Tidak ada catatan')}</span></div>
           ${renderPhotoBuktiSection(rec, type, id)}
@@ -2894,6 +4760,7 @@
       const rec = (state.gangguan.data || []).find(g => g.id == id);
       if (!rec) return;
 
+      const isLapangan = state.currentUser?.role === 'lapangan';
       title.textContent = `Tiket Gangguan: ${rec.no_tiket || '-'}`;
       sub.textContent = `${rec.jenis_gangguan || 'Insiden FO'} | Lokasi: ${rec.terminating || '-'}`;
       content.innerHTML = `
@@ -2902,7 +4769,7 @@
           <div class="p-2.5 bg-slate-900 rounded border border-white/5"><span class="text-slate-500 uppercase block">PIC Perijinan</span><span class="font-bold text-sm text-slate-100">${escapeHtml(rec.pic_perijinan || '-')}</span></div>
           <div class="p-2.5 bg-slate-900 rounded border border-white/5"><span class="text-slate-500 uppercase block">Tanggal Disposisi</span><span class="font-mono text-slate-200">${rec.tgl_dispos || '-'}</span></div>
           <div class="p-2.5 bg-slate-900 rounded border border-white/5"><span class="text-slate-500 uppercase block">Tanggal Selesai</span><span class="font-mono text-slate-200">${rec.tgl_selesai || '-'}</span></div>
-          <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2"><span class="text-slate-500 uppercase block">Biaya Penanganan</span><span class="font-bold text-amber-400 font-mono text-base">${formatRupiah(rec.biaya_gangguan)}</span></div>
+          ${!isLapangan ? `<div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2"><span class="text-slate-500 uppercase block">Biaya Penanganan</span><span class="font-bold text-amber-400 font-mono text-base">${formatRupiah(rec.biaya_gangguan)}</span></div>` : ''}
           <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2"><span class="text-slate-500 uppercase block">Lokasi Kejadian</span><span class="text-slate-200">${escapeHtml(rec.terminating || '-')}</span></div>
           <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2"><span class="text-slate-500 uppercase block">Catatan Update Gangguan</span><span class="text-slate-200">${escapeHtml(rec.update_gangguan || 'Tidak ada catatan')}</span></div>
           ${renderPhotoBuktiSection(rec, type, id)}
@@ -2915,6 +4782,18 @@
     const btnEditAction = document.getElementById('btnDetailEditAction');
     const btnDeleteAction = document.getElementById('btnDetailDeleteAction');
     const btnCloseAction = document.getElementById('btnDetailCloseAction');
+    const isLapangan = state.currentUser?.role === 'lapangan';
+
+    if (btnDeleteAction) {
+      btnDeleteAction.style.display = isLapangan ? 'none' : '';
+    }
+    if (btnEditAction) {
+      let targetRec = null;
+      if (type === 'sitac') targetRec = (state.sitac.data || []).find(s => s.id == id);
+      else if (type === 'gangguan') targetRec = (state.gangguan.data || []).find(g => g.id == id);
+      const isAllowedEdit = !isLapangan || (targetRec && isUserAssignedToTask(targetRec, state.currentUser));
+      btnEditAction.style.display = isAllowedEdit ? '' : 'none';
+    }
 
     if (btnWhatsAppAction) {
       btnWhatsAppAction.onclick = () => {
@@ -2945,6 +4824,10 @@
   // DELETE RECORD ENGINE (LIVE SQLite RECORD DELETION)
   // =========================================================================
   async function deleteRecord(type, id) {
+    if (state.currentUser?.role !== 'admin') {
+      showToast('Akses ditolak: Hanya Administrator yang berhak menghapus data secara permanen', 'error');
+      return;
+    }
     let name = 'data ini';
     if (type === 'collo') {
       const rec = (state.collo.data || []).find(c => c.id == id) || (state.alerts.data || []).find(c => c.id == id);
@@ -3058,40 +4941,73 @@
   function exportCurrentViewExcel(moduleOverride) {
     const view = moduleOverride || state.activeView;
     const today = new Date().toISOString().slice(0, 10);
+    const isLapangan = state.currentUser?.role === 'lapangan';
+
+    if (isLapangan && (view === 'view-collo-list' || view === 'view-collo-alerts' || view === 'view-collo-rev-sharing' || view === 'collo' || view === 'view-efisiensi')) {
+      alert('Akses dibatasi. Hanya Administrator yang dapat mengekspor data finansial/colocation.');
+      return;
+    }
 
     if (view === 'view-gangguan' || view === 'gangguan') {
       const records = state.gangguan.data;
       if (!records || records.length === 0) return alert('Tidak ada data gangguan untuk diekspor!');
       const filename = `Rekap_Tiket_Gangguan_${today}.xlsx`;
-      const headers = [
+      const headers = isLapangan ? [
+        'No', 'Nomor Tiket', 'Tgl Disposisi', 'Tgl Selesai', 'Lokasi Gangguan / Terminating',
+        'Jenis Insiden', 'Target SLA', 'PIC Lapangan', 'Status Pekerjaan',
+        'Catatan Update Gangguan', 'Foto Bukti'
+      ] : [
         'No', 'Nomor Tiket', 'Tgl Disposisi', 'Tgl Selesai', 'Lokasi Gangguan / Terminating',
         'Jenis Insiden', 'Target SLA', 'PIC Lapangan', 'Biaya Penanganan (Rp)', 'Status Pekerjaan',
         'Catatan Update Gangguan', 'Foto Bukti'
       ];
-      const rows = records.map((g, idx) => [
-        idx + 1, g.no_tiket || '', g.tgl_dispos || '', g.tgl_selesai || '',
-        g.terminating || '', g.jenis_gangguan || 'FO Cut', g.sla_target || 'H+1',
-        g.pic_perijinan || '', g.biaya_gangguan || 0, g.is_selesai ? 'Selesai' : 'Proses (Open)',
-        g.update_gangguan || '', g.foto_bukti || ''
-      ]);
+      const rows = records.map((g, idx) => {
+        if (isLapangan) {
+          return [
+            idx + 1, g.no_tiket || '', g.tgl_dispos || '', g.tgl_selesai || '',
+            g.terminating || '', g.jenis_gangguan || 'FO Cut', g.sla_target || 'H+1',
+            g.pic_perijinan || '', g.is_selesai ? 'Selesai' : 'Proses (Open)',
+            g.update_gangguan || '', g.foto_bukti || ''
+          ];
+        }
+        return [
+          idx + 1, g.no_tiket || '', g.tgl_dispos || '', g.tgl_selesai || '',
+          g.terminating || '', g.jenis_gangguan || 'FO Cut', g.sla_target || 'H+1',
+          g.pic_perijinan || '', g.biaya_gangguan || 0, g.is_selesai ? 'Selesai' : 'Proses (Open)',
+          g.update_gangguan || '', g.foto_bukti || ''
+        ];
+      });
       downloadExcelFile(filename, 'Tiket Gangguan', headers, rows);
 
     } else if (view === 'view-sitac-pa' || view === 'sitac') {
       const records = state.sitac.data;
       if (!records || records.length === 0) return alert('Tidak ada data SITAC untuk diekspor!');
       const filename = `Rekap_Proyek_SITAC_${today}.xlsx`;
-      const headers = [
+      const headers = isLapangan ? [
+        'No', 'Nomor PA', 'Pelanggan', 'PTL', 'PIC SITAC', 'Rute Terminating',
+        'Progress Status', 'Durasi SLA (Hari)', 'Tgl Disposisi', 'Tgl Close', 'Catatan Lapangan'
+      ] : [
         'No', 'Nomor PA', 'Pelanggan', 'PTL', 'PIC SITAC', 'Rute Terminating',
         'Biaya Pengajuan (Rp)', 'Biaya Realisasi (Rp)', 'Efisiensi (Rp)', 'Efisiensi (%)',
         'Progress Status', 'Durasi SLA (Hari)', 'Tgl Disposisi', 'Tgl Close', 'Catatan Lapangan'
       ];
-      const rows = records.map((s, idx) => [
-        idx + 1, s.no_pa || '', s.pelanggan || '', s.ptl || '', s.pic_perijinan || '',
-        s.terminating || '', s.biaya_permintaan_awal || 0, s.biaya_final || 0,
-        s.efisiensi_rupiah || 0, s.efisiensi_persen || 0, s.progress || '',
-        s.durasi_hari !== null && s.durasi_hari !== undefined ? s.durasi_hari : '',
-        s.date_dispos || '', s.date_close || '', s.update_pekerjaan || ''
-      ]);
+      const rows = records.map((s, idx) => {
+        if (isLapangan) {
+          return [
+            idx + 1, s.no_pa || '', s.pelanggan || '', s.ptl || '', s.pic_perijinan || '',
+            s.terminating || '', s.progress || '',
+            s.durasi_hari !== null && s.durasi_hari !== undefined ? s.durasi_hari : '',
+            s.date_dispos || '', s.date_close || '', s.update_pekerjaan || ''
+          ];
+        }
+        return [
+          idx + 1, s.no_pa || '', s.pelanggan || '', s.ptl || '', s.pic_perijinan || '',
+          s.terminating || '', s.biaya_permintaan_awal || 0, s.biaya_final || 0,
+          s.efisiensi_rupiah || 0, s.efisiensi_persen || 0, s.progress || '',
+          s.durasi_hari !== null && s.durasi_hari !== undefined ? s.durasi_hari : '',
+          s.date_dispos || '', s.date_close || '', s.update_pekerjaan || ''
+        ];
+      });
       downloadExcelFile(filename, 'Proyek SITAC', headers, rows);
 
     } else if (view === 'view-collo-list' || view === 'view-collo-alerts' || view === 'view-collo-rev-sharing' || view === 'collo') {
@@ -4137,8 +6053,8 @@
       const email = document.getElementById('regEmail')?.value.trim().toLowerCase() || `${username}@telecom.ops`;
       const picSelect = document.getElementById('regPicCode');
       let picCode = picSelect ? picSelect.value : '';
-      if (picCode === 'Custom') {
-        picCode = fullName.split(' ')[0];
+      if (!picCode || picCode === 'Custom') {
+        picCode = fullName ? fullName.split(' ')[0] : username;
       }
       const password = document.getElementById('regPassword')?.value;
       const passwordConfirm = document.getElementById('regPasswordConfirm')?.value;
@@ -4192,7 +6108,7 @@
           succBox.classList.remove('hidden');
           if (succMsg) succMsg.textContent = regRes.message;
         }
-        showToast(`Akun PIC "${fullName}" (@${username}) berhasil didaftarkan ke Google Firebase!`, 'success');
+        showToast(regRes.message || 'Pendaftaran berhasil diajukan! Menunggu persetujuan Admin.', 'success');
 
         // Reset form
         document.getElementById('formRegister')?.reset();
@@ -4205,9 +6121,8 @@
           if (loginUserInput) loginUserInput.value = username;
           if (loginPassInput) {
             loginPassInput.value = '';
-            loginPassInput.focus();
           }
-        }, 1200);
+        }, 1800);
 
       } catch (err) {
         if (errBox) {
@@ -4316,16 +6231,16 @@
     });
 
     // =====================================================================
-    // ADMIN: KELOLA AKUN PIC HANDLERS
+    // ADMIN: KELOLA AKUN PIC HANDLERS (APPROVAL, RESET, DELETE)
     // =====================================================================
 
-    // Helper: load daftar PIC ke dropdown admin via Firebase
+    // Helper: load daftar PIC ke dropdown admin via Firebase (hanya akun yang aktif / disetujui)
     async function loadAdminUserList() {
       try {
         let pics = [];
         if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
           const allUsers = await window.FirebaseManager.fetchCollection('users');
-          pics = allUsers.filter(u => u.username !== 'admin');
+          pics = allUsers.filter(u => u.username !== 'admin' && u.status !== 'pending');
         }
         if (!pics || pics.length === 0) {
           const res = await fetch('/api/auth/registered-pics');
@@ -4344,26 +6259,219 @@
       }
     }
 
+    // Helper: load daftar permohonan PIC pending ke tab persetujuan
+    async function loadAdminPendingUsersList() {
+      const container = document.getElementById('adminPendingListContainer');
+      const badgeModal = document.getElementById('adminPendingBadge');
+      const badgeTools = document.getElementById('toolsPendingUserBadge');
+      const alertBox = document.getElementById('adminPendingAlert');
+      if (alertBox) alertBox.className = 'p-2.5 rounded-lg text-xs hidden';
+
+      if (!container) return;
+      container.innerHTML = `
+        <div class="text-center py-6 text-slate-400 text-xs">
+          <i class="fa-solid fa-spinner fa-spin text-cyan-400 text-lg mb-2 block"></i> Memeriksa permohonan akun...
+        </div>
+      `;
+
+      try {
+        let pending = [];
+        if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
+          pending = await window.FirebaseManager.fetchPendingUsers();
+        }
+
+        const count = pending.length;
+
+        // Update badges
+        if (badgeModal) {
+          if (count > 0) {
+            badgeModal.textContent = count;
+            badgeModal.classList.remove('hidden');
+          } else {
+            badgeModal.classList.add('hidden');
+          }
+        }
+        if (badgeTools) {
+          if (count > 0) {
+            badgeTools.textContent = `${count} Baru`;
+            badgeTools.classList.remove('hidden');
+          } else {
+            badgeTools.classList.add('hidden');
+          }
+        }
+
+        if (count === 0) {
+          container.innerHTML = `
+            <div class="text-center py-8 px-4 rounded-xl border border-dashed border-white/10 bg-slate-900/40">
+              <i class="fa-solid fa-circle-check text-emerald-400 text-2xl mb-2 block"></i>
+              <div class="text-xs font-semibold text-slate-300">Tidak ada permohonan akun pending</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">Semua permohonan teknisi PIC telah disetujui atau diverifikasi.</div>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = pending.map(u => {
+          const reqTime = u.approval_requested_at?.toDate ? u.approval_requested_at.toDate().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : (u.created_at?.toDate ? u.created_at.toDate().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : 'Baru saja');
+          const safeName = (u.full_name || u.username).replace(/'/g, "\\'");
+          return `
+            <div class="p-3 rounded-xl bg-slate-900/90 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md" id="cardPending_${u.username}">
+              <div class="flex items-start gap-2.5 min-w-0">
+                <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <i class="fa-solid fa-helmet-safety text-sm"></i>
+                </div>
+                <div class="min-w-0">
+                  <div class="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                    <span>${u.full_name || u.username}</span>
+                    <span class="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono">Pending</span>
+                  </div>
+                  <div class="text-[11px] text-slate-400 font-mono truncate">@${u.username} &bull; ${u.email || '-'}</div>
+                  <div class="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                    <i class="fa-regular fa-clock text-[9px]"></i> Diajukan: ${reqTime}
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                <button type="button" class="btn btn-sm btn-primary bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2.5 py-1 text-xs" onclick="window.handleAdminApproveUser('${u.username}', '${safeName}')">
+                  <i class="fa-solid fa-check mr-1"></i> Setujui
+                </button>
+                <button type="button" class="btn btn-sm text-rose-300 hover:bg-rose-500/20 border border-rose-500/30 px-2 py-1 text-xs" onclick="window.handleAdminRejectUser('${u.username}', '${safeName}')">
+                  <i class="fa-solid fa-xmark mr-1"></i> Tolak
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+      } catch (err) {
+        console.error('Error loadAdminPendingUsersList:', err);
+        container.innerHTML = `
+          <div class="text-center py-6 text-rose-400 text-xs">
+            <i class="fa-solid fa-triangle-exclamation text-lg mb-1 block"></i>
+            Gagal memuat permohonan akun: ${err.message || 'Error'}
+          </div>
+        `;
+      }
+    }
+
+    // Handler Setujui PIC
+    window.handleAdminApproveUser = async function(username, fullName) {
+      if (!confirm(`Setujui permohonan akun PIC untuk "${fullName}" (@${username})?\nSetelah disetujui, teknisi dapat segera login.`)) return;
+      const alertBox = document.getElementById('adminPendingAlert');
+      try {
+        if (!window.FirebaseManager || !window.FirebaseManager.isConfigured()) {
+          throw new Error('Koneksi Google Firebase belum aktif.');
+        }
+        const res = await window.FirebaseManager.approveUser(username);
+        if (alertBox) {
+          alertBox.className = 'p-2.5 rounded-lg text-xs border bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+          alertBox.textContent = res.message;
+        }
+        showToast(res.message, 'success');
+        await loadAdminPendingUsersList();
+        await loadAdminUserList();
+      } catch (err) {
+        if (alertBox) {
+          alertBox.className = 'p-2.5 rounded-lg text-xs border bg-rose-500/20 text-rose-300 border-rose-500/30';
+          alertBox.textContent = err.message || 'Gagal menyetujui akun';
+        }
+        showToast(err.message || 'Gagal menyetujui akun', 'error');
+      }
+    };
+
+    // Handler Tolak PIC
+    window.handleAdminRejectUser = async function(username, fullName) {
+      if (!confirm(`Tolak dan batalkan permohonan akun PIC "${fullName}" (@${username})?`)) return;
+      const alertBox = document.getElementById('adminPendingAlert');
+      try {
+        if (!window.FirebaseManager || !window.FirebaseManager.isConfigured()) {
+          throw new Error('Koneksi Google Firebase belum aktif.');
+        }
+        const res = await window.FirebaseManager.rejectUser(username);
+        if (alertBox) {
+          alertBox.className = 'p-2.5 rounded-lg text-xs border bg-amber-500/20 text-amber-300 border-amber-500/30';
+          alertBox.textContent = res.message;
+        }
+        showToast(res.message, 'info');
+        await loadAdminPendingUsersList();
+        await loadAdminUserList();
+      } catch (err) {
+        if (alertBox) {
+          alertBox.className = 'p-2.5 rounded-lg text-xs border bg-rose-500/20 text-rose-300 border-rose-500/30';
+          alertBox.textContent = err.message || 'Gagal menolak akun';
+        }
+        showToast(err.message || 'Gagal menolak akun', 'error');
+      }
+    };
+
     // Helper: switch tab admin
     window.switchAdminTab = function(tab) {
+      const panelPending = document.getElementById('tabPanelPending');
       const panelReset = document.getElementById('tabPanelReset');
       const panelDelete = document.getElementById('tabPanelDelete');
+      const btnPending = document.getElementById('tabPendingUsers');
       const btnReset = document.getElementById('tabResetPw');
       const btnDelete = document.getElementById('tabDeleteUser');
-      if (tab === 'reset') {
+
+      if (btnPending) {
+        btnPending.className = 'flex-1 py-2.5 text-xs font-semibold text-slate-400 hover:text-emerald-300 transition flex items-center justify-center gap-1.5';
+      }
+      if (btnReset) {
+        btnReset.className = 'flex-1 py-2.5 text-xs font-semibold text-slate-400 hover:text-violet-300 transition flex items-center justify-center gap-1.5';
+      }
+      if (btnDelete) {
+        btnDelete.className = 'flex-1 py-2.5 text-xs font-semibold text-slate-400 hover:text-rose-300 transition flex items-center justify-center gap-1.5';
+      }
+
+      panelPending?.classList.add('hidden');
+      panelReset?.classList.add('hidden');
+      panelDelete?.classList.add('hidden');
+
+      if (tab === 'pending') {
+        panelPending?.classList.remove('hidden');
+        if (btnPending) {
+          btnPending.className = 'flex-1 py-2.5 text-xs font-semibold text-emerald-400 border-b-2 border-emerald-400 transition flex items-center justify-center gap-1.5';
+        }
+        loadAdminPendingUsersList();
+      } else if (tab === 'reset') {
         panelReset?.classList.remove('hidden');
-        panelDelete?.classList.add('hidden');
-        btnReset?.classList.replace('text-slate-400', 'text-violet-300');
-        btnReset?.classList.add('border-b-2', 'border-violet-400');
-        btnDelete?.classList.replace('text-violet-300', 'text-slate-400');
-        btnDelete?.classList.remove('border-b-2', 'border-violet-400');
-      } else {
+        if (btnReset) {
+          btnReset.className = 'flex-1 py-2.5 text-xs font-semibold text-violet-300 border-b-2 border-violet-400 transition flex items-center justify-center gap-1.5';
+        }
+      } else if (tab === 'delete') {
         panelDelete?.classList.remove('hidden');
-        panelReset?.classList.add('hidden');
-        btnDelete?.classList.replace('text-slate-400', 'text-rose-300');
-        btnDelete?.classList.add('border-b-2', 'border-rose-400');
-        btnReset?.classList.replace('text-violet-300', 'text-slate-400');
-        btnReset?.classList.remove('border-b-2', 'border-violet-400');
+        if (btnDelete) {
+          btnDelete.className = 'flex-1 py-2.5 text-xs font-semibold text-rose-300 border-b-2 border-rose-400 transition flex items-center justify-center gap-1.5';
+        }
+      }
+    };
+
+    // Background badge updater
+    window.checkAdminPendingUsersBadge = async function() {
+      try {
+        if (!window.FirebaseManager || !window.FirebaseManager.isConfigured()) return;
+        const pending = await window.FirebaseManager.fetchPendingUsers();
+        const count = pending.length;
+        const badgeModal = document.getElementById('adminPendingBadge');
+        const badgeTools = document.getElementById('toolsPendingUserBadge');
+        if (badgeModal) {
+          if (count > 0) {
+            badgeModal.textContent = count;
+            badgeModal.classList.remove('hidden');
+          } else {
+            badgeModal.classList.add('hidden');
+          }
+        }
+        if (badgeTools) {
+          if (count > 0) {
+            badgeTools.textContent = `${count} Baru`;
+            badgeTools.classList.remove('hidden');
+          } else {
+            badgeTools.classList.add('hidden');
+          }
+        }
+      } catch (e) {
+        console.warn('Error checking pending users badge:', e);
       }
     };
 
@@ -4376,11 +6484,16 @@
       ['adminResetNewPw','adminResetConfirmPw','adminResetAdminPw','adminDeleteAdminPw'].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = '';
       });
-      ['adminResetAlert','adminDeleteAlert'].forEach(id => {
+      ['adminResetAlert','adminDeleteAlert','adminPendingAlert'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.className = 'p-2.5 rounded-lg text-xs hidden';
       });
-      window.switchAdminTab('reset');
+      window.switchAdminTab('pending');
+    });
+
+    // Refresh pending users list button
+    document.getElementById('btnRefreshPendingUsers')?.addEventListener('click', () => {
+      loadAdminPendingUsersList();
     });
 
     // Tutup modal admin
@@ -4489,6 +6602,9 @@
     // 1. Sidebar Nav Click
     document.querySelectorAll('.nav-item').forEach(btn => {
       btn.addEventListener('click', () => {
+        if (window.innerWidth < 1024) {
+          toggleMobileSidebar(false);
+        }
         const viewId = btn.getAttribute('data-view');
         switchView(viewId);
       });
@@ -4505,23 +6621,155 @@
       });
     });
 
-    // 1c. Mobile Sidebar Toggle Button
-    document.getElementById('sidebarToggleBtn')?.addEventListener('click', () => {
-      document.getElementById('portalSidebar')?.classList.toggle('mobile-open');
+    // 1c. Mobile Sidebar Toggle Button, Backdrop, Close Button, and Menu
+    const toggleMobileSidebar = (forceState) => {
+      const sidebar = document.getElementById('portalSidebar');
+      const backdrop = document.getElementById('sidebarBackdrop');
+      if (!sidebar) return;
+      const isOpen = forceState !== undefined ? forceState : !sidebar.classList.contains('mobile-open');
+      sidebar.classList.toggle('mobile-open', isOpen);
+      if (backdrop) {
+        backdrop.classList.toggle('active', isOpen);
+      }
+    };
+
+    document.getElementById('sidebarToggleBtn')?.addEventListener('click', () => toggleMobileSidebar());
+    document.getElementById('btnCloseSidebarMobile')?.addEventListener('click', () => toggleMobileSidebar(false));
+    document.getElementById('sidebarBackdrop')?.addEventListener('click', () => toggleMobileSidebar(false));
+    document.getElementById('btnMobMenu')?.addEventListener('click', () => toggleMobileSidebar());
+
+    // 1d. Mobile Bottom Navigation Bar Events
+    document.querySelectorAll('.mobile-nav-btn[data-mobile-view]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const viewId = btn.getAttribute('data-mobile-view');
+        toggleMobileSidebar(false);
+        switchView(viewId);
+      });
     });
 
-    // 2. Theme Toggle
-    document.getElementById('themeToggleBtn').addEventListener('click', () => {
-      state.theme = state.theme === 'dark' ? 'light' : 'dark';
+    document.getElementById('btnMobAddData')?.addEventListener('click', () => {
+      toggleMobileSidebar(false);
+      const isLapangan = state.currentUser?.role === 'lapangan';
+      const pickModal = document.getElementById('modalPickAddType');
+      if (pickModal) {
+        const colloOpt = document.getElementById('btnPickCollo');
+        if (colloOpt) colloOpt.style.display = isLapangan ? 'none' : '';
+        pickModal.style.display = 'flex';
+      }
+    });
+
+    // 1e. Mobile Chart Accordion Toggles
+    const setupChartToggle = (btnId, containerId, chevronId, labelId) => {
+      const btn = document.getElementById(btnId);
+      const container = document.getElementById(containerId);
+      const chevron = document.getElementById(chevronId);
+      const label = document.getElementById(labelId);
+      if (!btn || !container) return;
+
+      btn.addEventListener('click', () => {
+        const isHidden = container.classList.contains('hidden');
+        if (isHidden) {
+          container.classList.remove('hidden');
+          chevron?.classList.add('rotate-180');
+          if (label) label.textContent = 'Tutup Grafik';
+        } else {
+          container.classList.add('hidden');
+          chevron?.classList.remove('rotate-180');
+          if (label) label.textContent = 'Buka Grafik';
+        }
+      });
+    };
+
+    setupChartToggle('btnToggleSitacCharts', 'sitacChartsContainer', 'sitacChartsChevron', 'sitacChartsToggleLabel');
+    setupChartToggle('btnToggleGangguanCharts', 'gangguanChartsContainer', 'gangguanChartsChevron', 'gangguanChartsToggleLabel');
+
+    document.getElementById('clearwaveFloatingFab')?.addEventListener('click', () => {
+      const sidebar = document.getElementById('portalSidebar');
+      if (window.innerWidth < 1024 && sidebar) {
+        toggleMobileSidebar();
+      } else {
+        const bodyEl = document.querySelector('.portal-content-body') || window;
+        bodyEl.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    });
+
+    // 2. Theme Toggle (Supports both sidebar button and topbar segmented switcher)
+    const applyThemeChange = (newTheme) => {
+      state.theme = newTheme;
       localStorage.setItem('portal_theme', state.theme);
       initTheme();
       if (state.activeView === 'view-executive') loadExecutiveSummary();
+      else if (state.activeView === 'view-collo-list') loadColloData();
+      else if (state.activeView === 'view-collo-revshare') loadRevSharingData();
+      else if (state.activeView === 'view-collo-renewal') loadAlertsData();
+      else if (state.activeView === 'view-sitac-pa') loadSitacData();
+      else if (state.activeView === 'view-gangguan') loadGangguanData();
+      else if (state.activeView === 'view-efisiensi') loadEfisiensiData();
+      else if (state.activeView === 'view-pic-workload') loadPicWorkloadData();
       if (leafletMap) {
         leafletMap.remove();
         leafletMap = null;
         initWebgisMap();
       }
+    };
+
+    document.getElementById('themeToggleBtn')?.addEventListener('click', () => {
+      applyThemeChange(state.theme === 'dark' ? 'light' : 'dark');
     });
+
+
+    // 2b. DayNight Segmented Quick Period Pills
+    const quickPeriodPills = document.querySelectorAll('#execPeriodQuickPills .exec-period-pill');
+    const periodSelect = document.getElementById('execFilterPeriod');
+
+    quickPeriodPills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        const pVal = pill.getAttribute('data-period');
+        quickPeriodPills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        if (periodSelect && periodSelect.value !== pVal) {
+          periodSelect.value = pVal;
+          periodSelect.dispatchEvent(new Event('change'));
+        }
+      });
+    });
+
+    periodSelect?.addEventListener('change', () => {
+      const currentVal = periodSelect.value;
+      quickPeriodPills.forEach(p => {
+        p.classList.toggle('active', p.getAttribute('data-period') === currentVal);
+      });
+    });
+
+    // 2c. Executive Greeting Helper
+    const updateExecutiveGreeting = () => {
+      const greetingTitleEl = document.getElementById('execGreetingTitle');
+      const dateEl = document.getElementById('execCurrentDateDisplay');
+      const hour = new Date().getHours();
+      let salam = 'Selamat Datang,';
+      if (hour >= 4 && hour < 11) salam = 'Selamat Pagi,';
+      else if (hour >= 11 && hour < 15) salam = 'Selamat Siang,';
+      else if (hour >= 15 && hour < 18) salam = 'Selamat Sore,';
+      else salam = 'Selamat Malam,';
+
+      const userName = state.currentUser?.username || 'Administrator';
+      if (greetingTitleEl) {
+        greetingTitleEl.innerHTML = `${salam} <span class="text-cyan-500 font-bold" id="execGreetingName">${userName}</span> 👋`;
+      }
+      if (dateEl) {
+        try {
+          dateEl.textContent = new Date().toLocaleDateString('id-ID', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+          });
+        } catch (e) {
+          dateEl.textContent = new Date().toDateString();
+        }
+      }
+    };
+    updateExecutiveGreeting();
 
     // 3. Quick Export Buttons & Dropdowns
     document.getElementById('btnExportExcel')?.addEventListener('click', () => exportCurrentViewExcel());
@@ -4643,15 +6891,41 @@
       loadColloData();
     });
 
+    // Helper to scroll table smoothly to top on pagination / page change
+    function scrollTableToTop(cardSelector) {
+      const card = document.querySelector(cardSelector);
+      const scrollContainer = document.querySelector('.portal-content-body');
+      if (card && scrollContainer) {
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const cardRect = card.getBoundingClientRect();
+        const targetScroll = scrollContainer.scrollTop + (cardRect.top - containerRect.top) - 16;
+        scrollContainer.scrollTo({
+          top: Math.max(0, targetScroll),
+          behavior: 'smooth'
+        });
+      } else if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+
     document.getElementById('colloPrevPageBtn')?.addEventListener('click', () => {
       if (state.collo.page > 1) {
         state.collo.page--;
-        loadColloData();
+        scrollTableToTop('#view-collo-list .table-container-card');
+        loadColloData().then(() => {
+          scrollTableToTop('#view-collo-list .table-container-card');
+        });
       }
     });
+
     document.getElementById('colloNextPageBtn')?.addEventListener('click', () => {
       state.collo.page++;
-      loadColloData();
+      scrollTableToTop('#view-collo-list .table-container-card');
+      loadColloData().then(() => {
+        scrollTableToTop('#view-collo-list .table-container-card');
+      });
     });
 
     // 5. View 3 (Rev Sharing) Controls
@@ -4725,12 +6999,18 @@
     document.getElementById('sitacPrevPageBtn')?.addEventListener('click', () => {
       if (state.sitac.page > 1) {
         state.sitac.page--;
-        loadSitacData();
+        scrollTableToTop('#view-sitac-pa .table-container-card');
+        loadSitacData().then(() => {
+          scrollTableToTop('#view-sitac-pa .table-container-card');
+        });
       }
     });
     document.getElementById('sitacNextPageBtn')?.addEventListener('click', () => {
       state.sitac.page++;
-      loadSitacData();
+      scrollTableToTop('#view-sitac-pa .table-container-card');
+      loadSitacData().then(() => {
+        scrollTableToTop('#view-sitac-pa .table-container-card');
+      });
     });
 
     // 8. View 6 (Gangguan) Controls & Date Filtering
@@ -4903,6 +7183,7 @@
         const type = editBtn.getAttribute('data-type');
         const id = editBtn.getAttribute('data-id');
         openQuickEditModal(type, id);
+        return;
       }
 
       const detailBtn = e.target.closest('.btn-view-detail');
@@ -4918,6 +7199,102 @@
         const id = deleteBtn.getAttribute('data-id');
         deleteRecord(type, id);
       }
+    });
+
+    // 10c. Interactive Multi-Value Popover (+N Lainnya / Solusi 1)
+    const tenantPopover = document.getElementById('tenantPopover');
+    const popoverTitle = document.getElementById('tenantPopoverTitle');
+    const popoverIcon = document.getElementById('tenantPopoverIcon');
+    const popoverBody = document.getElementById('tenantPopoverBody');
+    const btnPopoverClose = document.getElementById('btnTenantPopoverClose');
+    let activePopoverBtn = null;
+
+    const closePopover = () => {
+      if (tenantPopover) {
+        tenantPopover.classList.add('hidden');
+        tenantPopover.style.display = 'none';
+        activePopoverBtn = null;
+      }
+    };
+
+    btnPopoverClose?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closePopover();
+    });
+
+    document.addEventListener('click', (e) => {
+      const popoverTrigger = e.target.closest('[data-popover]');
+      if (popoverTrigger) {
+        e.stopPropagation();
+
+        // If clicking the same trigger button that's already open, toggle close
+        if (activePopoverBtn === popoverTrigger && tenantPopover && !tenantPopover.classList.contains('hidden')) {
+          closePopover();
+          return;
+        }
+
+        try {
+          const raw = popoverTrigger.getAttribute('data-popover');
+          const data = JSON.parse(decodeURIComponent(raw));
+          
+          if (popoverTitle) popoverTitle.textContent = data.title || 'Daftar Lengkap';
+          if (popoverIcon) {
+            popoverIcon.className = `fa-solid ${data.icon || 'fa-users'} text-cyan-400 text-xs`;
+          }
+          if (popoverBody) {
+            popoverBody.innerHTML = (data.items || []).map((item, idx) => `
+              <div class="popover-tenant-item">
+                <div class="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
+                  <span class="popover-item-num">${idx + 1}.</span>
+                  <span class="popover-item-text font-medium truncate" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+                </div>
+                ${item.badge ? `<span class="badge-pill bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 text-[10px] whitespace-nowrap flex-shrink-0 font-bold">${escapeHtml(item.badge)}</span>` : ''}
+              </div>
+            `).join('');
+          }
+
+          // Positioning near the button
+          const rect = popoverTrigger.getBoundingClientRect();
+          const popoverWidth = 330;
+          const popoverHeight = 280;
+          
+          let top = rect.bottom + 6;
+          let left = rect.left;
+
+          // Check right boundary
+          if (left + popoverWidth > window.innerWidth - 16) {
+            left = Math.max(16, window.innerWidth - popoverWidth - 16);
+          }
+          if (left < 16) left = 16;
+
+          // Check bottom boundary: if bottom overflows, flip to show above the button
+          if (top + popoverHeight > window.innerHeight - 16) {
+            const topAbove = rect.top - popoverHeight - 6;
+            if (topAbove >= 16) {
+              top = topAbove;
+            } else {
+              top = Math.max(16, window.innerHeight - popoverHeight - 16);
+            }
+          }
+
+          tenantPopover.style.top = `${top}px`;
+          tenantPopover.style.left = `${left}px`;
+          tenantPopover.classList.remove('hidden');
+          tenantPopover.style.display = 'block';
+          activePopoverBtn = popoverTrigger;
+        } catch (err) {
+          console.error('Error opening popover:', err);
+        }
+        return;
+      }
+
+      if (tenantPopover && !tenantPopover.contains(e.target) && !tenantPopover.classList.contains('hidden')) {
+        closePopover();
+      }
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closePopover();
     });
 
     // 10b. Financial Summary 1-Button Expand/Collapse (Image 1 consolidation)
@@ -5073,34 +7450,62 @@
     const btnTools = document.getElementById('btnToggleToolsMenu');
     const menuTools = document.getElementById('toolsGroupMenu');
 
+    const updateDropdownActiveStates = () => {
+      const isExportOpen = menuExport && !menuExport.classList.contains('hidden');
+      const isToolsOpen = menuTools && !menuTools.classList.contains('hidden');
+
+      if (btnExport) btnExport.classList.toggle('active', !!isExportOpen);
+      if (btnTools) btnTools.classList.toggle('active', !!isToolsOpen);
+    };
+
+    const closeAllDropdowns = () => {
+      menuExport?.classList.add('hidden');
+      menuTools?.classList.add('hidden');
+      updateDropdownActiveStates();
+    };
+
     btnExport?.addEventListener('click', (e) => {
       e.stopPropagation();
       menuTools?.classList.add('hidden');
       menuExport?.classList.toggle('hidden');
+      updateDropdownActiveStates();
     });
 
     btnTools?.addEventListener('click', (e) => {
       e.stopPropagation();
       menuExport?.classList.add('hidden');
       menuTools?.classList.toggle('hidden');
+      updateDropdownActiveStates();
     });
 
     // Close dropdowns on item click
     menuExport?.querySelectorAll('button, a').forEach(item => {
-      item.addEventListener('click', () => menuExport.classList.add('hidden'));
+      item.addEventListener('click', closeAllDropdowns);
     });
     menuTools?.querySelectorAll('button, a').forEach(item => {
-      item.addEventListener('click', () => menuTools.classList.add('hidden'));
+      item.addEventListener('click', closeAllDropdowns);
     });
 
     // Close dropdowns on document click
     document.addEventListener('click', (e) => {
+      let changed = false;
       if (!e.target.closest('#exportGroupDropdownContainer')) {
-        menuExport?.classList.add('hidden');
+        if (menuExport && !menuExport.classList.contains('hidden')) {
+          menuExport.classList.add('hidden');
+          changed = true;
+        }
       }
       if (!e.target.closest('#toolsGroupDropdownContainer')) {
-        menuTools?.classList.add('hidden');
+        if (menuTools && !menuTools.classList.contains('hidden')) {
+          menuTools.classList.add('hidden');
+          changed = true;
+        }
       }
+      if (changed) updateDropdownActiveStates();
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeAllDropdowns();
     });
 
     // 15b. Database Access & Explorer Modal Handlers

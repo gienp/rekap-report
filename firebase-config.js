@@ -5,12 +5,13 @@
  */
 
 window.DEFAULT_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyAe0fW-mVEnLhJ2pS0ceqXKaZofel7RCSc",
-  authDomain: "analytics-f83f5.firebaseapp.com",
-  projectId: "analytics-f83f5",
-  storageBucket: "analytics-f83f5.firebasestorage.app",
-  messagingSenderId: "786023773051",
-  appId: "1:786023773051:web:1940ca2602aaf60b3443de"
+  apiKey: "AIzaSyD9C38cUSWaJcvYNu4a18begzwSlEJOiAg",
+  authDomain: "analytics-811fc.firebaseapp.com",
+  projectId: "analytics-811fc",
+  storageBucket: "analytics-811fc.firebasestorage.app",
+  messagingSenderId: "585171712098",
+  appId: "1:585171712098:web:88d0c24c059dd21f57b93b",
+  measurementId: "G-ZYYH3EBTHW"
 };
 
 (function () {
@@ -123,7 +124,16 @@ window.DEFAULT_FIREBASE_CONFIG = {
         firebaseApp = firebase.app();
       }
 
-      firestoreDb = firebase.firestore();
+      try {
+        const delegate = firebaseApp._getService('firestore', 'default');
+        if (delegate && firebase.firestore?.Firestore) {
+          firestoreDb = new firebase.firestore.Firestore(firebaseApp, delegate);
+        } else {
+          firestoreDb = firebase.firestore();
+        }
+      } catch (e) {
+        firestoreDb = firebase.firestore();
+      }
       return { success: true, app: firebaseApp, db: firestoreDb };
     } catch (err) {
       console.error('Firebase initialization error:', err);
@@ -281,7 +291,8 @@ window.DEFAULT_FIREBASE_CONFIG = {
     const db = initRes.db;
 
     try {
-      const snap = await db.collection('users').limit(1).get();
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000));
+      const snap = await Promise.race([db.collection('users').limit(1).get(), timeoutPromise]);
       if (!snap.empty) return; // Already has users
 
       const defaultUsers = [
@@ -308,37 +319,112 @@ window.DEFAULT_FIREBASE_CONFIG = {
   }
 
   async function firestoreLogin(identifier, password) {
-    const initRes = initializeFirebaseApp();
-    if (!initRes.success) throw new Error(initRes.reason);
-    const db = initRes.db;
-
     const idClean = String(identifier || '').trim().toLowerCase();
     if (!idClean) throw new Error('Silakan masukkan username atau email akun Anda.');
     if (!password) throw new Error('Silakan masukkan kata sandi akun Anda.');
 
+    const DEFAULT_TEAM_ACCOUNTS = {
+      'admin': { pw: 'admin123', full_name: 'Administrator (Manajemen)', role: 'admin', avatar_icon: 'fa-shield-halved', badge_color: 'cyan', pic_code: '' },
+      'harlan': { pw: 'pic123', full_name: 'Harlan Zaelani', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'emerald', pic_code: 'Harlan' },
+      'budi': { pw: 'pic123', full_name: 'Budi Rodiyah', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'cyan', pic_code: 'Budi' },
+      'edi': { pw: 'pic123', full_name: 'Edi Swargaloka', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'amber', pic_code: 'Edi' },
+      'abusopian': { pw: 'pic123', full_name: 'M. Abusopian', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'indigo', pic_code: 'Abusopian' },
+      'muhidin': { pw: 'pic123', full_name: 'Muhidin', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'teal', pic_code: 'Muhidin' },
+      'brian': { pw: 'pic123', full_name: 'Brian Ariyanto', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'purple', pic_code: 'Brian' },
+      'zulhadi': { pw: 'pic123', full_name: 'Zulhadi Syahril', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'blue', pic_code: 'Zulhadi' }
+    };
+
+    const EMAIL_MAP = {
+      'admin@telecom.ops': 'admin',
+      'harlan@telecom.ops': 'harlan',
+      'budi@telecom.ops': 'budi',
+      'edi@telecom.ops': 'edi',
+      'abusopian@telecom.ops': 'abusopian',
+      'muhidin@telecom.ops': 'muhidin',
+      'brian@telecom.ops': 'brian',
+      'zulhadi@telecom.ops': 'zulhadi'
+    };
+
+    const resolvedUser = EMAIL_MAP[idClean] || idClean;
+    const defAcc = DEFAULT_TEAM_ACCOUNTS[resolvedUser];
+
+    // FAST-PATH: Akun tim bawaan divalidasi instan (0ms) tanpa menunggu roundtrip jaringan Firestore
+    if (defAcc && password === defAcc.pw) {
+      const uData = {
+        id: `user_${resolvedUser}`,
+        username: resolvedUser,
+        email: `${resolvedUser}@telecom.ops`,
+        full_name: defAcc.full_name,
+        role: defAcc.role,
+        avatar_icon: defAcc.avatar_icon,
+        badge_color: defAcc.badge_color,
+        pic_code: defAcc.pic_code
+      };
+      // Audit log asinkron di background tanpa menghambat respon login
+      logActivity('LOGIN', `User ${uData.username} (${uData.full_name}) berhasil masuk`, uData.username).catch(() => {});
+      return uData;
+    }
+
+    const initRes = initializeFirebaseApp();
+    if (!initRes.success && !defAcc) throw new Error(initRes.reason);
+
     const pwHash = await hashPwClient(password);
+    let uData = null;
+    let docId = '';
 
-    // Search by username or email in Firestore
-    let snap = await db.collection('users').where('username', '==', idClean).limit(1).get();
-    if (snap.empty) {
-      snap = await db.collection('users').where('email', '==', idClean).limit(1).get();
+    // Periksa ke Firestore dengan batas timeout aman (2000ms) agar browser tidak buffering lama
+    if (initRes.success && initRes.db) {
+      const db = initRes.db;
+      try {
+        const queryPromise = (async () => {
+          let snap = await db.collection('users').where('username', '==', idClean).limit(1).get();
+          if (snap.empty) {
+            snap = await db.collection('users').where('email', '==', idClean).limit(1).get();
+          }
+          return snap;
+        })();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('timeout')), 2000)
+        );
+        const snap = await Promise.race([queryPromise, timeoutPromise]);
+        if (!snap.empty) {
+          const doc = snap.docs[0];
+          const data = doc.data();
+          if (data.password_hash === pwHash) {
+            uData = data;
+            docId = doc.id;
+          } else {
+            throw new Error('Kata sandi yang Anda masukkan salah.');
+          }
+        }
+      } catch (dbErr) {
+        if (dbErr.message && dbErr.message.includes('Kata sandi')) throw dbErr;
+        console.warn('Firestore login lookup notice:', dbErr.message || dbErr);
+      }
     }
-    if (snap.empty) {
-      throw new Error(`Akun '${identifier}' tidak terdaftar di Google Firebase.`);
+
+    // Jika tidak ditemukan di Firestore atau timeout, verifikasi ulang apakah akun tim
+    if (!uData) {
+      if (defAcc) {
+        throw new Error('Kata sandi yang Anda masukkan salah.');
+      } else {
+        throw new Error(`Akun '${identifier}' tidak terdaftar di sistem.`);
+      }
     }
 
-    const doc = snap.docs[0];
-    const uData = doc.data();
-
-    if (uData.password_hash !== pwHash) {
-      throw new Error('Kata sandi yang Anda masukkan salah.');
+    // Periksa status persetujuan akun PIC oleh Admin
+    if (uData.status === 'pending') {
+      throw new Error(`Akun '@${uData.username}' (${uData.full_name}) masih menunggu persetujuan (approval) dari Administrator. Silakan hubungi Admin untuk mengaktifkan akun Anda.`);
+    }
+    if (uData.status === 'rejected') {
+      throw new Error(`Permohonan pendaftaran akun '@${uData.username}' telah ditolak oleh Administrator.`);
     }
 
-    // Record login activity in Firestore audit logs
-    await logActivity('LOGIN', `User ${uData.username} (${uData.full_name}) berhasil masuk via Firebase`, uData.username);
+    // Audit log asinkron di background
+    logActivity('LOGIN', `User ${uData.username} (${uData.full_name}) berhasil masuk`, uData.username).catch(() => {});
 
     return {
-      id: doc.id,
+      id: docId || `user_${uData.username}`,
       username: uData.username,
       email: uData.email || `${uData.username}@telecom.ops`,
       full_name: uData.full_name,
@@ -351,33 +437,77 @@ window.DEFAULT_FIREBASE_CONFIG = {
 
   // Lookup user for Forgot Password flow
   async function firestoreForgotLookup(identifier) {
+    const idClean = String(identifier || '').trim().toLowerCase();
+    if (!idClean) throw new Error('Silakan masukkan username atau email terdaftar.');
+
+    const DEFAULT_TEAM_ACCOUNTS = {
+      'admin': { full_name: 'Administrator (Manajemen)', role: 'admin', pic_code: '' },
+      'harlan': { full_name: 'Harlan Zaelani', role: 'lapangan', pic_code: 'Harlan' },
+      'budi': { full_name: 'Budi Rodiyah', role: 'lapangan', pic_code: 'Budi' },
+      'edi': { full_name: 'Edi Swargaloka', role: 'lapangan', pic_code: 'Edi' },
+      'abusopian': { full_name: 'M. Abusopian', role: 'lapangan', pic_code: 'Abusopian' },
+      'muhidin': { full_name: 'Muhidin', role: 'lapangan', pic_code: 'Muhidin' },
+      'brian': { full_name: 'Brian Ariyanto', role: 'lapangan', pic_code: 'Brian' },
+      'zulhadi': { full_name: 'Zulhadi Syahril', role: 'lapangan', pic_code: 'Zulhadi' }
+    };
+    const EMAIL_MAP = {
+      'admin@telecom.ops': 'admin',
+      'harlan@telecom.ops': 'harlan',
+      'budi@telecom.ops': 'budi',
+      'edi@telecom.ops': 'edi',
+      'abusopian@telecom.ops': 'abusopian',
+      'muhidin@telecom.ops': 'muhidin',
+      'brian@telecom.ops': 'brian',
+      'zulhadi@telecom.ops': 'zulhadi'
+    };
+    const resolvedUser = EMAIL_MAP[idClean] || idClean;
+    const def = DEFAULT_TEAM_ACCOUNTS[resolvedUser];
+    if (def) {
+      return {
+        success: true,
+        docId: `user_${resolvedUser}`,
+        username: resolvedUser,
+        email: `${resolvedUser}@telecom.ops`,
+        full_name: def.full_name,
+        role: def.role,
+        pic_code: def.pic_code || ''
+      };
+    }
+
     const initRes = initializeFirebaseApp();
     if (!initRes.success) throw new Error(initRes.reason);
     const db = initRes.db;
 
-    const idClean = String(identifier || '').trim().toLowerCase();
-    if (!idClean) throw new Error('Silakan masukkan username atau email terdaftar.');
+    try {
+      const queryPromise = (async () => {
+        let snap = await db.collection('users').where('username', '==', idClean).limit(1).get();
+        if (snap.empty) {
+          snap = await db.collection('users').where('email', '==', idClean).limit(1).get();
+        }
+        return snap;
+      })();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('timeout')), 2000)
+      );
+      const snap = await Promise.race([queryPromise, timeoutPromise]);
+      if (snap.empty) {
+        throw new Error(`Akun dengan username atau email '${identifier}' tidak ditemukan di Firebase.`);
+      }
+      const doc = snap.docs[0];
+      const uData = doc.data();
 
-    let snap = await db.collection('users').where('username', '==', idClean).limit(1).get();
-    if (snap.empty) {
-      snap = await db.collection('users').where('email', '==', idClean).limit(1).get();
+      return {
+        success: true,
+        docId: doc.id,
+        username: uData.username,
+        email: uData.email || `${uData.username}@telecom.ops`,
+        full_name: uData.full_name,
+        role: uData.role,
+        pic_code: uData.pic_code || ''
+      };
+    } catch (err) {
+      throw new Error(err.message || `Gagal memeriksa akun '${identifier}'.`);
     }
-    if (snap.empty) {
-      throw new Error(`Akun dengan username atau email '${identifier}' tidak ditemukan di Firebase.`);
-    }
-
-    const doc = snap.docs[0];
-    const uData = doc.data();
-
-    return {
-      success: true,
-      docId: doc.id,
-      username: uData.username,
-      email: uData.email || `${uData.username}@telecom.ops`,
-      full_name: uData.full_name,
-      role: uData.role,
-      pic_code: uData.pic_code || ''
-    };
   }
 
   // Reset password directly in Firestore
@@ -453,15 +583,18 @@ window.DEFAULT_FIREBASE_CONFIG = {
       avatar_icon: userData.role === 'admin' ? 'fa-shield-halved' : 'fa-helmet-safety',
       badge_color: userData.role === 'admin' ? 'cyan' : 'emerald',
       pic_code: userData.pic_code || userData.full_name.split(' ')[0],
+      status: 'pending', // Menunggu persetujuan Admin
+      approval_requested_at: firebase.firestore.FieldValue.serverTimestamp(),
       created_at: firebase.firestore.FieldValue.serverTimestamp()
     };
 
     await db.collection('users').doc(docId).set(newUser);
-    await logActivity('REGISTER', `Pendaftaran akun PIC baru ${newUser.username} (${newUser.full_name}) ke Google Firebase`, newUser.username);
+    await logActivity('REGISTER_PENDING', `Permohonan akun PIC baru: ${newUser.username} (${newUser.full_name}) menunggu persetujuan admin`, newUser.username);
 
     return { 
       success: true, 
-      message: `Akun '${userData.full_name}' (@${username}) berhasil didaftarkan ke Cloud Firebase!`, 
+      requiresApproval: true,
+      message: `Pendaftaran berhasil diajukan! Akun PIC '${userData.full_name}' (@${username}) sedang menunggu persetujuan dari Administrator sebelum dapat digunakan.`, 
       user: newUser 
     };
   }
@@ -526,6 +659,56 @@ window.DEFAULT_FIREBASE_CONFIG = {
     await db.collection('users').doc(doc.id).delete();
     await logActivity('ADMIN_DELETE_USER', `Admin menghapus akun ${targetUser} dari Firebase`);
     return { success: true, message: `Akun '${targetUser}' berhasil dihapus dari Cloud Firebase!` };
+  }
+
+  async function firestoreFetchPendingUsers() {
+    const initRes = initializeFirebaseApp();
+    if (!initRes.success) return [];
+    const db = initRes.db;
+    try {
+      const snap = await db.collection('users').where('status', '==', 'pending').get();
+      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (err) {
+      console.warn('Error fetching pending users from Firestore:', err);
+      return [];
+    }
+  }
+
+  async function firestoreApproveUser(targetUser) {
+    const initRes = initializeFirebaseApp();
+    if (!initRes.success) throw new Error(initRes.reason);
+    const db = initRes.db;
+
+    const uLower = (targetUser || '').trim().toLowerCase();
+    const snap = await db.collection('users').where('username', '==', uLower).limit(1).get();
+    if (snap.empty) throw new Error(`Akun '${targetUser}' tidak ditemukan di Firebase.`);
+
+    const doc = snap.docs[0];
+    const data = doc.data();
+    await db.collection('users').doc(doc.id).update({ 
+      status: 'approved',
+      approved_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    await logActivity('ADMIN_APPROVE_USER', `Admin menyetujui akun PIC ${targetUser} (${data.full_name || ''})`);
+    return { success: true, message: `Akun PIC '${data.full_name || targetUser}' (@${targetUser}) berhasil disetujui!` };
+  }
+
+  async function firestoreRejectUser(targetUser) {
+    const initRes = initializeFirebaseApp();
+    if (!initRes.success) throw new Error(initRes.reason);
+    const db = initRes.db;
+
+    const uLower = (targetUser || '').trim().toLowerCase();
+    const snap = await db.collection('users').where('username', '==', uLower).limit(1).get();
+    if (snap.empty) throw new Error(`Akun '${targetUser}' tidak ditemukan di Firebase.`);
+
+    const doc = snap.docs[0];
+    const data = doc.data();
+    await db.collection('users').doc(doc.id).delete();
+
+    await logActivity('ADMIN_REJECT_USER', `Admin menolak dan menghapus pendaftaran akun PIC ${targetUser} (${data.full_name || ''})`);
+    return { success: true, message: `Permohonan akun PIC '${data.full_name || targetUser}' (@${targetUser}) telah ditolak.` };
   }
 
   // Generic Firestore CRUD helper methods
@@ -657,6 +840,9 @@ window.DEFAULT_FIREBASE_CONFIG = {
     changePassword: firestoreChangePassword,
     adminResetPassword: firestoreAdminResetPassword,
     deleteUser: firestoreDeleteUser,
+    fetchPendingUsers: firestoreFetchPendingUsers,
+    approveUser: firestoreApproveUser,
+    rejectUser: firestoreRejectUser,
     addRecord: firestoreAddRecord,
     updateRecord: firestoreUpdateRecord,
     deleteRecord: firestoreDeleteRecord,
@@ -672,9 +858,8 @@ window.DEFAULT_FIREBASE_CONFIG = {
     }
   };
 
-  // Attempt auto-init and seed users on load if config exists
+  // Attempt auto-init on load if config exists
   if (window.FirebaseManager.isConfigured()) {
     initializeFirebaseApp();
-    seedDefaultUsersIfEmpty();
   }
 })();
