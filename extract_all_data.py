@@ -372,7 +372,7 @@ def process_collo_file():
         status_raw = clean_text(r[22] if len(r) > 22 else "").upper()
         if "ACTIVE" in status_raw and "NON" not in status_raw and "DE" not in status_raw:
             status = "ACTIVE"
-        elif "DEACTIVASI" in status_raw or "DEAKTIVASI" in status_raw:
+        elif "DEACTIVASI" in status_raw or "DEAKTIVASIl" in status_raw:
             status = "DEACTIVASI"
         elif "NON" in status_raw:
             status = "NON ACTIVE"

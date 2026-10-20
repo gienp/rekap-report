@@ -1,0 +1,49 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      ".firebaserc",
+      "**/.*",
+      "**/node_modules/**",
+      "*.db",
+      "*.xlsx",
+      "*.py",
+      "scratch/**",
+      "functions/**",
+      "dataconnect/**",
+      "uploads/**",
+      "*.log",
+      "telecom_portal_backup*.db",
+      "sitac_collo_data.json",
+      "sitac_data.json",
+      "sitac_data.js",
+      "*.md",
+      "package-lock.json"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      }
+    ]
+  },
+  "firestore": [
+    {
+      "database": "default",
+      "rules": "firestore.rules",
+      "indexes": "firestore.indexes.json"
+    }
+  ]
+}

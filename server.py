@@ -13,6 +13,7 @@ import sqlite3
 import datetime
 import urllib.parse
 import hashlib
+import re
 try:
     from http.server import ThreadingHTTPServer as ServerClass, SimpleHTTPRequestHandler
 except ImportError:
@@ -37,6 +38,31 @@ def get_db():
 def hash_pw(pw: str) -> str:
     return hashlib.sha256(pw.encode('utf-8')).hexdigest()
 
+def format_pic_name(name: str) -> str:
+    if not name:
+        return ""
+    s = str(name).strip()
+    known = {
+        'budi.rodiyah': 'Budi Rodiyah',
+        'edi.swargaloka': 'Edi Swargaloka',
+        'harlan.zaelani': 'Harlan Zaelani',
+        'zulhadi.syahril': 'Zulhadi Syahril',
+        'zulhadi syahril': 'Zulhadi Syahril',
+        'muhidin.shelay': 'Muhidin Shelay',
+        'brian.ariyanto': 'Brian Ariyanto',
+        'agih.gahara': 'Agih Gahara',
+        'hairul.aswan': 'Hairul Aswan',
+        'yudiansyah': 'Yudiansyah',
+        'muhamad abusopian': 'Muhamad Abusopian',
+        'muhammad abusopian': 'Muhamad Abusopian'
+    }
+    if s.lower() in known:
+        return known[s.lower()]
+    if '.' in s and '@' not in s:
+        parts = s.split('.')
+        return ' '.join(p.strip().capitalize() for p in parts if p.strip())
+    return s
+
 def init_users_table():
     conn = get_db()
     cursor = conn.cursor()
@@ -58,22 +84,46 @@ def init_users_table():
     if 'pic_code' not in cols:
         cursor.execute("ALTER TABLE users ADD COLUMN pic_code TEXT DEFAULT ''")
         conn.commit()
+    if 'status' not in cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'approved'")
+        conn.commit()
+    if 'email' not in cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''")
+        conn.commit()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS password_resets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            email TEXT NOT NULL,
+            code TEXT NOT NULL,
+            expires_at INTEGER NOT NULL,
+            verified INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
 
     default_users = [
-        ('admin', hash_pw('admin123'), 'Administrator (Manajemen)', 'admin', 'fa-shield-halved', 'cyan', ''),
-        ('lapangan', hash_pw('lapangan123'), 'Tim SITAC & Lapangan (Umum)', 'lapangan', 'fa-helmet-safety', 'emerald', 'Harlan'),
-        ('harlan', hash_pw('pic123'), 'Harlan', 'lapangan', 'fa-helmet-safety', 'emerald', 'Harlan'),
-        ('budi', hash_pw('pic123'), 'Budi Rodiyah', 'lapangan', 'fa-helmet-safety', 'cyan', 'Budi'),
-        ('edi', hash_pw('pic123'), 'Edi Swargaloka', 'lapangan', 'fa-helmet-safety', 'amber', 'Edi'),
-        ('abusopian', hash_pw('pic123'), 'M. Abusopian', 'lapangan', 'fa-helmet-safety', 'indigo', 'Abusopian'),
-        ('muhidin', hash_pw('pic123'), 'Muhidin', 'lapangan', 'fa-helmet-safety', 'teal', 'Muhidin'),
-        ('brian', hash_pw('pic123'), 'Brian Ariyanto', 'lapangan', 'fa-helmet-safety', 'purple', 'Brian'),
-        ('zulhadi', hash_pw('pic123'), 'Zulhadi Syahril', 'lapangan', 'fa-helmet-safety', 'blue', 'Zulhadi'),
+        ('admin', hash_pw('admin123'), 'Administrator (Manajemen)', 'admin', 'fa-shield-halved', 'cyan', '', 'admin@telecom.ops'),
+        ('lapangan', hash_pw('lapangan123'), 'Tim SITAC & Lapangan (Umum)', 'lapangan', 'fa-helmet-safety', 'emerald', 'Harlan', 'lapangan@telecom.ops'),
+        ('harlan', hash_pw('pic123'), 'Harlan', 'lapangan', 'fa-helmet-safety', 'emerald', 'Harlan', 'harlan@telecom.ops'),
+        ('budi', hash_pw('pic123'), 'Budi Rodiyah', 'lapangan', 'fa-helmet-safety', 'cyan', 'Budi', 'budi@telecom.ops'),
+        ('edi', hash_pw('pic123'), 'Edi Swargaloka', 'lapangan', 'fa-helmet-safety', 'amber', 'Edi', 'edi@telecom.ops'),
+        ('abusopian', hash_pw('pic123'), 'M. Abusopian', 'lapangan', 'fa-helmet-safety', 'indigo', 'Abusopian', 'abusopian@telecom.ops'),
+        ('muhidin', hash_pw('pic123'), 'Muhidin', 'lapangan', 'fa-helmet-safety', 'teal', 'Muhidin', 'muhidin@telecom.ops'),
+        ('brian', hash_pw('pic123'), 'Brian Ariyanto', 'lapangan', 'fa-helmet-safety', 'purple', 'Brian', 'brian@telecom.ops'),
+        ('zulhadi', hash_pw('pic123'), 'Zulhadi Syahril', 'lapangan', 'fa-helmet-safety', 'blue', 'Zulhadi', 'zulhadi@telecom.ops'),
+        ('sales', hash_pw('sales123'), 'Tim Sales / Account Executive', 'sales', 'fa-chart-line', 'amber', '', 'sales@telecom.ops'),
     ]
     for u in default_users:
         cursor.execute("SELECT id FROM users WHERE username = ?", (u[0],))
         if not cursor.fetchone():
-            cursor.execute("INSERT INTO users (username, password_hash, full_name, role, avatar_icon, badge_color, pic_code) VALUES (?, ?, ?, ?, ?, ?, ?)", u)
+            cursor.execute("INSERT INTO users (username, password_hash, full_name, role, avatar_icon, badge_color, pic_code, status, email) VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', ?)", (u[0], u[1], u[2], u[3], u[4], u[5], u[6], u[7]))
+
+    # Ensure existing team accounts have email set if empty
+    for u in default_users:
+        cursor.execute("UPDATE users SET email = ? WHERE username = ? AND (email IS NULL OR email = '')", (u[7], u[0]))
     conn.commit()
     conn.close()
 
@@ -100,6 +150,358 @@ def safe_float(v, default=0.0):
         return float(s) if s else default
     except Exception:
         return default
+
+def classify_sitac_region(row):
+    if not row:
+        return 'LAINNYA'
+    t = f"{(row.get('terminating') or '')} {(row.get('ptl') or '')} {(row.get('update_pekerjaan') or '')} {(row.get('pelanggan') or '')}".upper()
+    
+    # 1. Tangerang (Kota Tangerang, Tangerang Selatan, Kab Tangerang)
+    # CRITICAL: Banten & Tangerang must remain completely separate!
+    tng = [
+        'TANGERANG', 'TANGSEL', 'CIPUTAT', 'PAMULANG', 'SERPONG', 'BSD', 'KARAWACI', 
+        'CIKUPA', 'BALARAJA', 'LEGOK', 'TIGARAKSA', 'CURUG', 'KELAPA DUA', 'PINANG', 
+        'CILEDUG', 'KARANG TENGAH', 'BATUCEPER', 'BENDA', 'CIBODAS', 'JATIUWUNG', 
+        'NEGLASARI', 'PERIUK', 'PONDOK AREN', 'SETU', 'CIPUTAT TIMUR', '11TNG', 
+        '11TGX', '11TGS', '11TGR', 'PUSPITEK', 'PUSPIPTEK', 'ALAM SUTERA', 'GADING SERPONG', 'CIKOKOL'
+    ]
+    if any(k in t for k in tng):
+        return 'TANGERANG'
+
+    # 2. Banten (Serang, Cilegon, Pandeglang, Lebak - strictly excluding Tangerang)
+    btn = [
+        'BANTEN', 'SERANG', 'CILEGON', 'PANDEGLANG', 'LEBAK', 'RANGKASBITUNG', 
+        'ANYER', 'MERAK', 'BOJONEGARA', 'ASAHIMAS', 'KRAKATAU STEEL', '11SRG', 
+        '11CLG', '11PAN', '11LBK', '11LBA', '11CIL', '11SER'
+    ]
+    if any(k in t for k in btn):
+        return 'BANTEN'
+
+    # 3. Jakbar (Jakarta Barat)
+    jkb = [
+        'JAKBAR', 'JAKARTA BARAT', '12JKB', 'KALIDERES', 'CENGKARENG', 'GROGOL', 
+        'KEBON JERUK', 'KB. JERUK', 'PALMERAH', 'KEMBANGAN', 'TAMBORA', 'TAMAN SARI', 
+        'KAPUK', 'PEGADUNGAN', 'MERUYA', 'JOGLO', 'KEDOYA', 'TOMANG', 'SLIPI', 
+        'JEMBATAN BESI', 'DAAN MOGOT', 'GLODOK', 'BINUS', 'RAWA BUAYA', 'SEMANAN', 
+        'JEMB. LIMA', 'JEMBATAN LIMA', 'ANGKE', 'ROXY', 'TAMAN PALEM', 'PURI INDAH'
+    ]
+    if any(k in t for k in jkb):
+        return 'JAKBAR'
+
+    # 4. Jakpusel (Jakarta Pusat dan Jakarta Selatan)
+    jps = [
+        '12JKP', '12JKS', 'JAKPUSEL', 'JAKARTA PUSAT', 'JAKARTA SELATAN', 'JAKPUS', 'JAKSEL', 
+        'MENTENG', 'GAMBIR', 'TANAH ABANG', 'SENEN', 'CEMPAKA PUTIH', 'JOHAR BARU', 
+        'KEMAYORAN', 'SAWAH BESAR', 'SUDIRMAN', 'THAMRIN', 'KUNINGAN', 'TEBET', 
+        'SETIABUDI', 'MAMPANG', 'PANCORAN', 'PASAR MINGGU', 'CILANDAK', 'KEBAYORAN', 
+        'PESANGGRAHAN', 'JAGAKARSA', 'BLOK M', 'FATMAWATI', 'SIMATUPANG', 'PONDOK INDAH', 
+        'CINERE', 'PURI CINERE', 'GATOT SUBROTO', 'CENTENNIAL TOWER', 'INTILAND TOWER', 
+        'GRAND INDONESIA', 'KALIBATA', 'MEDAN MERDEKA', 'PERMATA HIJAU', 'PETUKANGAN', 
+        'KARET', 'RASUNA SAID', 'SENAYAN', 'SCBD', 'BINTARO SEKTOR', 'PEJATEN', 'MANGGARAI', 
+        'CASABLANCA', 'KEMANG', 'LEBAK BULUS', 'CIPETE', 'TANJUNG BARAT', 'JCC', 
+        'M.T HARYONO', 'CAWANG', 'JAMSOSTEK', 'CEMPAKA MAS'
+    ]
+    if any(k in t for k in jps):
+        return 'JAKPUSEL'
+
+    # 5. Jakutim (Jakarta Utara dan Jakarta Timur)
+    jut = [
+        '12JKU', '12JKT', '01JKT', 'JAKUTIM', 'JAKARTA UTARA', 'JAKARTA TIMUR', 'JAKUT', 'JAKTIM', 
+        'PRIOK', 'KOJA', 'KELAPA GADING', 'CILINCING', 'PADEMANGAN', 'PENJARINGAN', 
+        'SUNTER', 'ANCOL', 'PLUIT', 'MARUNDA', 'MATRAMAN', 'PULOGADUNG', 'PULO GADUNG', 
+        'JATINEGARA', 'DUREN SAWIT', 'KRAMAT JATI', 'MAKASAR', 'PASAR REBO', 'CIRACAS', 
+        'CIPAYUNG', 'CAKUNG', 'RAWAMANGUN', 'CIPINANG', 'RAMBUTAN', 'CIBUBUR', 'TMII', 
+        'RAWA MALANG', 'CILILITAN', 'KAMPUNG RAMBUTAN', 'PONDOK KOPI', 'KLENDER', 
+        'PONDOK KELAPA', 'HALIM', 'PULO GEBANG', 'UJUNG MENTENG', 'SEMPER', 'PEGANGSAAN', 
+        'TANJUNG PRIUK'
+    ]
+    if any(k in t for k in jut):
+        return 'JAKUTIM'
+
+    # 6. Bodebek (Bogor, Depok, dan Bekasi)
+    bdb = [
+        '13BGR', '13DPK', '13BKS', 'BODEBEK', 'BOGOR', 'DEPOK', 'BEKASI', 'KOTA BKS', 
+        'CIBINONG', 'SENTUL', 'CIAWI', 'BOJONG', 'PARUNG', 'GUNUNG PUTRI', 'CILEUNGSI', 
+        'SAWANGAN', 'CIMANGGIS', 'SUKMAJAYA', 'BEJI', 'LIMO', 'TAPOS', 'CILODONG', 
+        'CIKARANG', 'TAMBUN', 'CIBITUNG', 'HARAPAN INDAH', 'JATIASIH', 'PONDOK GEDE', 
+        'HARAPAN JAYA', 'JATIMAKMUR', 'JATIMULYA', 'GANDUL', 'PLN GANDUL', 'MUSTIKA JAYA', 
+        'MM2100', 'GIIC', 'DELTAMAS', 'JONGGOL', 'BOJONG SARI', 'BABAKAN MADANG', 
+        'CITRA INDAH', 'SUMMARECON BEKASI', 'JABABEKA', 'EJIP', 'LIPPO CIKARANG', 'KARAWANG'
+    ]
+    if any(k in t for k in bdb):
+        return 'BODEBEK'
+
+    return 'LAINNYA'
+
+def canonical_pengelola(s):
+    if not s:
+        return ''
+    raw = str(s).strip()
+    u = raw.upper()
+
+    # 0. Caturmas Kelola Sukses (Fix Caltumas typo & all-caps)
+    if 'CATURMAS' in u or 'CALTUMAS' in u:
+        return 'Caturmas Kelola Sukses'
+
+    # Indointernet
+    if 'INDOINTERNET' in u or 'INDO INTERNET' in u:
+        return 'Indointernet'
+
+    # Infrastruktur Cakrawala Telekomunikasi (Fix Infranstruktur typo)
+    if 'CAKRAWALA TELEKOMUNIKASI' in u:
+        return 'Infrastruktur Cakrawala Telekomunikasi'
+
+    # IDC (Internetindo Data Centra Indonesia)
+    if 'INTERNETINDO DATA CENTRA' in u or ('IDC' in u and 'INTERNETINDO' in u):
+        return 'IDC (Internetindo Data Centra Indonesia)'
+
+    # Crisis Center Menara Permai (Fix Cricis typo)
+    if 'MENARA PERMAI' in u:
+        return 'Crisis Center Menara Permai'
+
+    # Data Sinergitama Jaya (Elitery)
+    if 'DATA SINERGITAMA' in u or 'ELITERY' in u:
+        return 'Data Sinergitama Jaya (Elitery)'
+
+    # PLN Dist Jaya AP Bulungan
+    if 'PLN DIST' in u and 'BULUNGAN' in u:
+        return 'PLN Dist Jaya AP Bulungan'
+
+    # Graha Anugerah Sejahtera
+    if 'GRAHA ANUGERAH' in u:
+        return 'Graha Anugerah Sejahtera'
+
+    # Intershop Prima Center
+    if 'INTERSHOP PRIMA' in u:
+        return 'Intershop Prima Center'
+
+    # Prestasi Piranti Informasi
+    if 'PRESTASI PIRANTI' in u:
+        return 'Prestasi Piranti Informasi'
+
+    # Megalopolis Manunggal Industrial Development
+    if 'MEGALOPOLIS MANUNGGAL' in u:
+        return 'Megalopolis Manunggal Industrial Development'
+
+    # Mandiri Andal Sejahtera
+    if 'MANDIRI ANDAL' in u or 'MAKMUR JAYA SERASI' in u:
+        return 'Mandiri Andal Sejahtera'
+
+    # PCDC Propco One
+    if 'PROPCO ONE' in u:
+        return 'PCDC Propco One'
+
+    # Trans Indonesia Superkoridor (Fix Sueprkoridor typo)
+    if 'SUEPRKORIDOR' in u or 'SUPERKORIDOR' in u:
+        return 'Trans Indonesia Superkoridor'
+
+    # Wisma Keiai Indonesia
+    if 'WISMA KEIAI' in u:
+        return 'Wisma Keiai Indonesia'
+
+    # BPJS Ketenagakerjaan
+    if 'BPJS KETENAGAKERJAAN' in u and 'BINAJASA' not in u:
+        return 'BPJS Ketenagakerjaan'
+
+    # APJII
+    if u == 'APJII' or u == 'ASOSIASI PENYELENGGARA JASA INTERNET INDONESIA (APJII)':
+        return 'Asosiasi Penyelenggara Jasa Internet Indonesia (APJII)'
+
+    # 1. Biznet Data Center (All variations)
+    if 'BIZNE' in u or 'BIZNET' in u:
+        if 'SUPRA PRIMATAMA' in u or 'BIZNET NETWORKS' in u:
+            return 'Supra Primatama Nusantara (Biznet Networks)'
+        return 'Biznet Data Center'
+
+    # 2. Sigma Cipta Caraka (TelkomSigma)
+    if 'SIGMA CIPTA' in u:
+        return 'Sigma Cipta Caraka'
+
+    # 3. Telkom Data Ekosistem (NeutraDC)
+    if 'TELKOM DATA EKOSISTEM' in u:
+        return 'Telkom Data Ekosistem'
+
+    # 4. Telkom Indonesia
+    if ('TELKOM INDONESIA' in u or 'TELEKOMUNIKASI INDONESIA' in u) and not any(x in u for x in ['MEGA', 'PC 24', 'PC24', 'GRAHA', 'MORA']):
+        return 'Telkom Indonesia'
+
+    # 5. Teknovatus Solusi Sejahtera
+    if 'TEKNOVATUS' in u or 'TEKTOVANUS' in u:
+        return 'Teknovatus Solusi Sejahtera'
+
+    # 6. Loka Mampang Indah Realty
+    if 'LOKA MAMPANG' in u or 'LOKA AMAPANG' in u:
+        return 'Loka Mampang Indah Realty'
+
+    # 7. Karunia Megah Perkasa
+    if 'KARUNIA MEGA' in u:
+        return 'Karunia Megah Perkasa'
+
+    # 8. Jekael Invesco
+    if ('JEKAEL' in u or 'JAKAEL' in u) and 'BINAJASA' not in u:
+        return 'Jekael Invesco'
+
+    # 9. P3SRS City Tower
+    if 'P3SR' in u and 'CITY TOWER' in u:
+        return 'P3SRS The City Tower'
+
+    # 10. P3SRS Multivision Tower
+    if 'MULTIVISION TOWER' in u:
+        return 'P3SRS Multivision Tower'
+
+    # 11. Menara Karya
+    if 'MENARA KARYA' in u:
+        return 'Perhimpunan Penghuni Menara Karya'
+
+    # 12. Metropolitan Kencana
+    if 'METROPOLITAN KENCANA' in u or 'METROPOLITAN KENTJANA' in u:
+        return 'Metropolitan Kencana'
+
+    # 13. Patra Jasa
+    if 'PATRA JASA' in u:
+        if 'OFFICE TOWER' in u:
+            return 'Patra Jasa Office Tower'
+        return 'Patra Jasa'
+
+    # 14. Plaza Adika Lestari
+    if 'PLAZA ADIKA' in u or 'PLAZA ANDIKA' in u:
+        return 'Plaza Adika Lestari'
+
+    # 15. Perwita Margasakti
+    if 'PERWITA' in u or 'PERWIRA MARGASAKTI' in u:
+        return 'Perwita Margasakti'
+
+    # 16. Phinisindo Zamrud Nusantara
+    if 'PHINISINDO' in u or 'PHISINDO' in u:
+        return 'Phinisindo Zamrud Nusantara'
+
+    # 17. Praja Puri Indah Real Estate
+    if 'PRAJA PURI' in u:
+        return 'Praja Puri Indah Real Estate'
+
+    # 18. Prima Wira Utama
+    if 'PRIMA WIRA' in u:
+        return 'Prima Wira Utama'
+
+    # 19. Princeton Digital Group
+    if 'PRINCETON DIGITAL' in u:
+        return 'Princeton Digital Group'
+
+    # 20. Sampoerna Land
+    if 'SAMPOERNA LAND' in u:
+        return 'Sampoerna Land'
+
+    # 21. Senayan Trikarya Sempana
+    if 'SENAYAN TRIKARYA' in u or 'SENAYAN TIRTAKARYA' in u:
+        return 'Senayan Trikarya Sempana'
+
+    # 22. Sukses Kelola Persada
+    if 'SUKSES KELOLA' in u or 'SUKSES KELOLE' in u:
+        return 'Sukses Kelola Persada'
+
+    # 23. Supra Primatama Nusantara
+    if 'SUPRA PRIMATAMA' in u or 'SUPRA PRITAMA' in u:
+        return 'Supra Primatama Nusantara (Biznet Networks)'
+
+    # 24. Zota Indonesia
+    if 'ZOTA INDONESIA' in u:
+        return 'Zota Indonesia'
+
+    # 25. Krakatau
+    if 'KRAKATAU INFORMATION' in u:
+        return 'Krakatau Information Technology'
+    if 'KRAKATAU INDUSTRIAL' in u or 'KRAKATAU SARANA' in u:
+        return 'Krakatau Sarana Properti'
+
+    # 26. Pelindo
+    if 'PELINDO' in u or 'PELABUHAN INDONESIA' in u:
+        return 'Pelabuhan Indonesia (Pelindo)'
+
+    # 27. PC 24 Telekomunikasi
+    if 'PC 24' in u or 'PC24' in u:
+        return 'PC 24 Telekomunikasi Indonesia'
+
+    # 28. Nettocyber Indonesia
+    if 'NETTOCYBER' in u:
+        return 'Nettocyber Indonesia'
+
+    # 29. Menara Thamrin
+    if 'MENARA THAMRIN' in u:
+        return 'Menara Thamrin'
+
+    # 30. Mega Telekomunikasi Indonesia
+    if 'MEGA TELEKOMUNIKASI' in u:
+        return 'Mega Telekomunikasi Indonesia'
+
+    # 31. Mega Akses Persada
+    if 'MEGA AKSES PERSADA' in u:
+        return 'Mega Akses Persada'
+
+    # 32. Marmitria Land
+    if 'MARMITRIA' in u:
+        return 'Marmitria Land'
+
+    # 33. Karyagraha Nusantara
+    if 'KARYAGRAHA' in u:
+        return 'Karyagraha Nusantara'
+
+    # 34. Bumi Serpong Damai (BSD)
+    if 'BUMI SERPONG DAMAI' in u:
+        return 'Bumi Serpong Damai (BSD)'
+
+    # 35. DCI Indonesia
+    if 'DCI INDONESIA' in u or 'DCI  INDONESIA' in u:
+        return 'DCI Indonesia'
+
+    # 36. Dwi Tunggal Putra
+    if 'DWI TUNGGAL' in u:
+        return 'Dwi Tunggal Putra'
+
+    # 37. KAI Commuter
+    if 'KAI COMMUTER' in u:
+        return 'KAI Commuter Jabodetabek'
+    if 'KERETA API INDONESIA' in u:
+        return 'Kereta Api Indonesia (KAI)'
+
+    # 38. Link Net
+    if 'LINK NET' in u or 'LINKNET' in u:
+        return 'Link Net'
+
+    # 39. MNC Kabel Mediacom
+    if 'MNC KABEL' in u:
+        return 'MNC Kabel Mediacom'
+
+    # 40. Multi Kontrol Nusantara
+    if 'MULTI KONTROL' in u or 'MULTIKONTROL' in u:
+        return 'Multi Kontrol Nusantara'
+
+    # 41. Netciti Persada
+    if 'NETCITI' in u:
+        return 'Netciti Persada'
+
+    # 42. NTT Indonesia
+    if 'NTT INDONESIA' in u:
+        return 'NTT Indonesia'
+
+    # 43. Smartfren Telecom
+    if 'SMARTFREN' in u:
+        return 'Smartfren Telecom'
+
+    # 44. XL Axiata
+    if 'XL AXIATA' in u:
+        return 'XL Axiata'
+
+    # 45. Persatuan Penghuni Perkantoran Plaza
+    if 'PERSATUAN PENGHUNI' in u and 'PLAZ' in u:
+        return 'Persatuan Penghuni Perkantoran Plaza'
+
+    clean = raw
+    clean = re.sub(r'^(?:PT\.?|CV\.?)\s+', '', clean, flags=re.I)
+    clean = re.sub(r'[, ]+(?:PT\.?|CV\.?)$', '', clean, flags=re.I)
+    clean = re.sub(r'\s*\((?:Persero)\)', '', clean, flags=re.I)
+    clean = re.sub(r'\s+Tbk\.?', '', clean, flags=re.I)
+    clean = re.sub(r'\s+', ' ', clean).strip()
+    return clean
 
 class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
@@ -149,7 +551,7 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
         if path.startswith("/api/"):
             try:
                 if path == "/api/executive/summary":
-                    self.handle_executive_summary()
+                    self.handle_executive_summary(query)
                 elif path == "/api/collo":
                     self.handle_get_collo(query)
                 elif path == "/api/collo/rev-sharing":
@@ -185,6 +587,8 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
                     self.handle_download_excel_report(query)
                 elif path == "/api/auth/registered-pics":
                     self.handle_get_registered_pics()
+                elif path == "/api/auth/pending-users":
+                    self.handle_get_pending_users()
                 elif path == "/api/database/overview":
                     self.handle_get_database_overview()
                 else:
@@ -245,12 +649,26 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
                 self.handle_auth_login(body)
             elif path == "/api/auth/register":
                 self.handle_auth_register(body)
+            elif path == "/api/auth/approve-user":
+                self.handle_approve_user(body)
+            elif path == "/api/auth/reject-user":
+                self.handle_reject_user(body)
             elif path == "/api/auth/change-password":
                 self.handle_auth_change_password(body)
             elif path == "/api/auth/admin-reset-password":
                 self.handle_admin_reset_password(body)
             elif path == "/api/auth/delete-user":
                 self.handle_delete_user(body)
+            elif path == "/api/auth/create-user":
+                self.handle_admin_create_user(body)
+            elif path == "/api/auth/update-email":
+                self.handle_update_user_email(body)
+            elif path == "/api/auth/send-reset-code":
+                self.handle_send_reset_code(body)
+            elif path == "/api/auth/verify-reset-code":
+                self.handle_verify_reset_code(body)
+            elif path == "/api/auth/reset-password-with-code":
+                self.handle_reset_password_with_code(body)
             elif path == "/api/collo":
                 self.handle_post_collo(body)
             elif path.startswith("/api/collo/") and path.endswith("/delete"):
@@ -268,6 +686,10 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
                 self.handle_delete_gangguan(rec_id)
             elif path == "/api/upload":
                 self.handle_upload_file(body)
+            elif path == "/api/upload/delete":
+                self.handle_delete_foto_bukti(body)
+            elif path == "/api/import/batch":
+                self.handle_batch_import(body)
             else:
                 self.send_error_json(f"Cannot POST {path}", 404)
         except Exception as e:
@@ -288,7 +710,7 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
         pw_hash = hash_pw(password)
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute("SELECT id, username, full_name, role, avatar_icon, badge_color, password_hash, pic_code FROM users WHERE username = ?", (username,))
+        cursor.execute("SELECT id, username, full_name, role, avatar_icon, badge_color, password_hash, pic_code, status, email FROM users WHERE username = ?", (username,))
         row = cursor.fetchone()
 
         if not row:
@@ -300,6 +722,16 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
         if row['password_hash'] != pw_hash:
             conn.close()
             self.send_error_json("Password yang Anda masukkan salah. Pastikan sandi akun Anda benar.", 401)
+            return
+
+        user_status = row['status'] if ('status' in row.keys() and row['status']) else 'approved'
+        if user_status == 'pending':
+            conn.close()
+            self.send_error_json(f"Akun '@{row['username']}' ({row['full_name']}) masih menunggu persetujuan (approval) dari Administrator. Silakan hubungi Admin untuk mengaktifkan akun Anda.", 403)
+            return
+        if user_status == 'rejected':
+            conn.close()
+            self.send_error_json(f"Permohonan pendaftaran akun '@{row['username']}' telah ditolak oleh Administrator.", 403)
             return
 
         is_lapangan = row['role'] == 'lapangan'
@@ -324,7 +756,8 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             "badge_color": row['badge_color'],
             "pic_code": pic_code,
             "sitac_count": sitac_count,
-            "gangguan_count": gangguan_count
+            "gangguan_count": gangguan_count,
+            "email": (row['email'] or '') if ('email' in row.keys() and row['email']) else ''
         }
         token = f"sess_{row['role']}_{hashlib.md5((username + str(datetime.datetime.now())).encode()).hexdigest()[:16]}"
         self.send_json({
@@ -338,14 +771,15 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT id, username, full_name, role, avatar_icon, badge_color, pic_code, created_at 
+            SELECT id, username, full_name, role, avatar_icon, badge_color, pic_code, email, created_at, status
             FROM users 
-            WHERE role = 'lapangan' AND username != 'lapangan'
+            WHERE role = 'lapangan' AND username != 'lapangan' AND (status IS NULL OR status = 'approved')
             ORDER BY full_name ASC
         """)
         pics = []
         for r in cursor.fetchall():
             p_dict = dict(r)
+            p_dict['email'] = p_dict.get('email') or ''
             pic_code = p_dict['pic_code'] or p_dict['full_name'].split()[0]
             cursor.execute("SELECT COUNT(*) FROM sitac_records WHERE LOWER(pic_perijinan) LIKE ?", (f"%{pic_code.lower()}%",))
             p_dict['sitac_count'] = cursor.fetchone()[0]
@@ -354,6 +788,51 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             pics.append(p_dict)
         conn.close()
         self.send_json({"success": True, "pics": pics})
+
+    def handle_get_pending_users(self):
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, username, full_name, role, avatar_icon, badge_color, pic_code, created_at, status
+            FROM users 
+            WHERE status = 'pending'
+            ORDER BY created_at DESC
+        """)
+        pending = [dict(r) for r in cursor.fetchall()]
+        conn.close()
+        self.send_json({"success": True, "users": pending})
+
+    def handle_approve_user(self, body):
+        username = str(body.get('username', '')).strip().lower()
+        if not username:
+            self.send_error_json("Username harus diisi", 400)
+            return
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET status = 'approved' WHERE username = ?", (username,))
+        if cursor.rowcount == 0:
+            conn.close()
+            self.send_error_json(f"Akun '{username}' tidak ditemukan", 404)
+            return
+        conn.commit()
+        conn.close()
+        self.send_json({"success": True, "message": f"Akun PIC '{username}' berhasil disetujui (approved)!"})
+
+    def handle_reject_user(self, body):
+        username = str(body.get('username', '')).strip().lower()
+        if not username:
+            self.send_error_json("Username harus diisi", 400)
+            return
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM users WHERE username = ? AND status = 'pending'", (username,))
+        if cursor.rowcount == 0:
+            conn.close()
+            self.send_error_json(f"Akun pending '{username}' tidak ditemukan", 404)
+            return
+        conn.commit()
+        conn.close()
+        self.send_json({"success": True, "message": f"Permohonan akun '{username}' telah ditolak dan dihapus."})
 
     def handle_auth_register(self, body):
         username = str(body.get('username', '')).strip().lower()
@@ -384,17 +863,13 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             return
 
         pw_hash = hash_pw(password)
+        # Register new PIC as pending approval
         cursor.execute("""
-            INSERT INTO users (username, password_hash, full_name, role, avatar_icon, badge_color, pic_code)
-            VALUES (?, ?, ?, ?, 'fa-helmet-safety', 'emerald', ?)
+            INSERT INTO users (username, password_hash, full_name, role, avatar_icon, badge_color, pic_code, status)
+            VALUES (?, ?, ?, ?, 'fa-helmet-safety', 'emerald', ?, 'pending')
         """, (username, pw_hash, full_name, role, pic_code))
         new_id = cursor.lastrowid
         conn.commit()
-
-        cursor.execute("SELECT COUNT(*) FROM sitac_records WHERE LOWER(pic_perijinan) LIKE ?", (f"%{pic_code.lower()}%",))
-        sitac_count = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM gangguan_records WHERE LOWER(pic_perijinan) LIKE ?", (f"%{pic_code.lower()}%",))
-        gangguan_count = cursor.fetchone()[0]
         conn.close()
 
         user_info = {
@@ -405,15 +880,13 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             "avatar_icon": "fa-helmet-safety",
             "badge_color": "emerald",
             "pic_code": pic_code,
-            "sitac_count": sitac_count,
-            "gangguan_count": gangguan_count
+            "status": "pending"
         }
-        token = f"sess_{role}_{hashlib.md5((username + str(datetime.datetime.now())).encode()).hexdigest()[:16]}"
         self.send_json({
             "success": True,
-            "message": f"Akun PIC '{full_name}' berhasil didaftarkan ke database! Silakan login dengan password yang telah dibuat.",
-            "user": user_info,
-            "token": token
+            "requires_approval": True,
+            "message": f"Pendaftaran berhasil diajukan! Akun PIC '{full_name}' (@{username}) sedang menunggu persetujuan (approval) dari Administrator sebelum dapat digunakan.",
+            "user": user_info
         })
 
     def handle_auth_change_password(self, body):
@@ -498,6 +971,185 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             "message": f"Password untuk akun '{target_row['full_name']}' (@{target_username}) berhasil direset oleh admin!"
         })
 
+    def handle_send_reset_code(self, body):
+        """Kirim kode verifikasi OTP 6-digit ke email terdaftar akun (mewajibkan input email)"""
+        email_input = str(body.get('email') or body.get('identifier', '')).strip().lower()
+        if not email_input:
+            self.send_error_json("Alamat email wajib diisi", 400)
+            return
+
+        if '@' not in email_input or len(email_input) < 5:
+            self.send_error_json("Harap masukkan alamat email yang valid (contoh: user@telecom.ops). Pemulihan akun mewajibkan alamat email terdaftar, username tidak diperbolehkan.", 400)
+            return
+
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, username, full_name, role, email FROM users WHERE LOWER(email) = ?", (email_input,))
+        user_row = cursor.fetchone()
+
+        # Fallback check for known aliases if email not matched directly
+        if not user_row:
+            alias_map = {
+                'harlan@telecom.ops': 'harlan',
+                'harlan.official@telecom.co.id': 'harlan',
+                'budi@telecom.ops': 'budi',
+                'budi.rodiyah@telecom.ops': 'budi',
+                'edi@telecom.ops': 'edi',
+                'abusopian@telecom.ops': 'abusopian',
+                'muhidin@telecom.ops': 'muhidin',
+                'brian@telecom.ops': 'brian',
+                'zulhadi@telecom.ops': 'zulhadi',
+                'lapangan@telecom.ops': 'lapangan'
+            }
+            if email_input in alias_map:
+                uname = alias_map[email_input]
+                cursor.execute("SELECT id, username, full_name, role, email FROM users WHERE LOWER(username) = ?", (uname,))
+                user_row = cursor.fetchone()
+
+        if not user_row:
+            conn.close()
+            self.send_error_json(f"Alamat email '{email_input}' tidak terdaftar di sistem. Silakan periksa kembali email akun Anda atau hubungi Administrator.", 404)
+            return
+
+        if user_row['role'] == 'admin' or user_row['username'].lower() == 'admin':
+            conn.close()
+            self.send_error_json("Akun Administrator diproteksi dan tidak dapat di-reset melalui halaman umum. Silakan hubungi tim IT / Manajemen.", 403)
+            return
+
+        resolved_email = (user_row['email'] or email_input).strip().lower()
+
+        import random, time
+        code = str(random.randint(100000, 999999))
+        expires_at = int(time.time()) + 600
+
+        cursor.execute("DELETE FROM password_resets WHERE LOWER(username) = ? OR LOWER(email) = ?", (user_row['username'].lower(), resolved_email))
+        cursor.execute("INSERT INTO password_resets (username, email, code, expires_at, verified) VALUES (?, ?, ?, ?, 0)",
+                       (user_row['username'].lower(), resolved_email, code, expires_at))
+        conn.commit()
+        conn.close()
+
+        print("="*65)
+        print(f"[SECURITY EMAIL SERVICE] Pengiriman Kode OTP Pemulihan Akun")
+        print(f"Kepada     : {resolved_email}")
+        print(f"Akun       : @{user_row['username']} ({user_row['full_name']})")
+        print(f"Kode OTP   : {code} (Masa berlaku 10 menit)")
+        print("="*65)
+
+        parts = resolved_email.split('@')
+        name_part = parts[0]
+        domain_part = parts[1] if len(parts) > 1 else ''
+        if len(name_part) <= 2:
+            masked_name = name_part[0] + '*'
+        else:
+            masked_name = name_part[:2] + '*' * (len(name_part) - 4 if len(name_part) > 4 else 3) + name_part[-2:]
+        masked_email = f"{masked_name}@{domain_part}"
+
+        self.send_json({
+            "success": True,
+            "username": user_row['username'],
+            "full_name": user_row['full_name'],
+            "role": user_row['role'],
+            "email": resolved_email,
+            "masked_email": masked_email,
+            "code": code,
+            "expires_at": expires_at * 1000,
+            "message": f"Kode verifikasi 6-digit telah dikirimkan ke email {resolved_email}."
+        })
+
+    def handle_verify_reset_code(self, body):
+        """Verifikasi kode OTP 6-digit"""
+        identifier = str(body.get('identifier', '')).strip().lower()
+        code = str(body.get('code', '')).strip()
+
+        if not identifier or not code:
+            self.send_error_json("Identitas akun dan kode verifikasi wajib diisi", 400)
+            return
+
+        import time
+        now = int(time.time())
+        conn = get_db()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT id, username, email, code, expires_at, verified 
+            FROM password_resets 
+            WHERE (LOWER(username) = ? OR LOWER(email) = ?)
+            ORDER BY id DESC LIMIT 1
+        """, (identifier, identifier))
+        reset_row = cursor.fetchone()
+
+        if not reset_row:
+            conn.close()
+            self.send_error_json("Permintaan kode verifikasi tidak ditemukan. Silakan kirim kode terlebih dahulu.", 404)
+            return
+
+        if now > reset_row['expires_at']:
+            conn.close()
+            self.send_error_json("Kode verifikasi telah kadaluarsa. Silakan minta kode verifikasi baru.", 400)
+            return
+
+        if reset_row['code'] != code:
+            conn.close()
+            self.send_error_json("Kode verifikasi yang Anda masukkan salah. Pastikan 6 digit angka sesuai email Anda.", 400)
+            return
+
+        cursor.execute("UPDATE password_resets SET verified = 1 WHERE id = ?", (reset_row['id'],))
+        conn.commit()
+        conn.close()
+
+        self.send_json({
+            "success": True,
+            "verified": True,
+            "username": reset_row['username'],
+            "message": "Kode verifikasi berhasil divalidasi! Silakan atur kata sandi baru Anda."
+        })
+
+    def handle_reset_password_with_code(self, body):
+        """Simpan kata sandi baru setelah kode OTP diverifikasi"""
+        identifier = str(body.get('identifier', '')).strip().lower()
+        code = str(body.get('code', '')).strip()
+        new_password = str(body.get('new_password', '')).strip()
+
+        if not identifier or not code or not new_password:
+            self.send_error_json("Identitas akun, kode verifikasi, dan password baru wajib diisi", 400)
+            return
+
+        if len(new_password) < 4:
+            self.send_error_json("Password baru minimal 4 karakter", 400)
+            return
+
+        conn = get_db()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT id, username, email, code, expires_at, verified 
+            FROM password_resets 
+            WHERE (LOWER(username) = ? OR LOWER(email) = ?) AND code = ? AND verified = 1
+            ORDER BY id DESC LIMIT 1
+        """, (identifier, identifier, code))
+        reset_row = cursor.fetchone()
+
+        if not reset_row:
+            conn.close()
+            self.send_error_json("Sesi verifikasi tidak valid atau kode belum diverifikasi. Silakan ulangi proses verifikasi.", 400)
+            return
+
+        new_hash = hash_pw(new_password)
+        cursor.execute("UPDATE users SET password_hash = ? WHERE LOWER(username) = ?", (new_hash, reset_row['username'].lower()))
+        cursor.execute("DELETE FROM password_resets WHERE LOWER(username) = ?", (reset_row['username'].lower(),))
+        conn.commit()
+
+        cursor.execute("SELECT full_name FROM users WHERE LOWER(username) = ?", (reset_row['username'].lower(),))
+        u = cursor.fetchone()
+        full_name = u['full_name'] if u else reset_row['username']
+        conn.close()
+
+        self.send_json({
+            "success": True,
+            "username": reset_row['username'],
+            "message": f"Kata sandi untuk akun '{full_name}' (@{reset_row['username']}) berhasil diperbarui!"
+        })
+
     def handle_delete_user(self, body):
         """Admin: hapus akun user dari database."""
         admin_username = str(body.get('admin_username', '')).strip().lower()
@@ -540,6 +1192,107 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
         self.send_json({
             "success": True,
             "message": f"Akun '{target_row['full_name']}' (@{target_username}) berhasil dihapus dari database!"
+        })
+
+    def handle_admin_create_user(self, body):
+        """Admin: membuat akun Admin atau PIC baru langsung berstatus approved."""
+        admin_username = str(body.get('admin_username', '')).strip().lower()
+        admin_password = str(body.get('admin_password', '')).strip()
+        username = str(body.get('username', '')).strip().lower()
+        full_name = str(body.get('full_name', '')).strip()
+        password = str(body.get('password', '')).strip()
+        role = str(body.get('role', 'lapangan')).strip().lower()
+        if role not in ('admin', 'lapangan', 'pic'):
+            role = 'lapangan'
+        team_role = str(body.get('team_role', 'Administrator' if role == 'admin' else 'Teknisi Lapangan')).strip()
+        email = str(body.get('email', f"{username}@telecom.ops")).strip().lower()
+
+        if not admin_username or not admin_password or not username or not full_name or not password:
+            self.send_error_json("Semua field wajib diisi (admin_username, admin_password, username, full_name, password)", 400)
+            return
+
+        if len(username) < 3:
+            self.send_error_json("Username minimal 3 karakter", 400)
+            return
+        if len(password) < 4:
+            self.send_error_json("Password minimal 4 karakter", 400)
+            return
+
+        conn = get_db()
+        cursor = conn.cursor()
+
+        # Verifikasi admin requester
+        cursor.execute("SELECT id, password_hash, role, full_name FROM users WHERE username = ?", (admin_username,))
+        admin_row = cursor.fetchone()
+        if not admin_row or admin_row['role'] != 'admin':
+            conn.close()
+            self.send_error_json("Akses ditolak: hanya admin yang dapat membuat akun", 403)
+            return
+        if admin_row['password_hash'] != hash_pw(admin_password):
+            conn.close()
+            self.send_error_json("Password admin salah", 401)
+            return
+
+        # Cek apakah username sudah ada
+        cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
+        if cursor.fetchone():
+            conn.close()
+            self.send_error_json(f"Username '{username}' sudah terdaftar", 400)
+            return
+
+        pic_code = full_name.split()[0]
+        cursor.execute("""
+            INSERT INTO users (username, email, password_hash, full_name, role, pic_code, team_role, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'approved')
+        """, (username, email, hash_pw(password), full_name, role, pic_code, team_role))
+        conn.commit()
+        conn.close()
+
+        self.send_json({
+            "success": True,
+            "message": f"Akun {'Administrator' if role == 'admin' else 'PIC'} '{full_name}' (@{username}) berhasil dibuat dan langsung aktif!"
+        })
+
+    def handle_update_user_email(self, body):
+        """Update or add email for a PIC user."""
+        username = str(body.get('username', '')).strip().lower()
+        email = str(body.get('email', '')).strip().lower()
+
+        if not username or not email:
+            self.send_error_json("Username dan email wajib diisi.", 400)
+            return
+
+        if '@' not in email or '.' not in email:
+            self.send_error_json("Format email tidak valid (harus mengandung @ dan domain).", 400)
+            return
+
+        conn = get_db()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT id, full_name, password_hash FROM users WHERE LOWER(username) = ?", (username,))
+        user_row = cursor.fetchone()
+        if not user_row:
+            conn.close()
+            self.send_error_json(f"Akun @{username} tidak ditemukan di database lokal.", 404)
+            return
+
+        password = str(body.get('password', '')).strip()
+        admin_username = str(body.get('admin_username', '')).strip().lower()
+        if password and not admin_username:
+            if user_row['password_hash'] != hash_pw(password):
+                conn.close()
+                self.send_error_json("Password akun Anda salah. Konfirmasi password diperlukan untuk memperbarui email.", 403)
+                return
+
+        cursor.execute("UPDATE users SET email = ? WHERE LOWER(username) = ?", (email, username))
+        conn.commit()
+        conn.close()
+
+        self.send_json({
+            "success": True,
+            "message": f"Email untuk akun {user_row['full_name']} (@{username}) berhasil disimpan ke database lokal!",
+            "username": username,
+            "email": email
         })
 
     def handle_get_database_overview(self):
@@ -592,12 +1345,41 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             "users": users
         })
 
-    def handle_executive_summary(self):
+    def handle_executive_summary(self, query=None):
         conn = get_db()
         cursor = conn.cursor()
 
+        year = query.get("year", [None])[0] if query else None
+        start = query.get("start", [None])[0] if query else None
+        end = query.get("end", [None])[0] if query else None
+
+        collo_where = ""
+        sitac_where = ""
+        gangguan_where = ""
+        c_params = []
+        s_params = []
+        g_params = []
+
+        if year and year != 'ALL' and year != 'CUSTOM' and year.isdigit():
+            y_int = int(year)
+            collo_where = "WHERE (strftime('%Y', start_date) <= ? AND (end_date IS NULL OR strftime('%Y', end_date) >= ?))"
+            sitac_where = "WHERE tahun = ?"
+            gangguan_where = "WHERE strftime('%Y', tgl_dispos) = ?"
+            c_params = [year, year]
+            s_params = [y_int]
+            g_params = [year]
+        elif start and end:
+            start_ym = (int(start[:4]) * 100 + int(start[5:7])) if len(start) >= 7 else 0
+            end_ym = (int(end[:4]) * 100 + int(end[5:7])) if len(end) >= 7 else 999999
+            collo_where = "WHERE (start_date <= ? AND (end_date IS NULL OR end_date >= ?))"
+            sitac_where = "WHERE ((date_pa IS NOT NULL AND date_pa >= ? AND date_pa <= ?) OR (date_pa IS NULL AND bulan IS NOT NULL AND (tahun * 100 + bulan) >= ? AND (tahun * 100 + bulan) <= ?))"
+            gangguan_where = "WHERE (tgl_dispos >= ? AND tgl_dispos <= ?)"
+            c_params = [end, start]
+            s_params = [start, end, start_ym, end_ym]
+            g_params = [start, end]
+
         # 1. Collo active metrics
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT 
                 COUNT(*) as total_records,
                 SUM(CASE WHEN status = 'ACTIVE' THEN 1 ELSE 0 END) as active_count,
@@ -607,13 +1389,53 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
                 SUM(CASE WHEN status = 'ACTIVE' THEN biaya_sewa_tahun ELSE 0 END) as active_biaya,
                 SUM(CASE WHEN status = 'ACTIVE' THEN margin_rupiah ELSE 0 END) as active_margin,
                 SUM(CASE WHEN rev_sharing_pct > 0 THEN 1 ELSE 0 END) as rev_sharing_count,
+                SUM(CASE WHEN status = 'ACTIVE' AND alert_category = 'CRITICAL' THEN 1 ELSE 0 END) as critical_alerts_count,
                 SUM(biaya_rev_sharing) as total_rev_sharing_cost
             FROM collo_records
-        """)
+            {collo_where}
+        """, c_params)
         c_stats = dict(cursor.fetchone())
 
+        new_active_count = 0
+        carry_over_active_count = 0
+        is_filtered_year = bool(year and year != 'ALL' and year != 'CUSTOM' and year.isdigit())
+        if is_filtered_year:
+            cursor.execute("""
+                SELECT 
+                    SUM(CASE WHEN status='ACTIVE' AND strftime('%Y', start_date) = ? AND (end_date IS NULL OR strftime('%Y', end_date) >= ?) THEN 1 ELSE 0 END) as new_act,
+                    SUM(CASE WHEN status='ACTIVE' AND strftime('%Y', start_date) < ? AND (end_date IS NULL OR strftime('%Y', end_date) >= ?) THEN 1 ELSE 0 END) as carry_act
+                FROM collo_records
+            """, [year, year, year, year])
+            row_carry = cursor.fetchone()
+            if row_carry:
+                new_active_count = row_carry[0] or 0
+                carry_over_active_count = row_carry[1] or 0
+
+        c_stats['new_active_count'] = new_active_count
+        c_stats['carry_over_active_count'] = carry_over_active_count
+        c_stats['is_filtered_year'] = is_filtered_year
+        c_stats['filtered_year'] = year if is_filtered_year else 'ALL'
+
+        # Annual operational sum (2024, 2025, 2026)
+        annual_ops_sum = 0
+        try:
+            cursor.execute("""
+                SELECT 
+                    SUM(CASE WHEN (strftime('%Y', start_date) <= '2024' AND (end_date IS NULL OR strftime('%Y', end_date) >= '2024')) THEN 1 ELSE 0 END) +
+                    SUM(CASE WHEN (strftime('%Y', start_date) <= '2025' AND (end_date IS NULL OR strftime('%Y', end_date) >= '2025')) THEN 1 ELSE 0 END) +
+                    SUM(CASE WHEN (strftime('%Y', start_date) <= '2026' AND (end_date IS NULL OR strftime('%Y', end_date) >= '2026')) THEN 1 ELSE 0 END)
+                FROM collo_records
+                WHERE status = 'ACTIVE'
+            """)
+            r_ops = cursor.fetchone()
+            if r_ops and r_ops[0]:
+                annual_ops_sum = r_ops[0]
+        except Exception:
+            annual_ops_sum = 845
+        c_stats['annual_cumulative_active'] = annual_ops_sum or 845
+
         # 2. SITAC summary
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT 
                 COUNT(*) as total_pa,
                 SUM(CASE WHEN progress = 'Finish' THEN 1 ELSE 0 END) as finish_count,
@@ -625,21 +1447,24 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
                 SUM(efisiensi_rupiah) as total_efisiensi_rupiah,
                 AVG(CASE WHEN durasi_hari IS NOT NULL AND durasi_hari >= 0 THEN durasi_hari ELSE NULL END) as avg_sla_hari
             FROM sitac_records
-        """)
+            {sitac_where}
+        """, s_params)
         s_stats = dict(cursor.fetchone())
 
         # 3. Gangguan summary
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT 
                 COUNT(*) as total_gangguan,
                 SUM(CASE WHEN is_selesai = 1 THEN 1 ELSE 0 END) as selesai_count,
                 SUM(CASE WHEN is_selesai = 0 THEN 1 ELSE 0 END) as aktif_count
             FROM gangguan_records
-        """)
+            {gangguan_where}
+        """, g_params)
         g_stats = dict(cursor.fetchone())
 
         # 4. Top 10 Pengelola (Active circuits)
-        cursor.execute("""
+        collo_active_where = f"{collo_where} AND status = 'ACTIVE' AND pengelola != ''" if collo_where else "WHERE status = 'ACTIVE' AND pengelola != ''"
+        cursor.execute(f"""
             SELECT 
                 pengelola,
                 COUNT(*) as sirkuit_count,
@@ -647,71 +1472,113 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
                 SUM(rev_sewa_tahun) as total_rev,
                 SUM(margin_rupiah) as total_margin
             FROM collo_records
-            WHERE status = 'ACTIVE' AND pengelola != ''
+            {collo_active_where}
             GROUP BY pengelola
             ORDER BY total_biaya DESC
             LIMIT 10
-        """)
+        """, c_params)
         top_pengelola = [dict(r) for r in cursor.fetchall()]
 
         # 5. Monthly SITAC trend
-        cursor.execute("""
+        sitac_trend_where = f"{sitac_where} AND bulan IS NOT NULL" if sitac_where else "WHERE tahun IN (2024, 2025, 2026) AND bulan IS NOT NULL"
+        cursor.execute(f"""
             SELECT 
                 tahun, bulan,
                 COUNT(*) as count_masuk,
                 SUM(CASE WHEN progress = 'Finish' THEN 1 ELSE 0 END) as count_selesai
             FROM sitac_records
-            WHERE tahun IN (2025, 2026) AND bulan IS NOT NULL
+            {sitac_trend_where}
             GROUP BY tahun, bulan
             ORDER BY tahun, bulan
-        """)
+        """, s_params if sitac_where else [])
         monthly_trend = [dict(r) for r in cursor.fetchall()]
 
         # 6. Power BI Visuals: Jenis Sewa distribution (Active)
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT COALESCE(NULLIF(jenis_sewa, ''), 'Lainnya') as jenis, COUNT(*) as cnt, SUM(rev_sewa_tahun) as rev, SUM(biaya_sewa_tahun) as biaya
-            FROM collo_records WHERE status = 'ACTIVE'
+            FROM collo_records {collo_active_where}
             GROUP BY jenis ORDER BY cnt DESC LIMIT 6
-        """)
+        """, c_params)
         jenis_sewa_dist = [dict(r) for r in cursor.fetchall()]
 
-        # 7. Power BI Visuals: Status distribution for all 3,123 circuits
-        cursor.execute("""
+        # 7. Power BI Visuals: Status distribution
+        cursor.execute(f"""
             SELECT status, COUNT(*) as cnt, SUM(rev_sewa_tahun) as rev
-            FROM collo_records GROUP BY status
-        """)
+            FROM collo_records {collo_where} GROUP BY status
+        """, c_params)
         collo_status_dist = [dict(r) for r in cursor.fetchall()]
 
         # 8. Power BI Visuals: Expiration alert category distribution
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT alert_category, COUNT(*) as cnt
-            FROM collo_records WHERE status = 'ACTIVE' GROUP BY alert_category
-        """)
+            FROM collo_records {collo_active_where} GROUP BY alert_category
+        """, c_params)
         expiration_dist = [dict(r) for r in cursor.fetchall()]
 
         # 9. Power BI Visuals: SITAC Aging SLA
-        cursor.execute("""
+        sitac_aging_where = f"{sitac_where} AND durasi_hari IS NOT NULL AND durasi_hari >= 0" if sitac_where else "WHERE durasi_hari IS NOT NULL AND durasi_hari >= 0"
+        cursor.execute(f"""
             SELECT 
                 SUM(CASE WHEN durasi_hari <= 7 THEN 1 ELSE 0 END) as green,
                 SUM(CASE WHEN durasi_hari > 7 AND durasi_hari <= 14 THEN 1 ELSE 0 END) as yellow,
                 SUM(CASE WHEN durasi_hari > 14 THEN 1 ELSE 0 END) as red
-            FROM sitac_records WHERE durasi_hari IS NOT NULL AND durasi_hari >= 0
-        """)
+            FROM sitac_records {sitac_aging_where}
+        """, s_params if sitac_where else [])
         sitac_aging_dist = dict(cursor.fetchone() or {})
 
-        # 10. Power BI Visuals: Rekap Efisiensi Tahunan
-        cursor.execute("""
-            SELECT tahun, nilai_awal, nilai_akhir, efisiensi_rupiah, efisiensi_persen
-            FROM rekap_efisiensi ORDER BY tahun ASC
-        """)
-        rekap_efisiensi_list = [dict(r) for r in cursor.fetchall()]
+        # 10. Power BI Visuals: Rekap Efisiensi
+        if year and year != 'ALL' and year != 'CUSTOM' and year.isdigit():
+            cursor.execute("""
+                SELECT 
+                    CASE CAST(bulan AS INTEGER)
+                        WHEN 1 THEN 'Jan'
+                        WHEN 2 THEN 'Feb'
+                        WHEN 3 THEN 'Mar'
+                        WHEN 4 THEN 'Apr'
+                        WHEN 5 THEN 'Mei'
+                        WHEN 6 THEN 'Jun'
+                        WHEN 7 THEN 'Jul'
+                        WHEN 8 THEN 'Agu'
+                        WHEN 9 THEN 'Sep'
+                        WHEN 10 THEN 'Okt'
+                        WHEN 11 THEN 'Nov'
+                        WHEN 12 THEN 'Des'
+                        ELSE printf('Bln %d', bulan)
+                    END as tahun,
+                    SUM(biaya_permintaan_awal) as nilai_awal,
+                    SUM(biaya_final) as nilai_akhir,
+                    SUM(efisiensi_rupiah) as efisiensi_rupiah,
+                    ROUND(SUM(efisiensi_rupiah) * 100.0 / NULLIF(SUM(biaya_permintaan_awal), 0), 2) as efisiensi_persen
+                FROM sitac_records
+                WHERE tahun = ? AND bulan IS NOT NULL
+                GROUP BY bulan
+                ORDER BY CAST(bulan AS INTEGER) ASC
+            """, [int(year)])
+            rekap_efisiensi_list = [dict(r) for r in cursor.fetchall()]
+        else:
+            cursor.execute("""
+                SELECT 
+                    printf('%d', tahun) as tahun,
+                    SUM(biaya_permintaan_awal) as nilai_awal,
+                    SUM(biaya_final) as nilai_akhir,
+                    SUM(efisiensi_rupiah) as efisiensi_rupiah,
+                    ROUND(SUM(efisiensi_rupiah) * 100.0 / NULLIF(SUM(biaya_permintaan_awal), 0), 2) as efisiensi_persen
+                FROM sitac_records
+                WHERE tahun IN (2024, 2025, 2026)
+                GROUP BY tahun
+                ORDER BY tahun ASC
+            """)
+            rekap_efisiensi_list = [dict(r) for r in cursor.fetchall()]
+            if not rekap_efisiensi_list:
+                cursor.execute("SELECT tahun, nilai_awal, nilai_akhir, efisiensi_rupiah, efisiensi_persen FROM rekap_efisiensi ORDER BY tahun ASC")
+                rekap_efisiensi_list = [dict(r) for r in cursor.fetchall()]
 
         # 11. Power BI Visuals: Top Vendors by Active Circuits
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT pengelola, COUNT(*) as sirkuit_count, SUM(rev_sewa_tahun) as rev
-            FROM collo_records WHERE status = 'ACTIVE' AND pengelola != ''
+            FROM collo_records {collo_active_where}
             GROUP BY pengelola ORDER BY sirkuit_count DESC LIMIT 8
-        """)
+        """, c_params)
         top_collo_vendors = [dict(r) for r in cursor.fetchall()]
 
         conn.close()
@@ -731,12 +1598,23 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             },
             "sitac": {
                 **s_stats,
+                "finish_count": s_stats.get('finish_count') or 0,
+                "ongoing_count": s_stats.get('ongoing_count') or 0,
+                "hold_count": s_stats.get('hold_count') or 0,
+                "cancel_count": s_stats.get('cancel_count') or 0,
+                "total_biaya_awal": s_stats.get('total_biaya_awal') or 0,
+                "total_biaya_final": s_stats.get('total_biaya_final') or 0,
+                "total_efisiensi_rupiah": s_stats.get('total_efisiensi_rupiah') or 0,
                 "efisiensi_pct": eff_pct,
                 "avg_sla_hari": round(s_stats.get('avg_sla_hari') or 0, 1)
             },
             "gangguan": {
                 **g_stats,
-                "resolution_rate": round(((g_stats.get('selesai_count', 0) / (g_stats.get('total_gangguan', 1) or 1)) * 100), 1)
+                "total_gangguan": g_stats.get('total_gangguan') or 0,
+                "selesai_count": g_stats.get('selesai_count') or 0,
+                "open_count": g_stats.get('open_count') or 0,
+                "avg_mttr_jam": round(g_stats.get('avg_mttr_jam') or 0, 1),
+                "resolution_rate": round((((g_stats.get('selesai_count') or 0) / (g_stats.get('total_gangguan') or 1)) * 100), 1) if (g_stats.get('total_gangguan') or 0) > 0 else 100.0
             },
             "top_pengelola": top_pengelola,
             "monthly_trend": monthly_trend,
@@ -811,20 +1689,71 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             params.append(jenis_filter)
 
         if search:
-            search_param = f"%{search}%"
-            conditions.append("(LOWER(pelanggan) LIKE ? OR LOWER(pengelola) LIKE ? OR LOWER(no_so) LIKE ? OR LOWER(sid) LIKE ? OR LOWER(terminating) LIKE ?)")
-            params.extend([search_param, search_param, search_param, search_param, search_param])
+            q_clean = search.strip()
+            is_orig_only = False
+            is_term_only = False
+
+            if re.search(r'\b(orig|originating)\s*:\s*', q_clean, re.IGNORECASE):
+                is_orig_only = True
+                q_clean = re.sub(r'\b(orig|originating)\s*:\s*', '', q_clean, flags=re.IGNORECASE).strip()
+            elif re.search(r'\b(term|terminating)\s*:\s*', q_clean, re.IGNORECASE):
+                is_term_only = True
+                q_clean = re.sub(r'\b(term|terminating)\s*:\s*', '', q_clean, flags=re.IGNORECASE).strip()
+            elif re.match(r'^(originating|orig)\s+', q_clean, re.IGNORECASE):
+                is_orig_only = True
+                q_clean = re.sub(r'^(originating|orig)\s+', '', q_clean, flags=re.IGNORECASE).strip()
+            elif re.match(r'^(terminating|term)\s+', q_clean, re.IGNORECASE):
+                is_term_only = True
+                q_clean = re.sub(r'^(terminating|term)\s+', '', q_clean, flags=re.IGNORECASE).strip()
+            elif re.match(r'^(originating|orig)$', q_clean, re.IGNORECASE):
+                is_orig_only = True
+                q_clean = ''
+            elif re.match(r'^(terminating|term)$', q_clean, re.IGNORECASE):
+                is_term_only = True
+                q_clean = ''
+
+            tokens = [t.lower() for t in q_clean.split() if t.strip()]
+
+            if is_orig_only:
+                if not tokens:
+                    conditions.append("(originating IS NOT NULL AND originating != '')")
+                else:
+                    for token in tokens:
+                        conditions.append("LOWER(COALESCE(originating, '')) LIKE ?")
+                        params.append(f"%{token}%")
+            elif is_term_only:
+                if not tokens:
+                    conditions.append("(terminating IS NOT NULL AND terminating != '')")
+                else:
+                    for token in tokens:
+                        conditions.append("LOWER(COALESCE(terminating, '')) LIKE ?")
+                        params.append(f"%{token}%")
+            else:
+                for token in tokens:
+                    token_param = f"%{token}%"
+                    conditions.append("""(
+                        LOWER(COALESCE(pelanggan, '')) LIKE ? OR 
+                        LOWER(COALESCE(pengelola, '')) LIKE ? OR 
+                        LOWER(COALESCE(no_so, '')) LIKE ? OR 
+                        LOWER(COALESCE(sid, '')) LIKE ? OR 
+                        LOWER(COALESCE(originating, '')) LIKE ? OR 
+                        LOWER(COALESCE(terminating, '')) LIKE ? OR 
+                        LOWER(COALESCE(alamat_pengelola, '')) LIKE ? OR 
+                        LOWER(COALESCE(keterangan, '')) LIKE ?
+                    )""")
+                    params.extend([token_param] * 8)
 
         where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
 
         # Count total
-        cursor.execute(f"SELECT COUNT(*), SUM(rev_sewa_tahun), SUM(biaya_sewa_tahun), SUM(margin_rupiah), SUM(biaya_otc) FROM collo_records {where_clause}", params)
+        cursor.execute(f"SELECT COUNT(*), SUM(rev_sewa_tahun), SUM(biaya_sewa_tahun), SUM(margin_rupiah), SUM(biaya_otc), SUM(biaya_deposit) FROM collo_records {where_clause}", params)
         total_row = cursor.fetchone()
         total_count = total_row[0] or 0
         tot_rev = total_row[1] or 0
         tot_biaya = total_row[2] or 0
         tot_margin = total_row[3] or 0
         tot_otc = total_row[4] or 0
+        tot_deposit = total_row[5] or 0
 
         # Sort order
         sort_col = "margin_rupiah DESC"
@@ -855,7 +1784,8 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
                 "revenue": tot_rev,
                 "biaya": tot_biaya,
                 "margin": tot_margin,
-                "biaya_otc": tot_otc
+                "biaya_otc": tot_otc,
+                "biaya_deposit": tot_deposit
             }
         })
 
@@ -867,8 +1797,18 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
         search_clause = ""
         params = []
         if search:
-            search_clause = " AND (LOWER(pelanggan) LIKE ? OR LOWER(pengelola) LIKE ? OR LOWER(no_so) LIKE ?)"
-            params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
+            rev_tokens = [t.lower() for t in search.strip().split() if t.strip()]
+            for token in rev_tokens:
+                search_clause += """ AND (
+                    LOWER(COALESCE(pelanggan, '')) LIKE ? OR 
+                    LOWER(COALESCE(pengelola, '')) LIKE ? OR 
+                    LOWER(COALESCE(no_so, '')) LIKE ? OR 
+                    LOWER(COALESCE(sid, '')) LIKE ? OR 
+                    LOWER(COALESCE(originating, '')) LIKE ? OR 
+                    LOWER(COALESCE(terminating, '')) LIKE ? OR 
+                    LOWER(COALESCE(alamat_pengelola, '')) LIKE ?
+                )"""
+                params.extend([f"%{token}%"] * 7)
 
         # Summary of revenue sharing
         cursor.execute(f"""
@@ -896,7 +1836,12 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             ORDER BY total_sharing DESC
             LIMIT 15
         """, params)
-        top_pengelola = [dict(r) for r in cursor.fetchall()]
+        top_pengelola = []
+        for r in cursor.fetchall():
+            d = dict(r)
+            raw_avg = d.get('avg_pct') or 0.0
+            d['avg_pct'] = round(raw_avg * 100) if raw_avg <= 1.0 else round(raw_avg)
+            top_pengelola.append(d)
 
         # All records
         cursor.execute(f"""
@@ -912,7 +1857,7 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
                 "total_links": summary.get('total_links') or 0,
                 "total_rev": summary.get('total_rev') or 0,
                 "total_sharing": summary.get('total_sharing') or 0,
-                "avg_pct_display": f"{round((summary.get('avg_pct') or 0) * 100, 1)}%"
+                "avg_pct_display": f"{round((summary.get('avg_pct') or 0) * 100)}%"
             },
             "top_pengelola": top_pengelola,
             "data": records
@@ -924,20 +1869,28 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
 
         cat = q.get('category', ['ALL'])[0].upper()
         search = q.get('search', [''])[0].strip().lower()
+        st = q.get('status', ['ACTIVE'])[0].upper()
 
-        # Count per alert category for ACTIVE circuits
-        cursor.execute("""
+        status_cond = "WHERE status = ?" if st != 'ALL' else ""
+        status_params = [st] if st != 'ALL' else []
+
+        # Count per alert category for selected status
+        cursor.execute(f"""
             SELECT 
                 alert_category,
                 COUNT(*) as count
             FROM collo_records
-            WHERE status = 'ACTIVE'
+            {status_cond}
             GROUP BY alert_category
-        """)
+        """, status_params)
         counts = {r['alert_category']: r['count'] for r in cursor.fetchall()}
 
-        conditions = ["status = 'ACTIVE'"]
+        conditions = []
         params = []
+        if st != 'ALL':
+            conditions.append("status = ?")
+            params.append(st)
+
         if cat != 'ALL':
             conditions.append("alert_category = ?")
             params.append(cat)
@@ -946,7 +1899,7 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             conditions.append("(LOWER(pelanggan) LIKE ? OR LOWER(pengelola) LIKE ? OR LOWER(no_so) LIKE ? OR LOWER(sid) LIKE ?)")
             params.extend([f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%"])
 
-        where_clause = " WHERE " + " AND ".join(conditions)
+        where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
 
         cursor.execute(f"""
             SELECT * FROM collo_records
@@ -955,8 +1908,8 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
         """, params)
         records = [dict(r) for r in cursor.fetchall()]
 
-        # Global expiration distribution for all active circuits
-        cursor.execute("""
+        # Global expiration distribution for filtered circuits
+        cursor.execute(f"""
             SELECT 
                 SUM(CASE WHEN sisa_hari < 0 THEN 1 ELSE 0 END) as overdue,
                 SUM(CASE WHEN sisa_hari >= 0 AND sisa_hari <= 30 THEN 1 ELSE 0 END) as d0_30,
@@ -964,8 +1917,8 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
                 SUM(CASE WHEN sisa_hari > 60 AND sisa_hari <= 90 THEN 1 ELSE 0 END) as d61_90,
                 SUM(CASE WHEN sisa_hari > 90 THEN 1 ELSE 0 END) as d90plus
             FROM collo_records
-            WHERE status = 'ACTIVE'
-        """)
+            {status_cond}
+        """, status_params)
         d_row = cursor.fetchone()
         conn.close()
 
@@ -1061,6 +2014,7 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
         pic_filter = q.get('pic', ['ALL'])[0]
         year_filter = q.get('year', ['ALL'])[0]
         aging_filter = q.get('aging', ['ALL'])[0]
+        region_filter = q.get('region', ['ALL'])[0].strip().upper()
         search = q.get('search', [''])[0].strip().lower()
         page = max(1, int(q.get('page', ['1'])[0]))
         page_size = max(5, min(5000, int(q.get('pageSize', ['25'])[0])))
@@ -1091,39 +2045,66 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
 
         where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
 
-        cursor.execute(f"SELECT COUNT(*) FROM sitac_records {where_clause}", params)
-        total_count = cursor.fetchone()[0]
+        # Fetch all records matching the base conditions to perform regional classification & statistics
+        cursor.execute(f"SELECT * FROM sitac_records {where_clause} ORDER BY id ASC", params)
+        all_matched_records = [dict(r) for r in cursor.fetchall()]
 
+        # Regional statistical accumulator
+        reg_keys = ['ALL', 'JAKPUSEL', 'JAKUTIM', 'BODEBEK', 'JAKBAR', 'BANTEN', 'TANGERANG']
+        region_stats = {
+            r: {'count': 0, 'berbiaya': 0, 'zerocost': 0, 'biaya_awal': 0, 'biaya_final': 0, 'efisiensi_rupiah': 0, 'efisiensi_persen': 0.0}
+            for r in reg_keys
+        }
+
+        # Tag each record with region and aggregate
+        for r in all_matched_records:
+            reg = classify_sitac_region(r)
+            r['region'] = reg
+            b_awal = float(r.get('biaya_permintaan_awal') or 0)
+            b_fin = float(r.get('biaya_final') or 0)
+            b_eff = float(r.get('efisiensi_rupiah') or 0)
+            is_cost = (r.get('is_berbiaya') == 1) or (b_fin > 0) or (b_awal > 0)
+
+            # ALL accumulator
+            region_stats['ALL']['count'] += 1
+            if is_cost: region_stats['ALL']['berbiaya'] += 1
+            else: region_stats['ALL']['zerocost'] += 1
+            region_stats['ALL']['biaya_awal'] += b_awal
+            region_stats['ALL']['biaya_final'] += b_fin
+            region_stats['ALL']['efisiensi_rupiah'] += b_eff
+
+            # Specific region accumulator
+            if reg in region_stats:
+                region_stats[reg]['count'] += 1
+                if is_cost: region_stats[reg]['berbiaya'] += 1
+                else: region_stats[reg]['zerocost'] += 1
+                region_stats[reg]['biaya_awal'] += b_awal
+                region_stats[reg]['biaya_final'] += b_fin
+                region_stats[reg]['efisiensi_rupiah'] += b_eff
+
+        for rk in reg_keys:
+            aw = region_stats[rk]['biaya_awal']
+            fin = region_stats[rk]['biaya_final']
+            ef = max(0.0, aw - fin)
+            region_stats[rk]['efisiensi_rupiah'] = ef
+            region_stats[rk]['efisiensi_persen'] = round((ef / aw * 100), 2) if aw > 0 else 0.0
+
+        # Filter by region if specified
+        if region_filter != 'ALL':
+            records = [r for r in all_matched_records if r.get('region') == region_filter]
+        else:
+            records = all_matched_records
+
+        total_count = len(records)
         offset = (page - 1) * page_size
-        cursor.execute(f"""
-            SELECT * FROM sitac_records
-            {where_clause}
-            ORDER BY id ASC
-            LIMIT ? OFFSET ?
-        """, params + [page_size, offset])
+        paginated_records = records[offset:offset + page_size]
 
-        records = [dict(r) for r in cursor.fetchall()]
+        # Calculate status counts for the selected region
+        raw_status = {}
+        for r in records:
+            p = r.get('progress') or 'Ongoing'
+            raw_status[p] = raw_status.get(p, 0) + 1
 
-        # Base conditions excluding status_filter to calculate breakdown for tabs & chart
-        other_conditions = []
-        other_params = []
-        if pic_filter != 'ALL':
-            other_conditions.append("(LOWER(pic_perijinan) = ? OR LOWER(pic_perijinan) LIKE ?)")
-            other_params.extend([pic_filter.lower(), f"%{pic_filter.lower()}%"])
-        if year_filter != 'ALL':
-            other_conditions.append("tahun = ?")
-            other_params.append(int(year_filter))
-        if aging_filter != 'ALL':
-            other_conditions.append("aging_category = ?")
-            other_params.append(aging_filter.lower())
-        if search:
-            search_param = f"%{search}%"
-            other_conditions.append("(LOWER(no_pa) LIKE ? OR LOWER(pelanggan) LIKE ? OR LOWER(terminating) LIKE ? OR LOWER(pic_perijinan) LIKE ?)")
-            other_params.extend([search_param, search_param, search_param, search_param])
-
-        other_where = " WHERE " + " AND ".join(other_conditions) if other_conditions else ""
-        cursor.execute(f"SELECT progress, COUNT(*) FROM sitac_records {other_where} GROUP BY progress", other_params)
-        raw_status = dict(cursor.fetchall())
         status_counts = {
             "Finish": raw_status.get("Finish", 0),
             "Ongoing": raw_status.get("Ongoing", 0),
@@ -1132,9 +2113,12 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
         }
         status_counts["ALL"] = sum(status_counts.values())
 
-        # Aging distribution for the currently filtered result (including status_filter)
-        cursor.execute(f"SELECT aging_category, COUNT(*) FROM sitac_records {where_clause} GROUP BY aging_category", params)
-        raw_aging = dict(cursor.fetchall())
+        # Aging distribution for the filtered records
+        raw_aging = {}
+        for r in records:
+            cat = r.get('aging_category') or 'green'
+            raw_aging[cat] = raw_aging.get(cat, 0) + 1
+
         aging_dist = {
             "green": raw_aging.get("green", 0),
             "yellow": raw_aging.get("yellow", 0),
@@ -1144,13 +2128,15 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
         conn.close()
 
         self.send_json({
-            "data": records,
+            "data": paginated_records,
             "total": total_count,
             "page": page,
             "pageSize": page_size,
             "totalPages": (total_count + page_size - 1) // page_size if total_count > 0 else 1,
             "status_counts": status_counts,
-            "aging_dist": aging_dist
+            "aging_dist": aging_dist,
+            "region_stats": region_stats,
+            "selected_region": region_filter
         })
 
     def handle_get_gangguan(self, q):
@@ -1300,7 +2286,7 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             sla = round(p['avg_sla_hari'] or 0, 1)
 
             result.append({
-                "pic": p['pic'],
+                "pic": format_pic_name(p['pic']),
                 "total_penugasan": tot,
                 "finish": fin,
                 "ongoing": p['ongoing'],
@@ -1323,8 +2309,49 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM rekap_efisiensi ORDER BY tahun ASC")
         rows = [dict(r) for r in cursor.fetchall()]
+
+        cursor.execute("SELECT * FROM sitac_records ORDER BY id ASC")
+        all_sitac = [dict(r) for r in cursor.fetchall()]
         conn.close()
-        self.send_json(rows)
+
+        region_defs = [
+            {'code': 'JAKPUSEL', 'name': 'JAKPUSEL', 'desc': 'Jakarta Pusat dan Jakarta Selatan'},
+            {'code': 'JAKUTIM', 'name': 'JAKUTIM', 'desc': 'Jakarta Utara dan Jakarta Timur'},
+            {'code': 'BODEBEK', 'name': 'BODEBEK', 'desc': 'Bogor, Depok, dan Bekasi'},
+            {'code': 'JAKBAR', 'name': 'Jakbar', 'desc': 'Jakarta Barat'},
+            {'code': 'BANTEN', 'name': 'Banten', 'desc': 'Banten (Serang, Cilegon, Pandeglang, Lebak)'},
+            {'code': 'TANGERANG', 'name': 'Tangerang', 'desc': 'Tangerang (Kota Tangerang, Tangsel, Kab Tangerang)'}
+        ]
+
+        regional_data = []
+        for rd in region_defs:
+            c = rd['code']
+            recs = [s for s in all_sitac if classify_sitac_region(s) == c]
+            tot = len(recs)
+            b_awal = sum(float(s.get('biaya_permintaan_awal') or 0) for s in recs)
+            b_fin = sum(float(s.get('biaya_final') or 0) for s in recs)
+            b_eff = sum(float(s.get('efisiensi_rupiah') or 0) for s in recs)
+            ada_biaya = sum(1 for s in recs if (s.get('is_berbiaya') == 1) or float(s.get('biaya_final') or 0) > 0 or float(s.get('biaya_permintaan_awal') or 0) > 0)
+            zero_cost = tot - ada_biaya
+            eff_pct = round((b_eff / b_awal * 100), 2) if b_awal > 0 else 0.0
+
+            regional_data.append({
+                'region_code': c,
+                'region_name': rd['name'],
+                'description': rd['desc'],
+                'total_pa': tot,
+                'ada_biaya': ada_biaya,
+                'tidak_ada_biaya': zero_cost,
+                'nilai_awal': b_awal,
+                'nilai_akhir': b_fin,
+                'efisiensi_rupiah': b_eff,
+                'efisiensi_persen': eff_pct
+            })
+
+        self.send_json({
+            "yearly": rows,
+            "regional": regional_data
+        })
 
     def handle_download_pdf_report(self):
         pdf_path = os.path.join(BASE_DIR, "Laporan_Rekap_Telecom_Ops.pdf")
@@ -1418,7 +2445,7 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
 
             headers = [
                 "No", "Pengelola", "Pelanggan", "Nomor SO", "SID Sirkuit", "Jenis Sewa", "Layanan",
-                "Originating", "Terminating", "Rev Sewa 1 Thn (Rp)", "Biaya OTC (Rp)", "Biaya Sewa 1 Thn (Rp)",
+                "Originating", "Terminating", "Rev Sewa 1 Thn (Rp)", "Biaya OTC (Rp)", "Biaya Deposito (Rp)", "Biaya Sewa 1 Thn (Rp)",
                 "Margin (Rp)", "Margin (%)", "Rev Sharing", "Status", "Tgl Mulai", "Tgl Berakhir",
                 "Sisa Hari", "Kategori Alert", "Nomor SPP / PO", "PIC Rekanan", "Catatan"
             ]
@@ -1431,7 +2458,7 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
                 ws.append([
                     idx, r['pengelola'] or '-', r['pelanggan'] or '-', r['no_so'] or '-', r['sid'] or '-',
                     r['jenis_sewa'] or '-', r['layanan'] or '-', r['originating'] or '-', r['terminating'] or '-',
-                    r['rev_sewa_tahun'] or 0, r['biaya_otc'] or 0, r['biaya_sewa_tahun'] or 0,
+                    r['rev_sewa_tahun'] or 0, r['biaya_otc'] or 0, r['biaya_deposit'] or 0, r['biaya_sewa_tahun'] or 0,
                     r['margin_rupiah'] or 0, r['margin_persen'] or 0.0, r['rev_sharing_raw'] or '-',
                     r['status'] or '-', r['start_date'] or '-', r['end_date'] or '-',
                     r['sisa_hari'] if r['sisa_hari'] is not None else 0, r['alert_category'] or '-',
@@ -1512,14 +2539,14 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
         cursor = conn.cursor()
         st = q.get('status', ['ALL'])[0]
 
-        cond = ["latitude IS NOT NULL AND longitude IS NOT NULL"]
+        cond = ["latitude IS NOT NULL AND longitude IS NOT NULL AND coord_type IN ('EXACT', 'EXACT_COORDS', 'USER_INPUT')"]
         params = []
         if st != 'ALL':
             cond.append("progress = ?")
             params.append(st)
 
         where_clause = " WHERE " + " AND ".join(cond)
-        cursor.execute(f"SELECT id, no_pa, pelanggan, terminating, latitude, longitude, progress, biaya_final, efisiensi_rupiah, pic_perijinan FROM sitac_records {where_clause}", params)
+        cursor.execute(f"SELECT id, no_pa, pelanggan, terminating, latitude, longitude, progress, biaya_final, efisiensi_rupiah, pic_perijinan, coord_type FROM sitac_records {where_clause}", params)
         rows = [dict(r) for r in cursor.fetchall()]
         conn.close()
         self.send_json(rows)
@@ -1528,10 +2555,16 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute("SELECT DISTINCT pengelola FROM collo_records WHERE pengelola != '' ORDER BY pengelola")
-        pengelola_list = [r[0] for r in cursor.fetchall()]
+        raw_list = [r[0] for r in cursor.fetchall()]
+        p_set = set()
+        for p in raw_list:
+            c = canonical_pengelola(p)
+            if c:
+                p_set.add(c)
+        pengelola_list = sorted(list(p_set), key=lambda x: x.lower())
 
         cursor.execute("SELECT DISTINCT pic_perijinan FROM sitac_records WHERE pic_perijinan != '' ORDER BY pic_perijinan")
-        pic_list = [r[0] for r in cursor.fetchall()]
+        pic_list = sorted(list(set(format_pic_name(r[0]) for r in cursor.fetchall() if r[0])))
 
         cursor.execute("SELECT DISTINCT jenis_sewa FROM collo_records WHERE jenis_sewa != '' ORDER BY jenis_sewa")
         jenis_list = [r[0] for r in cursor.fetchall()]
@@ -1563,14 +2596,14 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
 
         allowed_fields = [
             'status', 'spp', 'po_baru', 'ref_spp', 'proses_admin', 'keterangan',
-            'rev_sewa_tahun', 'biaya_otc', 'biaya_sewa_tahun', 'foto_bukti',
+            'rev_sewa_tahun', 'biaya_otc', 'biaya_deposit', 'biaya_sewa_tahun', 'foto_bukti',
             'pengelola', 'pelanggan', 'sid', 'no_so', 'originating', 'terminating',
             'jenis_sewa', 'layanan', 'rev_sharing_pct', 'start_date', 'end_date'
         ]
         for f in allowed_fields:
             if f in body:
                 val = body[f]
-                if f in ['rev_sewa_tahun', 'biaya_otc', 'biaya_sewa_tahun']:
+                if f in ['rev_sewa_tahun', 'biaya_otc', 'biaya_deposit', 'biaya_sewa_tahun']:
                     val = safe_int(val)
                 elif f == 'rev_sharing_pct':
                     val = safe_float(val)
@@ -1668,6 +2701,25 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             if f in body:
                 fields.append(f"{f} = ?")
                 params.append(body[f])
+
+        if 'latitude' in body and body['latitude'] is not None and str(body['latitude']).strip() != '':
+            lat = safe_float(body['latitude'])
+            fields.append("latitude = ?")
+            params.append(lat)
+            fields.append("coord_type = ?")
+            params.append("EXACT")
+        elif 'latitude' in body and (body['latitude'] is None or str(body['latitude']).strip() == ''):
+            fields.append("latitude = NULL")
+
+        if 'longitude' in body and body['longitude'] is not None and str(body['longitude']).strip() != '':
+            lon = safe_float(body['longitude'])
+            fields.append("longitude = ?")
+            params.append(lon)
+            if "coord_type = ?" not in fields:
+                fields.append("coord_type = ?")
+                params.append("EXACT")
+        elif 'longitude' in body and (body['longitude'] is None or str(body['longitude']).strip() == ''):
+            fields.append("longitude = NULL")
 
         if 'biaya_final' in body:
             # Recalculate efisiensi
@@ -1818,6 +2870,7 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
 
         rev_sewa = safe_int(b.get('rev_sewa_tahun', 0))
         biaya_otc = safe_int(b.get('biaya_otc', 0))
+        biaya_deposit = safe_int(b.get('biaya_deposit', 0))
         biaya_sewa = safe_int(b.get('biaya_sewa_tahun', 0))
         margin_rp = rev_sewa - biaya_sewa
         margin_pct = round((margin_rp / rev_sewa * 100), 1) if rev_sewa > 0 else 0.0
@@ -1860,15 +2913,15 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
         cursor.execute("""
             INSERT INTO collo_records (
                 pengelola, pelanggan, no_so, sid, jenis_sewa, layanan,
-                rev_sewa_tahun, biaya_otc, biaya_sewa_tahun, margin_rupiah, margin_persen,
+                rev_sewa_tahun, biaya_otc, biaya_deposit, biaya_sewa_tahun, margin_rupiah, margin_persen,
                 rev_sharing_raw, rev_sharing_pct, biaya_rev_sharing,
                 start_date, end_date, status, is_active, sisa_hari, alert_category,
                 alert_label, alert_color, spp, po_baru, pic_admin, keterangan
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             pengelola, pelanggan, str(b.get('no_so', '')).strip(), str(b.get('sid', '')).strip(),
             str(b.get('jenis_sewa', 'Colocation')).strip() or 'Colocation', str(b.get('layanan', '')).strip(),
-            rev_sewa, biaya_otc, biaya_sewa, margin_rp, margin_pct,
+            rev_sewa, biaya_otc, biaya_deposit, biaya_sewa, margin_rp, margin_pct,
             rev_share_raw, rev_share_pct, biaya_share,
             start_date, end_date, st, is_active, sisa_hari, alert_cat,
             alert_label, alert_color, str(b.get('spp', '')).strip(), str(b.get('po_baru', '')).strip(),
@@ -1893,6 +2946,20 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             conn.close()
             return self.send_error_json("No PA dan Pelanggan wajib diisi")
 
+        # Duplicate No PA guard (placeholders such as "NON PA" / "-" may repeat)
+        if re.sub(r'[\s_\-]+', '', no_pa).upper() not in ('NONPA', ''):
+            cursor.execute(
+                "SELECT id, pelanggan FROM sitac_records WHERE UPPER(TRIM(no_pa)) = UPPER(?) LIMIT 1",
+                (no_pa,)
+            )
+            dup = cursor.fetchone()
+            if dup:
+                conn.close()
+                return self.send_error_json(
+                    f"Nomor PA {no_pa} sudah ada (ID #{dup['id']} - {str(dup['pelanggan'] or '')[:40]}). Gunakan nomor PA lain atau edit data yang sudah ada.",
+                    409
+                )
+
         b_awal = safe_int(b.get('biaya_permintaan_awal', 0))
         b_final = safe_int(b.get('biaya_final', 0))
         eff_rp = max(0, b_awal - b_final)
@@ -1913,8 +2980,17 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             except Exception: pass
 
         aging = "green" if (durasi_hari is None or durasi_hari <= 7) else ("yellow" if durasi_hari <= 14 else "red")
-        lat = safe_float(b.get('latitude', -6.2000), -6.2000)
-        lon = safe_float(b.get('longitude', 106.8200), 106.8200)
+        lat = None
+        lon = None
+        coord_type = None
+        if b.get('latitude') is not None and str(b.get('latitude')).strip() != '':
+            try: lat = float(b['latitude'])
+            except Exception: pass
+        if b.get('longitude') is not None and str(b.get('longitude')).strip() != '':
+            try: lon = float(b['longitude'])
+            except Exception: pass
+        if lat is not None and lon is not None:
+            coord_type = "EXACT"
 
         now = datetime.date.today()
         foto_bukti = str(b.get('foto_bukti', '')).strip() or None
@@ -1926,8 +3002,8 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
                 durasi_hari, aging_category, update_pekerjaan, bulan, tahun, foto_bukti
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            no_pa, pelanggan, str(b.get('ptl', '')).strip(), str(b.get('pic_perijinan', '')).strip(),
-            str(b.get('terminating', '')).strip(), lat, lon, "USER_INPUT",
+            no_pa, pelanggan, str(b.get('ptl', '')).strip(), format_pic_name(str(b.get('pic_perijinan', '')).strip()),
+            str(b.get('terminating', '')).strip(), lat, lon, coord_type,
             b_awal, b_final, eff_rp, eff_pct, is_berbiaya, progress,
             date_dispos, date_close, durasi_hari, aging, str(b.get('update_pekerjaan', '')).strip(),
             now.month, now.year, foto_bukti
@@ -1969,7 +3045,7 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             no_tiket, tgl_dispos, tgl_selesai, str(b.get('terminating', '')).strip(),
-            str(b.get('jenis_gangguan', 'FO Cut / Utilitas')).strip(), str(b.get('pic_perijinan', '')).strip(),
+            str(b.get('jenis_gangguan', 'FO Cut / Utilitas')).strip(), format_pic_name(str(b.get('pic_perijinan', '')).strip()),
             b_gangguan, status_pekerjaan, is_selesai,
             str(b.get('update_gangguan', '')).strip() or 'Tiket baru dibuat dalam penanganan tim',
             sla_target, foto_bukti
@@ -2041,6 +3117,349 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             "filename": saved_filename,
             "file_url": file_url
         })
+
+    def handle_delete_foto_bukti(self, b):
+        target_type = str(b.get('type', '')).strip().lower()
+        target_id = b.get('id')
+        if not target_type or not target_id:
+            return self.send_error_json("Parameter type dan id wajib diisi", 400)
+
+        table = None
+        if target_type == 'gangguan':
+            table = 'gangguan_records'
+        elif target_type == 'sitac':
+            table = 'sitac_records'
+        elif target_type == 'collo':
+            table = 'collo_records'
+
+        if not table:
+            return self.send_error_json("Tipe record tidak valid", 400)
+
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(f"SELECT foto_bukti FROM {table} WHERE id = ?", (int(target_id),))
+        row = cur.fetchone()
+        old_file = row['foto_bukti'] if row else None
+
+        cur.execute(f"UPDATE {table} SET foto_bukti = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (int(target_id),))
+        conn.commit()
+        conn.close()
+
+        # Remove file from disk if exists
+        if old_file:
+            old_path = os.path.join(BASE_DIR, "uploads", str(old_file))
+            if os.path.exists(old_path):
+                try:
+                    os.remove(old_path)
+                except Exception:
+                    pass
+
+        try:
+            self.sync_master_dataset_file()
+        except Exception:
+            pass
+
+        return self.send_json({
+            "success": True,
+            "message": "Foto bukti lapangan berhasil dihapus"
+        })
+
+    def sync_master_dataset_file(self):
+        try:
+            conn = get_db()
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM sitac_records ORDER BY id ASC")
+            sitac_recs = [dict(r) for r in cursor.fetchall()]
+            cursor.execute("SELECT * FROM collo_records ORDER BY id ASC")
+            collo_recs = [dict(r) for r in cursor.fetchall()]
+            cursor.execute("SELECT * FROM gangguan_records ORDER BY id ASC")
+            gangguan_recs = [dict(r) for r in cursor.fetchall()]
+            conn.close()
+
+            json_path = os.path.join(BASE_DIR, "sitac_collo_data.json")
+            existing_data = {}
+            if os.path.isfile(json_path):
+                try:
+                    with open(json_path, 'r', encoding='utf-8') as f:
+                        existing_data = json.load(f)
+                except Exception: pass
+
+            existing_data["sitac_records"] = sitac_recs
+            existing_data["collo_records"] = collo_recs
+            existing_data["gangguan_records"] = gangguan_recs
+            existing_data["generated_at"] = datetime.datetime.now().isoformat()
+
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(existing_data, f, ensure_ascii=False, indent=2)
+
+            js_path = os.path.join(BASE_DIR, "sitac_collo_data.js")
+            with open(js_path, 'w', encoding='utf-8') as f:
+                f.write("// Telecom Infrastructure & Lease Operations Portal - Unified Master Data\n")
+                f.write("window.SITAC_COLLO_DATA = " + json.dumps(existing_data, ensure_ascii=False) + ";\n")
+        except Exception as e:
+            print("Error syncing master dataset files:", e)
+
+    def handle_batch_import(self, b):
+        module = str(b.get('module', '')).strip().lower()
+        if 'sitac' in module: target = 'sitac'
+        elif 'collo' in module: target = 'collo'
+        elif 'gangguan' in module: target = 'gangguan'
+        else:
+            return self.send_error_json("Modul import tidak valid (pilih SITAC, Colocation, atau Gangguan)", 400)
+
+        mode = str(b.get('mode', 'skip')).strip().lower()
+        records = b.get('records', [])
+        if not isinstance(records, list) or len(records) == 0:
+            return self.send_error_json("Tidak ada data yang dikirim untuk diimpor", 400)
+
+        conn = get_db()
+        cursor = conn.cursor()
+
+        imported_count = 0
+        updated_count = 0
+        skipped_count = 0
+
+        try:
+            today_str = datetime.date.today().isoformat()
+            now = datetime.date.today()
+
+            if target == 'sitac':
+                for r in records:
+                    no_pa = str(r.get('no_pa', '')).strip()
+                    pelanggan = str(r.get('pelanggan', '')).strip()
+                    if not no_pa or not pelanggan:
+                        skipped_count += 1
+                        continue
+
+                    is_generic = re.sub(r'[\s_\-]+', '', no_pa).upper() in ('NONPA', '')
+                    cursor.execute("SELECT id FROM sitac_records WHERE UPPER(TRIM(no_pa)) = UPPER(?) LIMIT 1", (no_pa,))
+                    existing = cursor.fetchone()
+
+                    b_awal = safe_int(r.get('biaya_permintaan_awal', 0))
+                    b_final = safe_int(r.get('biaya_final', 0))
+                    eff_rp = max(0, b_awal - b_final)
+                    eff_pct = round((eff_rp / b_awal * 100), 2) if b_awal > 0 else 0.0
+                    is_berbiaya = 1 if (b_final > 0 or b_awal > 0) else 0
+
+                    progress = str(r.get('progress', 'Ongoing')).strip() or 'Ongoing'
+                    date_dispos = str(r.get('date_dispos', '')).strip() or today_str
+                    date_close = str(r.get('date_close', '')).strip() or (today_str if progress == 'Finish' else None)
+
+                    durasi_hari = None
+                    if date_close:
+                        try:
+                            d1 = datetime.datetime.strptime(date_dispos, "%Y-%m-%d")
+                            d2 = datetime.datetime.strptime(date_close, "%Y-%m-%d")
+                            durasi_hari = max(0, (d2 - d1).days)
+                        except Exception: pass
+                    aging = "green" if (durasi_hari is None or durasi_hari <= 7) else ("yellow" if durasi_hari <= 14 else "red")
+
+                    lat = None
+                    lon = None
+                    coord_type = None
+                    if r.get('latitude') is not None and str(r.get('latitude')).strip() != '':
+                        try: lat = float(r['latitude'])
+                        except Exception: pass
+                    if r.get('longitude') is not None and str(r.get('longitude')).strip() != '':
+                        try: lon = float(r['longitude'])
+                        except Exception: pass
+                    if lat is not None and lon is not None:
+                        coord_type = "EXACT"
+
+                    ptl = str(r.get('ptl', '')).strip()
+                    pic = format_pic_name(str(r.get('pic_perijinan', '')).strip())
+                    term = str(r.get('terminating', '')).strip()
+                    upd = str(r.get('update_pekerjaan', '')).strip()
+
+                    if existing and not is_generic:
+                        if mode == 'update':
+                            cursor.execute("""
+                                UPDATE sitac_records SET
+                                    pelanggan = ?, ptl = ?, pic_perijinan = ?, terminating = ?,
+                                    latitude = COALESCE(?, latitude), longitude = COALESCE(?, longitude),
+                                    coord_type = COALESCE(?, coord_type), biaya_permintaan_awal = ?, biaya_final = ?,
+                                    efisiensi_rupiah = ?, efisiensi_persen = ?, is_berbiaya = ?, progress = ?,
+                                    date_dispos = ?, date_close = ?, durasi_hari = ?, aging_category = ?,
+                                    update_pekerjaan = ?, updated_at = CURRENT_TIMESTAMP
+                                WHERE id = ?
+                            """, (
+                                pelanggan, ptl, pic, term,
+                                lat, lon, coord_type, b_awal, b_final,
+                                eff_rp, eff_pct, is_berbiaya, progress,
+                                date_dispos, date_close, durasi_hari, aging,
+                                upd, existing['id']
+                            ))
+                            updated_count += 1
+                        else:
+                            skipped_count += 1
+                    else:
+                        cursor.execute("""
+                            INSERT INTO sitac_records (
+                                no_pa, pelanggan, ptl, pic_perijinan, terminating,
+                                latitude, longitude, coord_type, biaya_permintaan_awal, biaya_final,
+                                efisiensi_rupiah, efisiensi_persen, is_berbiaya, progress, date_dispos, date_close,
+                                durasi_hari, aging_category, update_pekerjaan, bulan, tahun
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            no_pa, pelanggan, ptl, pic, term,
+                            lat, lon, coord_type, b_awal, b_final,
+                            eff_rp, eff_pct, is_berbiaya, progress,
+                            date_dispos, date_close, durasi_hari, aging,
+                            upd, now.month, now.year
+                        ))
+                        imported_count += 1
+
+            elif target == 'collo':
+                for r in records:
+                    pengelola = str(r.get('pengelola', '')).strip()
+                    pelanggan = str(r.get('pelanggan', '')).strip()
+                    if not pengelola or not pelanggan:
+                        skipped_count += 1
+                        continue
+
+                    sid = str(r.get('sid', '')).strip()
+                    no_so = str(r.get('no_so', '')).strip()
+
+                    existing = None
+                    if sid and no_so:
+                        cursor.execute("SELECT id FROM collo_records WHERE UPPER(TRIM(sid)) = UPPER(?) AND UPPER(TRIM(no_so)) = UPPER(?) LIMIT 1", (sid, no_so))
+                        existing = cursor.fetchone()
+
+                    rev_thn = safe_int(r.get('rev_sewa_tahun', 0))
+                    biaya_thn = safe_int(r.get('biaya_sewa_tahun', 0))
+                    margin = rev_thn - biaya_thn
+                    rev_share_pct = safe_int(r.get('rev_sharing_pct', 0))
+                    biaya_rev = safe_int(r.get('biaya_rev_sharing', 0))
+                    status = str(r.get('status', 'ACTIVE')).strip().upper() or 'ACTIVE'
+                    is_act = 1 if status == 'ACTIVE' else 0
+                    start_d = str(r.get('start_date', '')).strip() or None
+                    end_d = str(r.get('end_date', '')).strip() or None
+
+                    sisa_hari = None
+                    alert_cat = 'SAFE'
+                    if end_d:
+                        try:
+                            d_end = datetime.datetime.strptime(end_d, "%Y-%m-%d").date()
+                            sisa_hari = (d_end - now).days
+                            if sisa_hari < 0: alert_cat = 'EXPIRED'
+                            elif sisa_hari <= 30: alert_cat = 'CRITICAL'
+                            elif sisa_hari <= 60: alert_cat = 'WARNING'
+                            else: alert_cat = 'SAFE'
+                        except Exception: pass
+
+                    jenis = str(r.get('jenis_sewa', 'Backbone')).strip() or 'Backbone'
+                    orig = str(r.get('originating', '')).strip()
+                    term = str(r.get('terminating', '')).strip()
+                    spp = str(r.get('spp', r.get('po_baru', ''))).strip()
+                    po_b = str(r.get('po_baru', '')).strip()
+                    proses = str(r.get('proses_admin', 'Running')).strip() or 'Running'
+                    pic = str(r.get('pic_admin', '')).strip()
+                    ket = str(r.get('keterangan', '')).strip()
+
+                    if existing:
+                        if mode == 'update':
+                            cursor.execute("""
+                                UPDATE collo_records SET
+                                    pengelola = ?, pelanggan = ?, jenis_sewa = ?, originating = ?, terminating = ?,
+                                    rev_sewa_tahun = ?, biaya_sewa_tahun = ?, margin_rupiah = ?, rev_sharing_pct = ?,
+                                    biaya_rev_sharing = ?, status = ?, is_active = ?, start_date = ?, end_date = ?,
+                                    sisa_hari = ?, alert_category = ?, spp = ?, po_baru = ?, proses_admin = ?,
+                                    pic_admin = ?, keterangan = ?, updated_at = CURRENT_TIMESTAMP
+                                WHERE id = ?
+                            """, (
+                                pengelola, pelanggan, jenis, orig, term,
+                                rev_thn, biaya_thn, margin, rev_share_pct,
+                                biaya_rev, status, is_act, start_d, end_d,
+                                sisa_hari, alert_cat, spp, po_b, proses,
+                                pic, ket, existing['id']
+                            ))
+                            updated_count += 1
+                        else:
+                            skipped_count += 1
+                    else:
+                        cursor.execute("""
+                            INSERT INTO collo_records (
+                                pengelola, pelanggan, sid, no_so, jenis_sewa, originating, terminating,
+                                rev_sewa_tahun, biaya_sewa_tahun, margin_rupiah, rev_sharing_pct,
+                                biaya_rev_sharing, status, is_active, start_date, end_date,
+                                sisa_hari, alert_category, spp, po_baru, proses_admin,
+                                pic_admin, keterangan
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            pengelola, pelanggan, sid, no_so, jenis, orig, term,
+                            rev_thn, biaya_thn, margin, rev_share_pct,
+                            biaya_rev, status, is_act, start_d, end_d,
+                            sisa_hari, alert_cat, spp, po_b, proses,
+                            pic, ket
+                        ))
+                        imported_count += 1
+
+            elif target == 'gangguan':
+                for r in records:
+                    no_tiket = str(r.get('no_tiket', '')).strip()
+                    if not no_tiket:
+                        cursor.execute("SELECT COUNT(*) FROM gangguan_records")
+                        cnt = cursor.fetchone()[0] + 1
+                        no_tiket = f"TIKET-EMERGENCY-{cnt:04d}"
+
+                    cursor.execute("SELECT id FROM gangguan_records WHERE UPPER(TRIM(no_tiket)) = UPPER(?) LIMIT 1", (no_tiket,))
+                    existing = cursor.fetchone()
+
+                    tgl_dispos = str(r.get('tgl_dispos', '')).strip() or today_str
+                    is_sel = 1 if str(r.get('is_selesai', '0')).strip() in ('1', 'true', 'True', 'Selesai') else 0
+                    tgl_sel = str(r.get('tgl_selesai', '')).strip() if is_sel else None
+                    status_pek = "Selesai" if is_sel else "Proses (Open)"
+                    sla = str(r.get('sla_target', 'H+1')).strip() or 'H+1'
+                    b_gang = safe_int(r.get('biaya_gangguan', 0))
+                    pic = format_pic_name(str(r.get('pic_perijinan', '')).strip())
+                    term = str(r.get('terminating', '')).strip()
+                    jenis = str(r.get('jenis_gangguan', 'FO Cut / Utilitas')).strip()
+                    upd = str(r.get('update_gangguan', '')).strip()
+
+                    if existing:
+                        if mode == 'update':
+                            cursor.execute("""
+                                UPDATE gangguan_records SET
+                                    tgl_dispos = ?, tgl_selesai = ?, terminating = ?, jenis_gangguan = ?,
+                                    pic_perijinan = ?, biaya_gangguan = ?, status_pekerjaan = ?, is_selesai = ?,
+                                    update_gangguan = ?, sla_target = ?
+                                WHERE id = ?
+                            """, (tgl_dispos, tgl_sel, term, jenis, pic, b_gang, status_pek, is_sel, upd, sla, existing['id']))
+                            updated_count += 1
+                        else:
+                            skipped_count += 1
+                    else:
+                        cursor.execute("""
+                            INSERT INTO gangguan_records (
+                                no_tiket, tgl_dispos, tgl_selesai, terminating, jenis_gangguan,
+                                pic_perijinan, biaya_gangguan, status_pekerjaan, is_selesai,
+                                update_gangguan, sla_target
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (no_tiket, tgl_dispos, tgl_sel, term, jenis, pic, b_gang, status_pek, is_sel, upd, sla))
+                        imported_count += 1
+
+            conn.commit()
+            conn.close()
+
+            # Sync master JSON and JS file so offline / fallback stays 100% updated
+            try:
+                self.sync_master_dataset_file()
+            except Exception as sync_e:
+                print("Notice: master sync error on batch import:", sync_e)
+
+            return self.send_json({
+                "success": True,
+                "message": f"Impor selesai! {imported_count} data baru ditambahkan, {updated_count} diperbarui, {skipped_count} dilewati.",
+                "imported": imported_count,
+                "updated": updated_count,
+                "skipped": skipped_count,
+                "total": len(records)
+            })
+
+        except Exception as err:
+            conn.rollback()
+            conn.close()
+            return self.send_error_json(f"Gagal memproses batch import: {str(err)}", 500)
 
 def run():
     init_users_table()

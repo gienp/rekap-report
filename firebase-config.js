@@ -302,8 +302,8 @@ window.DEFAULT_FIREBASE_CONFIG = {
         { username: 'edi', email: 'edi@telecom.ops', password_hash: await hashPwClient('pic123'), full_name: 'Edi Swargaloka', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'amber', pic_code: 'Edi' },
         { username: 'abusopian', email: 'abusopian@telecom.ops', password_hash: await hashPwClient('pic123'), full_name: 'M. Abusopian', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'indigo', pic_code: 'Abusopian' },
         { username: 'muhidin', email: 'muhidin@telecom.ops', password_hash: await hashPwClient('pic123'), full_name: 'Muhidin', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'teal', pic_code: 'Muhidin' },
-        { username: 'brian', email: 'brian@telecom.ops', password_hash: await hashPwClient('pic123'), full_name: 'Brian Ariyanto', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'purple', pic_code: 'Brian' },
-        { username: 'zulhadi', email: 'zulhadi@telecom.ops', password_hash: await hashPwClient('pic123'), full_name: 'Zulhadi Syahril', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'blue', pic_code: 'Zulhadi' }
+        { username: 'zulhadi', email: 'zulhadi@telecom.ops', password_hash: await hashPwClient('pic123'), full_name: 'Zulhadi Syahril', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'blue', pic_code: 'Zulhadi' },
+        { username: 'sales', email: 'sales@telecom.ops', password_hash: await hashPwClient('sales123'), full_name: 'Tim Sales / Account Executive', role: 'sales', avatar_icon: 'fa-chart-line', badge_color: 'amber', pic_code: '' }
       ];
 
       const batch = db.batch();
@@ -318,62 +318,50 @@ window.DEFAULT_FIREBASE_CONFIG = {
     }
   }
 
+  const DEFAULT_TEAM_ACCOUNTS = {
+    'admin': { full_name: 'Administrator (Manajemen)', role: 'admin', avatar_icon: 'fa-shield-halved', badge_color: 'cyan', pic_code: '' },
+    'harlan': { full_name: 'Harlan Zaelani', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'emerald', pic_code: 'Harlan' },
+    'budi': { full_name: 'Budi Rodiyah', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'cyan', pic_code: 'Budi' },
+    'edi': { full_name: 'Edi Swargaloka', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'amber', pic_code: 'Edi' },
+    'abusopian': { full_name: 'M. Abusopian', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'indigo', pic_code: 'Abusopian' },
+    'muhidin': { full_name: 'Muhidin', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'teal', pic_code: 'Muhidin' },
+    'brian': { full_name: 'Brian Ariyanto', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'purple', pic_code: 'Brian' },
+    'zulhadi': { full_name: 'Zulhadi Syahril', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'blue', pic_code: 'Zulhadi' },
+    'sales': { full_name: 'Tim Sales / Account Executive', role: 'sales', avatar_icon: 'fa-chart-line', badge_color: 'amber', pic_code: '' }
+  };
+
+  const EMAIL_MAP = {
+    'admin@telecom.ops': 'admin',
+    'harlan@telecom.ops': 'harlan',
+    'harlan.official@telecom.co.id': 'harlan',
+    'budi@telecom.ops': 'budi',
+    'budi.rodiyah@telecom.ops': 'budi',
+    'edi@telecom.ops': 'edi',
+    'abusopian@telecom.ops': 'abusopian',
+    'muhidin@telecom.ops': 'muhidin',
+    'brian@telecom.ops': 'brian',
+    'zulhadi@telecom.ops': 'zulhadi',
+    'sales@telecom.ops': 'sales',
+    'lapangan@telecom.ops': 'lapangan'
+  };
+
   async function firestoreLogin(identifier, password) {
     const idClean = String(identifier || '').trim().toLowerCase();
     if (!idClean) throw new Error('Silakan masukkan username atau email akun Anda.');
     if (!password) throw new Error('Silakan masukkan kata sandi akun Anda.');
 
-    const DEFAULT_TEAM_ACCOUNTS = {
-      'admin': { pw: 'admin123', full_name: 'Administrator (Manajemen)', role: 'admin', avatar_icon: 'fa-shield-halved', badge_color: 'cyan', pic_code: '' },
-      'harlan': { pw: 'pic123', full_name: 'Harlan Zaelani', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'emerald', pic_code: 'Harlan' },
-      'budi': { pw: 'pic123', full_name: 'Budi Rodiyah', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'cyan', pic_code: 'Budi' },
-      'edi': { pw: 'pic123', full_name: 'Edi Swargaloka', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'amber', pic_code: 'Edi' },
-      'abusopian': { pw: 'pic123', full_name: 'M. Abusopian', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'indigo', pic_code: 'Abusopian' },
-      'muhidin': { pw: 'pic123', full_name: 'Muhidin', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'teal', pic_code: 'Muhidin' },
-      'brian': { pw: 'pic123', full_name: 'Brian Ariyanto', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'purple', pic_code: 'Brian' },
-      'zulhadi': { pw: 'pic123', full_name: 'Zulhadi Syahril', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'blue', pic_code: 'Zulhadi' }
-    };
-
-    const EMAIL_MAP = {
-      'admin@telecom.ops': 'admin',
-      'harlan@telecom.ops': 'harlan',
-      'budi@telecom.ops': 'budi',
-      'edi@telecom.ops': 'edi',
-      'abusopian@telecom.ops': 'abusopian',
-      'muhidin@telecom.ops': 'muhidin',
-      'brian@telecom.ops': 'brian',
-      'zulhadi@telecom.ops': 'zulhadi'
-    };
-
     const resolvedUser = EMAIL_MAP[idClean] || idClean;
     const defAcc = DEFAULT_TEAM_ACCOUNTS[resolvedUser];
 
-    // FAST-PATH: Akun tim bawaan divalidasi instan (0ms) tanpa menunggu roundtrip jaringan Firestore
-    if (defAcc && password === defAcc.pw) {
-      const uData = {
-        id: `user_${resolvedUser}`,
-        username: resolvedUser,
-        email: `${resolvedUser}@telecom.ops`,
-        full_name: defAcc.full_name,
-        role: defAcc.role,
-        avatar_icon: defAcc.avatar_icon,
-        badge_color: defAcc.badge_color,
-        pic_code: defAcc.pic_code
-      };
-      // Audit log asinkron di background tanpa menghambat respon login
-      logActivity('LOGIN', `User ${uData.username} (${uData.full_name}) berhasil masuk`, uData.username).catch(() => {});
-      return uData;
-    }
-
     const initRes = initializeFirebaseApp();
-    if (!initRes.success && !defAcc) throw new Error(initRes.reason);
+    if (!initRes.success) throw new Error(initRes.reason || 'Koneksi ke sistem autentikasi gagal.');
 
     const pwHash = await hashPwClient(password);
     let uData = null;
     let docId = '';
 
-    // Periksa ke Firestore dengan batas timeout aman (2000ms) agar browser tidak buffering lama
-    if (initRes.success && initRes.db) {
+    // Verifikasi kredensial wajib langsung ke database Firestore
+    if (initRes.db) {
       const db = initRes.db;
       try {
         const queryPromise = (async () => {
@@ -384,7 +372,7 @@ window.DEFAULT_FIREBASE_CONFIG = {
           return snap;
         })();
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('timeout')), 2000)
+          setTimeout(() => reject(new Error('Koneksi database timeout. Silakan periksa jaringan internet Anda.')), 4000)
         );
         const snap = await Promise.race([queryPromise, timeoutPromise]);
         if (!snap.empty) {
@@ -400,21 +388,25 @@ window.DEFAULT_FIREBASE_CONFIG = {
       } catch (dbErr) {
         if (dbErr.message && dbErr.message.includes('Kata sandi')) throw dbErr;
         console.warn('Firestore login lookup notice:', dbErr.message || dbErr);
+        throw dbErr;
       }
     }
 
-    // Jika tidak ditemukan di Firestore atau timeout, verifikasi ulang apakah akun tim
     if (!uData) {
-      if (defAcc) {
-        throw new Error('Kata sandi yang Anda masukkan salah.');
-      } else {
-        throw new Error(`Akun '${identifier}' tidak terdaftar di sistem.`);
-      }
+      throw new Error(`Akun '${identifier}' tidak terdaftar di sistem.`);
     }
 
     // Periksa status persetujuan akun PIC oleh Admin
     if (uData.status === 'pending') {
-      throw new Error(`Akun '@${uData.username}' (${uData.full_name}) masih menunggu persetujuan (approval) dari Administrator. Silakan hubungi Admin untuk mengaktifkan akun Anda.`);
+      const err = new Error(`Akun '@${uData.username}' (${uData.full_name}) masih menunggu persetujuan (approval) dari Administrator. Silakan hubungi Admin untuk mengaktifkan akun Anda.`);
+      err.code = 'USER_PENDING_APPROVAL';
+      err.pendingUser = {
+        username: uData.username,
+        fullName: uData.full_name,
+        email: uData.email,
+        picCode: uData.pic_code
+      };
+      throw err;
     }
     if (uData.status === 'rejected') {
       throw new Error(`Permohonan pendaftaran akun '@${uData.username}' telah ditolak oleh Administrator.`);
@@ -435,54 +427,66 @@ window.DEFAULT_FIREBASE_CONFIG = {
     };
   }
 
-  // Lookup user for Forgot Password flow
-  async function firestoreForgotLookup(identifier) {
-    const idClean = String(identifier || '').trim().toLowerCase();
-    if (!idClean) throw new Error('Silakan masukkan username atau email terdaftar.');
+  // Lookup user strictly by registered Email address for Forgot Password flow
+  async function firestoreForgotLookup(emailInput) {
+    const emailClean = String(emailInput || '').trim().toLowerCase();
+    if (!emailClean) {
+      throw new Error('Silakan masukkan alamat email terdaftar.');
+    }
+    if (!emailClean.includes('@') || emailClean.length < 5) {
+      throw new Error('Harap masukkan format alamat email yang valid (contoh: user@telecom.ops). Username tidak diperbolehkan.');
+    }
 
-    const DEFAULT_TEAM_ACCOUNTS = {
-      'admin': { full_name: 'Administrator (Manajemen)', role: 'admin', pic_code: '' },
-      'harlan': { full_name: 'Harlan Zaelani', role: 'lapangan', pic_code: 'Harlan' },
-      'budi': { full_name: 'Budi Rodiyah', role: 'lapangan', pic_code: 'Budi' },
-      'edi': { full_name: 'Edi Swargaloka', role: 'lapangan', pic_code: 'Edi' },
-      'abusopian': { full_name: 'M. Abusopian', role: 'lapangan', pic_code: 'Abusopian' },
-      'muhidin': { full_name: 'Muhidin', role: 'lapangan', pic_code: 'Muhidin' },
-      'brian': { full_name: 'Brian Ariyanto', role: 'lapangan', pic_code: 'Brian' },
-      'zulhadi': { full_name: 'Zulhadi Syahril', role: 'lapangan', pic_code: 'Zulhadi' }
-    };
-    const EMAIL_MAP = {
-      'admin@telecom.ops': 'admin',
-      'harlan@telecom.ops': 'harlan',
-      'budi@telecom.ops': 'budi',
-      'edi@telecom.ops': 'edi',
-      'abusopian@telecom.ops': 'abusopian',
-      'muhidin@telecom.ops': 'muhidin',
-      'brian@telecom.ops': 'brian',
-      'zulhadi@telecom.ops': 'zulhadi'
-    };
-    const resolvedUser = EMAIL_MAP[idClean] || idClean;
-    const def = DEFAULT_TEAM_ACCOUNTS[resolvedUser];
-    if (def) {
-      return {
-        success: true,
-        docId: `user_${resolvedUser}`,
-        username: resolvedUser,
-        email: `${resolvedUser}@telecom.ops`,
-        full_name: def.full_name,
-        role: def.role,
-        pic_code: def.pic_code || ''
-      };
+    if (emailClean === 'admin@telecom.ops' || EMAIL_MAP[emailClean] === 'admin') {
+      throw new Error('Akun Administrator diproteksi dan tidak dapat di-reset melalui halaman umum. Silakan hubungi tim IT / Manajemen.');
+    }
+
+    // 1. Check known team email mappings
+    const resolvedUser = EMAIL_MAP[emailClean];
+    if (resolvedUser) {
+      if (resolvedUser === 'admin') {
+        throw new Error('Akun Administrator diproteksi dan tidak dapat di-reset melalui halaman umum.');
+      }
+      const def = DEFAULT_TEAM_ACCOUNTS[resolvedUser];
+      if (def) {
+        return {
+          success: true,
+          docId: `user_${resolvedUser}`,
+          username: resolvedUser,
+          email: emailClean,
+          full_name: def.full_name,
+          role: def.role,
+          pic_code: def.pic_code || ''
+        };
+      }
     }
 
     const initRes = initializeFirebaseApp();
-    if (!initRes.success) throw new Error(initRes.reason);
-    const db = initRes.db;
+    if (!initRes.success) {
+      // Fallback check against default team accounts
+      for (const [uname, uacc] of Object.entries(DEFAULT_TEAM_ACCOUNTS)) {
+        if (uname !== 'admin' && (`${uname}@telecom.ops` === emailClean || (uacc.email && uacc.email.toLowerCase() === emailClean))) {
+          return {
+            success: true,
+            docId: `user_${uname}`,
+            username: uname,
+            email: emailClean,
+            full_name: uacc.full_name,
+            role: uacc.role,
+            pic_code: uacc.pic_code || ''
+          };
+        }
+      }
+      throw new Error(`Alamat email '${emailInput}' tidak terdaftar di sistem. Harap gunakan email akun yang benar.`);
+    }
 
+    const db = initRes.db;
     try {
       const queryPromise = (async () => {
-        let snap = await db.collection('users').where('username', '==', idClean).limit(1).get();
-        if (snap.empty) {
-          snap = await db.collection('users').where('email', '==', idClean).limit(1).get();
+        let snap = await db.collection('users').where('email', '==', emailClean).limit(1).get();
+        if (snap.empty && emailClean.endsWith('@telecom.ops')) {
+          const prefix = emailClean.replace('@telecom.ops', '');
+          snap = await db.collection('users').where('username', '==', prefix).limit(1).get();
         }
         return snap;
       })();
@@ -491,22 +495,26 @@ window.DEFAULT_FIREBASE_CONFIG = {
       );
       const snap = await Promise.race([queryPromise, timeoutPromise]);
       if (snap.empty) {
-        throw new Error(`Akun dengan username atau email '${identifier}' tidak ditemukan di Firebase.`);
+        throw new Error(`Alamat email '${emailInput}' tidak terdaftar di Firebase. Pastikan menggunakan email terdaftar Anda.`);
       }
       const doc = snap.docs[0];
       const uData = doc.data();
+
+      if (uData.role === 'admin' || uData.username === 'admin') {
+        throw new Error('Akun Administrator diproteksi dan tidak dapat di-reset melalui halaman umum.');
+      }
 
       return {
         success: true,
         docId: doc.id,
         username: uData.username,
-        email: uData.email || `${uData.username}@telecom.ops`,
+        email: uData.email || emailClean,
         full_name: uData.full_name,
         role: uData.role,
         pic_code: uData.pic_code || ''
       };
     } catch (err) {
-      throw new Error(err.message || `Gagal memeriksa akun '${identifier}'.`);
+      throw new Error(err.message || `Gagal memeriksa email '${emailInput}'.`);
     }
   }
 
@@ -521,6 +529,10 @@ window.DEFAULT_FIREBASE_CONFIG = {
     }
 
     const idClean = String(identifier || '').trim().toLowerCase();
+    if (idClean === 'admin' || idClean === 'admin@telecom.ops') {
+      throw new Error('Akses Ditolak: Kata sandi akun Administrator tidak dapat di-reset melalui menu publik.');
+    }
+
     let snap = await db.collection('users').where('username', '==', idClean).limit(1).get();
     if (snap.empty) {
       snap = await db.collection('users').where('email', '==', idClean).limit(1).get();
@@ -531,6 +543,11 @@ window.DEFAULT_FIREBASE_CONFIG = {
 
     const doc = snap.docs[0];
     const uData = doc.data();
+
+    if (uData.role === 'admin' || uData.username === 'admin') {
+      throw new Error('Akses Ditolak: Kata sandi akun Administrator tidak dapat di-reset melalui menu publik.');
+    }
+
     const newHash = await hashPwClient(newPassword);
 
     await db.collection('users').doc(doc.id).update({
@@ -546,6 +563,197 @@ window.DEFAULT_FIREBASE_CONFIG = {
       username: uData.username,
       full_name: uData.full_name
     };
+  }
+
+  // Mask email for security & privacy display: e.g. harlan.official@telecom.co.id -> ha***al@telecom.co.id
+  function maskEmail(email) {
+    if (!email || typeof email !== 'string') return '';
+    const parts = email.trim().split('@');
+    if (parts.length < 2) return email;
+    const name = parts[0];
+    const domain = parts[1];
+    if (name.length <= 2) {
+      return name[0] + '*@' + domain;
+    }
+    const visibleStart = name.slice(0, 2);
+    const visibleEnd = name.length > 4 ? name.slice(-2) : name.slice(-1);
+    const starCount = Math.max(3, name.length - visibleStart.length - visibleEnd.length);
+    return `${visibleStart}${'*'.repeat(starCount)}${visibleEnd}@${domain}`;
+  }
+
+  // Generate 6-digit verification OTP
+  function generate6DigitOtp() {
+    return String(Math.floor(100000 + Math.random() * 900000));
+  }
+
+  // Send 6-digit OTP code to user's registered recovery email
+  async function firestoreSendResetCode(emailInput) {
+    const userLookup = await firestoreForgotLookup(emailInput);
+    if (!userLookup || !userLookup.username) {
+      throw new Error(`Alamat email '${emailInput}' tidak ditemukan.`);
+    }
+
+    const email = (userLookup.email || '').trim().toLowerCase();
+    if (!email || !email.includes('@')) {
+      throw new Error(`Akun @${userLookup.username} belum memiliki email pemulihan terdaftar. Silakan hubungi Administrator.`);
+    }
+
+    const code = generate6DigitOtp();
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 menit
+
+    // Save in Firestore collection 'password_resets'
+    try {
+      const initRes = initializeFirebaseApp();
+      if (initRes.success && initRes.db) {
+        const resetData = {
+          username: userLookup.username.toLowerCase(),
+          email: email,
+          full_name: userLookup.full_name,
+          role: userLookup.role,
+          code: code,
+          expires_at: expiresAt,
+          verified: false,
+          created_at: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        // Save by email and username
+        await initRes.db.collection('password_resets').doc(email).set(resetData);
+        await initRes.db.collection('password_resets').doc(userLookup.username.toLowerCase()).set(resetData);
+        await logActivity('SEND_OTP_RESET', `Kode verifikasi lupa sandi dikirim ke ${maskEmail(email)} (Akun @${userLookup.username})`, userLookup.username);
+      }
+    } catch (e) {
+      console.warn('Firestore password_resets write fallback to session:', e);
+    }
+
+    // Keep in session storage as resilient fallback
+    try {
+      const payload = JSON.stringify({
+        username: userLookup.username.toLowerCase(),
+        email: email,
+        full_name: userLookup.full_name,
+        role: userLookup.role,
+        code: code,
+        expires_at: expiresAt,
+        verified: false
+      });
+      sessionStorage.setItem('portal_reset_otp_' + email, payload);
+      sessionStorage.setItem('portal_reset_otp_' + userLookup.username.toLowerCase(), payload);
+    } catch (e) {}
+
+    // Security console log for testing / inspection
+    console.info('%c[SECURITY: EMAIL OTP DISPATCHED]', 'background: #0891b2; color: #fff; font-weight: bold; padding: 4px 8px; border-radius: 4px;', `Kode verifikasi untuk ${email}: ${code}`);
+
+    return {
+      success: true,
+      username: userLookup.username,
+      full_name: userLookup.full_name,
+      role: userLookup.role,
+      email: email,
+      masked_email: maskEmail(email),
+      code: code,
+      expires_at: expiresAt,
+      message: `Kode verifikasi 6-digit telah dikirimkan ke email ${email}.`
+    };
+  }
+
+  // Verify OTP 6-digit code
+  async function firestoreVerifyResetCode(identifier, code) {
+    const idClean = String(identifier || '').trim().toLowerCase();
+    const codeClean = String(code || '').trim();
+
+    if (!idClean || !codeClean) {
+      throw new Error('Alamat email/akun dan kode verifikasi wajib diisi.');
+    }
+
+    let match = null;
+
+    // 1. Try reading from Firestore
+    try {
+      const initRes = initializeFirebaseApp();
+      if (initRes.success && initRes.db) {
+        const docSnap = await initRes.db.collection('password_resets').doc(idClean).get();
+        if (docSnap.exists) {
+          match = docSnap.data();
+        } else {
+          const snapQ = await initRes.db.collection('password_resets').where('email', '==', idClean).limit(1).get();
+          if (!snapQ.empty) match = snapQ.docs[0].data();
+        }
+      }
+    } catch (e) {
+      console.warn('Gagal membaca Firestore password_resets:', e);
+    }
+
+    // 2. Fallback to session storage
+    if (!match) {
+      try {
+        const stored = sessionStorage.getItem('portal_reset_otp_' + idClean);
+        if (stored) match = JSON.parse(stored);
+      } catch (e) {}
+    }
+
+    if (!match) {
+      throw new Error('Permintaan kode verifikasi tidak ditemukan. Silakan kirim kode terlebih dahulu.');
+    }
+
+    if (Date.now() > match.expires_at) {
+      throw new Error('Kode verifikasi telah kadaluarsa. Silakan minta kode verifikasi baru.');
+    }
+
+    if (match.code !== codeClean) {
+      throw new Error('Kode verifikasi yang Anda masukkan salah. Pastikan 6 digit angka sesuai email Anda.');
+    }
+
+    // Mark as verified in Firestore
+    try {
+      const initRes = initializeFirebaseApp();
+      if (initRes.success && initRes.db) {
+        await initRes.db.collection('password_resets').doc(idClean).set({ verified: true }, { merge: true });
+        if (match.email) await initRes.db.collection('password_resets').doc(match.email).set({ verified: true }, { merge: true });
+        if (match.username) await initRes.db.collection('password_resets').doc(match.username).set({ verified: true }, { merge: true });
+      }
+    } catch (e) {}
+
+    try {
+      match.verified = true;
+      sessionStorage.setItem('portal_reset_otp_' + idClean, JSON.stringify(match));
+      if (match.email) sessionStorage.setItem('portal_reset_otp_' + match.email, JSON.stringify(match));
+      if (match.username) sessionStorage.setItem('portal_reset_otp_' + match.username, JSON.stringify(match));
+    } catch (e) {}
+
+    return {
+      success: true,
+      verified: true,
+      username: match.username,
+      email: match.email,
+      message: 'Kode verifikasi berhasil divalidasi!'
+    };
+  }
+
+  // Reset password after OTP is verified
+  async function firestoreResetPasswordWithCode(identifier, code, newPassword) {
+    // Check verification first
+    const vRes = await firestoreVerifyResetCode(identifier, code);
+    const targetUser = vRes.username || identifier;
+
+    // Proceed to reset password in Firestore
+    const res = await firestoreResetPassword(targetUser, newPassword);
+
+    // Clean up reset token
+    const idClean = String(identifier || '').trim().toLowerCase();
+    try {
+      const initRes = initializeFirebaseApp();
+      if (initRes.success && initRes.db) {
+        await initRes.db.collection('password_resets').doc(idClean).delete();
+        if (vRes.email) await initRes.db.collection('password_resets').doc(vRes.email).delete();
+        if (vRes.username) await initRes.db.collection('password_resets').doc(vRes.username).delete();
+      }
+    } catch (e) {}
+    try {
+      sessionStorage.removeItem('portal_reset_otp_' + idClean);
+      if (vRes.email) sessionStorage.removeItem('portal_reset_otp_' + vRes.email);
+      if (vRes.username) sessionStorage.removeItem('portal_reset_otp_' + vRes.username);
+    } catch (e) {}
+
+    return res;
   }
 
   async function firestoreRegister(userData) {
@@ -711,26 +919,236 @@ window.DEFAULT_FIREBASE_CONFIG = {
     return { success: true, message: `Permohonan akun PIC '${data.full_name || targetUser}' (@${targetUser}) telah ditolak.` };
   }
 
+  async function firestoreAdminCreateUser(userData, adminActor) {
+    const initRes = initializeFirebaseApp();
+    if (!initRes.success) throw new Error(initRes.reason);
+    const db = initRes.db;
+
+    const username = (userData.username || '').trim().toLowerCase();
+    if (!username || username.length < 3) throw new Error('Username minimal 3 karakter.');
+    if (!/^[a-z0-9_]+$/.test(username)) throw new Error('Username hanya boleh menggunakan huruf kecil, angka, dan underscore (_).');
+    if (!userData.password || userData.password.length < 4) throw new Error('Kata sandi minimal 4 karakter.');
+    if (!userData.full_name || !userData.full_name.trim()) throw new Error('Nama lengkap wajib diisi.');
+
+    const email = (userData.email || `${username}@telecom.ops`).trim().toLowerCase();
+
+    // Check existing username
+    const snapUser = await db.collection('users').where('username', '==', username).limit(1).get();
+    if (!snapUser.empty) {
+      throw new Error(`Username '${username}' sudah terdaftar di Firebase.`);
+    }
+
+    const isAdmin = (userData.role === 'admin');
+    const isSales = (userData.role === 'sales');
+    const pwHash = await hashPwClient(userData.password);
+    const docId = `user_${username}`;
+    const roleKey = isAdmin ? 'admin' : (isSales ? 'sales' : 'lapangan');
+    const defaultTeamRole = isAdmin ? 'Administrator' : (isSales ? 'Sales / Account Executive' : 'Teknisi Lapangan');
+    const defaultAvatar = isAdmin ? 'fa-shield-halved' : (isSales ? 'fa-chart-line' : 'fa-helmet-safety');
+    const defaultBadge = isAdmin ? 'cyan' : (isSales ? 'amber' : 'emerald');
+
+    const newUser = {
+      username: username,
+      email: email,
+      password_hash: pwHash,
+      full_name: userData.full_name.trim(),
+      role: roleKey,
+      team_role: (userData.team_role && userData.team_role.trim()) ? userData.team_role.trim() : defaultTeamRole,
+      avatar_icon: defaultAvatar,
+      badge_color: defaultBadge,
+      pic_code: isSales ? '' : (userData.pic_code || userData.full_name.split(' ')[0]),
+      status: 'approved', // Langsung aktif karena dibuat oleh Admin
+      approved_by: adminActor || 'admin',
+      approved_at: firebase.firestore.FieldValue.serverTimestamp(),
+      created_by: adminActor || 'admin',
+      created_at: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    await db.collection('users').doc(docId).set(newUser);
+    await logActivity('ADMIN_CREATE_USER', `Admin ${adminActor || 'admin'} membuat akun ${isAdmin ? 'Administrator' : 'PIC'}: ${username} (${newUser.full_name})`, adminActor || 'admin');
+
+    return {
+      success: true,
+      user: newUser,
+      message: `Akun ${isAdmin ? 'Administrator' : 'PIC'} '${newUser.full_name}' (@${username}) berhasil dibuat dan langsung aktif!`
+    };
+  }
+
+  // Update or add email for a user in Firestore
+  async function firestoreUpdateUserEmail(username, newEmail, actor = '') {
+    const uClean = String(username || '').trim().toLowerCase();
+    const eClean = String(newEmail || '').trim().toLowerCase();
+
+    if (!uClean) throw new Error('Username wajib diisi.');
+    if (!eClean || !eClean.includes('@') || !eClean.includes('.')) {
+      throw new Error('Format email tidak valid. Masukkan alamat email yang benar.');
+    }
+
+    const initRes = initializeFirebaseApp();
+    if (!initRes.success) throw new Error(initRes.reason || 'Koneksi ke Google Firebase belum aktif.');
+    const db = initRes.db;
+
+    // Check if email already used by another user
+    try {
+      const checkSnap = await db.collection('users').where('email', '==', eClean).limit(1).get();
+      if (!checkSnap.empty) {
+        const existingUser = checkSnap.docs[0].data();
+        if (existingUser.username && existingUser.username.toLowerCase() !== uClean) {
+          throw new Error(`Email '${eClean}' sudah digunakan oleh akun @${existingUser.username}. Silakan gunakan email lain.`);
+        }
+      }
+    } catch (e) {
+      if (e.message && e.message.includes('sudah digunakan')) throw e;
+    }
+
+    const docRef = db.collection('users').doc(`user_${uClean}`);
+    const docSnap = await docRef.get();
+
+    if (docSnap.exists) {
+      await docRef.update({
+        email: eClean,
+        updated_at: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } else {
+      const def = DEFAULT_TEAM_ACCOUNTS[uClean];
+      await docRef.set({
+        username: uClean,
+        email: eClean,
+        full_name: def?.full_name || uClean,
+        role: def?.role || 'lapangan',
+        avatar_icon: def?.avatar_icon || 'fa-helmet-safety',
+        badge_color: def?.badge_color || 'cyan',
+        pic_code: def?.pic_code || uClean,
+        status: 'approved',
+        created_at: firebase.firestore.FieldValue.serverTimestamp(),
+        updated_at: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+
+    // Attempt local server update as well
+    try {
+      await fetch('/api/auth/update-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: uClean, email: eClean })
+      });
+    } catch (e) {
+      console.warn('Local SQLite email update notice:', e);
+    }
+
+    const actorUser = actor || uClean;
+    await logActivity('UPDATE_EMAIL', `Email akun @${uClean} diperbarui menjadi ${eClean}`, actorUser);
+
+    return {
+      success: true,
+      username: uClean,
+      email: eClean,
+      message: `Email akun @${uClean} berhasil disimpan dan diperbarui menjadi ${eClean}!`
+    };
+  }
+
   // Generic Firestore CRUD helper methods
   async function firestoreAddRecord(collectionName, data) {
     const initRes = initializeFirebaseApp();
     if (!initRes.success) throw new Error(initRes.reason);
     const db = initRes.db;
-    const ref = await db.collection(collectionName).add({
+
+    // Determine deterministic doc ID if available
+    let docId = null;
+    if (data.id) {
+      docId = String(data.id);
+    } else if (collectionName.includes('sitac') && data.no_pa) {
+      docId = 'pa_' + String(data.no_pa).trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+    } else if (collectionName.includes('collo') && data.no_so) {
+      docId = 'so_' + String(data.no_so).trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+    } else if (collectionName.includes('gangguan') && data.no_tiket) {
+      docId = 'tkt_' + String(data.no_tiket).trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+    }
+
+    const payload = {
       ...data,
-      created_at: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    return { id: ref.id, ...data };
+      created_at: firebase.firestore.FieldValue.serverTimestamp(),
+      updated_at: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    if (docId) {
+      await db.collection(collectionName).doc(docId).set(payload, { merge: true });
+    } else {
+      const ref = await db.collection(collectionName).add(payload);
+      docId = ref.id;
+    }
+
+    // Also record mutation into user_mutations for real-time broadcast across devices
+    try {
+      const type = collectionName.includes('sitac') ? 'sitac' : (collectionName.includes('collo') ? 'collo' : 'gangguan');
+      const mutId = `${type}_${docId}`;
+      await db.collection('user_mutations').doc(mutId).set({
+        type: type,
+        action: 'create',
+        record_id: docId,
+        data: payload,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } catch (mutErr) {
+      console.warn('Mutation broadcast notice:', mutErr);
+    }
+
+    return { id: docId, ...data };
   }
 
   async function firestoreUpdateRecord(collectionName, docId, updates) {
     const initRes = initializeFirebaseApp();
     if (!initRes.success) throw new Error(initRes.reason);
     const db = initRes.db;
-    await db.collection(collectionName).doc(String(docId)).update({
+    const sId = String(docId);
+    const payload = {
       ...updates,
       updated_at: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    };
+
+    let updated = false;
+    try {
+      const docRef = db.collection(collectionName).doc(sId);
+      const docSnap = await docRef.get();
+      if (docSnap.exists) {
+        await docRef.set(payload, { merge: true });
+        updated = true;
+      }
+    } catch (e) {}
+
+    if (!updated) {
+      try {
+        const numId = Number(sId);
+        const q = db.collection(collectionName).where('id', '==', isNaN(numId) ? sId : numId).limit(1);
+        const snap = await q.get();
+        if (!snap.empty) {
+          await snap.docs[0].ref.set(payload, { merge: true });
+          updated = true;
+        }
+      } catch (e) {}
+    }
+
+    if (!updated) {
+      // Fallback: save to doc(sId)
+      await db.collection(collectionName).doc(sId).set({
+        ...payload,
+        id: isNaN(Number(sId)) ? sId : Number(sId)
+      }, { merge: true });
+    }
+
+    // Also broadcast to user_mutations
+    try {
+      const type = collectionName.includes('sitac') ? 'sitac' : (collectionName.includes('collo') ? 'collo' : 'gangguan');
+      const mutId = `${type}_${sId}`;
+      await db.collection('user_mutations').doc(mutId).set({
+        type: type,
+        action: 'update',
+        record_id: sId,
+        updates: payload,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } catch (mutErr) {}
+
     return { success: true };
   }
 
@@ -738,7 +1156,38 @@ window.DEFAULT_FIREBASE_CONFIG = {
     const initRes = initializeFirebaseApp();
     if (!initRes.success) throw new Error(initRes.reason);
     const db = initRes.db;
-    await db.collection(collectionName).doc(String(docId)).delete();
+    const sId = String(docId);
+
+    try {
+      const docRef = db.collection(collectionName).doc(sId);
+      const docSnap = await docRef.get();
+      if (docSnap.exists) {
+        await docRef.delete();
+      }
+    } catch (e) {}
+
+    try {
+      const numId = Number(sId);
+      const snap = await db.collection(collectionName).where('id', '==', isNaN(numId) ? sId : numId).get();
+      if (!snap.empty) {
+        const batch = db.batch();
+        snap.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+      }
+    } catch (e) {}
+
+    // Also broadcast to user_mutations
+    try {
+      const type = collectionName.includes('sitac') ? 'sitac' : (collectionName.includes('collo') ? 'collo' : 'gangguan');
+      const mutId = `${type}_${sId}`;
+      await db.collection('user_mutations').doc(mutId).set({
+        type: type,
+        action: 'delete',
+        record_id: sId,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } catch (mutErr) {}
+
     return { success: true };
   }
 
@@ -836,6 +1285,10 @@ window.DEFAULT_FIREBASE_CONFIG = {
     loginUser: firestoreLogin,
     registerUser: firestoreRegister,
     forgotLookup: firestoreForgotLookup,
+    sendResetCode: firestoreSendResetCode,
+    verifyResetCode: firestoreVerifyResetCode,
+    resetPasswordWithCode: firestoreResetPasswordWithCode,
+    maskEmail: maskEmail,
     resetPassword: firestoreResetPassword,
     changePassword: firestoreChangePassword,
     adminResetPassword: firestoreAdminResetPassword,
@@ -843,6 +1296,8 @@ window.DEFAULT_FIREBASE_CONFIG = {
     fetchPendingUsers: firestoreFetchPendingUsers,
     approveUser: firestoreApproveUser,
     rejectUser: firestoreRejectUser,
+    adminCreateUser: firestoreAdminCreateUser,
+    updateUserEmail: firestoreUpdateUserEmail,
     addRecord: firestoreAddRecord,
     updateRecord: firestoreUpdateRecord,
     deleteRecord: firestoreDeleteRecord,
@@ -860,6 +1315,11 @@ window.DEFAULT_FIREBASE_CONFIG = {
 
   // Attempt auto-init on load if config exists
   if (window.FirebaseManager.isConfigured()) {
-    initializeFirebaseApp();
+    const res = initializeFirebaseApp();
+    if (res.success) {
+      try {
+        window.dispatchEvent(new CustomEvent('firebase:ready', { detail: window.FirebaseManager }));
+      } catch (e) {}
+    }
   }
 })();

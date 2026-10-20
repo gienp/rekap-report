@@ -1,0 +1,113 @@
+[
+  {
+    "id": 1,
+    "username": "admin",
+    "password_hash": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+    "full_name": "Administrator (Manajemen)",
+    "role": "admin",
+    "avatar_icon": "fa-shield-halved",
+    "badge_color": "cyan",
+    "created_at": "2026-09-25 02:11:22",
+    "pic_code": ""
+  },
+  {
+    "id": 2,
+    "username": "lapangan",
+    "password_hash": "63ab645ec9f168fc40fefde24315fbf17f1bb1275e95482638ad2f44e32cedf8",
+    "full_name": "Tim SITAC & Teknisi Lapangan",
+    "role": "lapangan",
+    "avatar_icon": "fa-helmet-safety",
+    "badge_color": "emerald",
+    "created_at": "2026-09-25 02:11:22",
+    "pic_code": ""
+  },
+  {
+    "id": 3,
+    "username": "harlan",
+    "password_hash": "801d483152f6b9b96aae39f4d64e791ea76f15b6317abedc6cd3323270bc9ecb",
+    "full_name": "Harlan",
+    "role": "lapangan",
+    "avatar_icon": "fa-helmet-safety",
+    "badge_color": "emerald",
+    "created_at": "2026-09-25 09:18:56",
+    "pic_code": "Harlan"
+  },
+  {
+    "id": 4,
+    "username": "budi",
+    "password_hash": "e8979d2eb704c94fa2fa5044edba1c29232526eec3965ffc64308b6783f2de12",
+    "full_name": "Budi Rodiyah",
+    "role": "lapangan",
+    "avatar_icon": "fa-helmet-safety",
+    "badge_color": "cyan",
+    "created_at": "2026-09-25 09:18:56",
+    "pic_code": "Budi"
+  },
+  {
+    "id": 5,
+    "username": "edi",
+    "password_hash": "9f0678000285b6012ec47806e7814b29271d2849c96a00828ec9bc73c08022c4",
+    "full_name": "Edi Swargaloka",
+    "role": "lapangan",
+    "avatar_icon": "fa-helmet-safety",
+    "badge_color": "amber",
+    "created_at": "2026-09-25 09:18:56",
+    "pic_code": "Edi"
+  },
+  {
+    "id": 6,
+    "username": "abusopian",
+    "password_hash": "c202d88b4e3e6f36782a0b2e5876972e32fe3ffc221fa756d5ee920740a02c23",
+    "full_name": "M. Abusopian",
+    "role": "lapangan",
+    "avatar_icon": "fa-helmet-safety",
+    "badge_color": "indigo",
+    "created_at": "2026-09-25 09:18:56",
+    "pic_code": "Abusopian"
+  },
+  {
+    "id": 7,
+    "username": "muhidin",
+    "password_hash": "07b5c1e12bf7c84d7a3f10cd6cdac72cf5ee1801fc17d1067b4368ff933964b2",
+    "full_name": "Muhidin",
+    "role": "lapangan",
+    "avatar_icon": "fa-helmet-safety",
+    "badge_color": "teal",
+    "created_at": "2026-09-25 09:18:56",
+    "pic_code": "Muhidin"
+  },
+  {
+    "id": 8,
+    "username": "brian",
+    "password_hash": "cd818bff1af82883f75da4215a3ee0c468e124f7dc50ab27d98cc78fa8d74607",
+    "full_name": "Brian Ariyanto",
+    "role": "lapangan",
+    "avatar_icon": "fa-helmet-safety",
+    "badge_color": "purple",
+    "created_at": "2026-09-25 09:18:56",
+    "pic_code": "Brian"
+  },
+  {
+    "id": 9,
+    "username": "zulhadi",
+    "password_hash": "b8ae25cef7c54f433d369faaa22fd9f00991ef325e82b5f380b6b6b4a9352fab",
+    "full_name": "Zulhadi Syahril",
+    "role": "lapangan",
+    "avatar_icon": "fa-helmet-safety",
+    "badge_color": "blue",
+    "created_at": "2026-09-25 09:18:56",
+    "pic_code": "Zulhadi"
+  },
+  {
+    "id": 14,
+    "username": "sales",
+    "password_hash": "a4d048b2611e3b2e53fa38e9dc2a13fec1ee6a760b941cc05ad1750dd1a56f21",
+    "full_name": "Tim Sales / Account Executive",
+    "role": "sales",
+    "avatar_icon": "fa-chart-line",
+    "badge_color": "amber",
+    "created_at": "2026-10-12 12:44:00",
+    "pic_code": "",
+    "email": "sales@telecom.ops"
+  }
+]
