@@ -68,8 +68,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- High-Priority Preloads for Instant Master Dataset & Application Engine -->
-  <link rel="preload" href="sitac_collo_data.js?v=12.20" as="script">
-  <link rel="preload" href="app.js?v=12.20" as="script">
+  <link rel="preload" href="sitac_collo_data.js?v=12.21" as="script">
+  <link rel="preload" href="app.js?v=12.21" as="script">
 
   <!-- Custom Portal Stylesheet -->
   <link rel="stylesheet" href="styles.css?v=12.7">
@@ -1585,9 +1585,7 @@
                     title="Hapus filter tanggal">&times;</button>
                 </span>
               </div>
-              <div class="text-[11px] text-slate-400" id="sitacDateSummaryText">
-                Menampilkan data kumulatif seluruh periode
-              </div>
+              <div class="text-[11px] text-slate-400" id="sitacDateSummaryText"></div>
             </div>
 
             <!-- Date Range Inputs & Presets Container -->
@@ -4313,10 +4311,10 @@
   </nav>
 
   <!-- 1. Master Dataset & Fallback Engine (Immediate Priority for Instant First Paint) -->
-  <script src="sitac_collo_data.js?v=12.20"></script>
+  <script src="sitac_collo_data.js?v=12.21"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=12.20"></script>
+  <script src="app.js?v=12.21"></script>
 
   <!-- 3. Firebase Cloud Synchronization SDK (Non-Blocking Deferred) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js" defer></script>

@@ -5243,7 +5243,7 @@
         }
       } else {
         if (activeBadge) activeBadge.classList.add('hidden');
-        if (summaryText) summaryText.textContent = 'Menampilkan data kumulatif seluruh periode (Tanpa batas tanggal)';
+        if (summaryText) summaryText.textContent = '';
       }
 
       // Update Regional Filter Badges & KPI Stat Cards
