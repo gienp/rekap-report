@@ -3882,16 +3882,17 @@
     const bcCat = document.getElementById('breadcrumbCategory');
     const bcTitle = document.getElementById('breadcrumbPageTitle');
 
+    const isMobileScreen = window.innerWidth < 640;
     const metaMap = {
-      'view-executive': { cat: 'Ringkasan', title: 'Dashboard Ringkasan Eksekutif' },
-      'view-collo-list': { cat: 'Colocation & Sewa Aset', title: 'Daftar Link & Finansial (Sewa Aset)' },
-      'view-collo-rev-sharing': { cat: 'Colocation & Sewa Aset', title: 'Skema Revenue Sharing Mitra' },
-      'view-collo-alerts': { cat: 'Colocation & Sewa Aset', title: 'Monitoring Jatuh Tempo Kontrak (Alerts)' },
-      'view-sitac-pa': { cat: 'Operasional SITAC & Lapangan', title: 'Monitoring Perizinan Proyek (PA)' },
-      'view-sitac-colleagues': { cat: 'Operasional SITAC & Lapangan', title: 'Monitoring Progres Perizinan Tim SITAC' },
-      'view-efisiensi': { cat: 'Operasional SITAC & Lapangan', title: 'Rekap Efisiensi Biaya Negosiasi' },
-      'view-pic-matrix': { cat: 'Operasional SITAC & Lapangan', title: 'Beban Kerja & Leaderboard PIC SITAC' },
-      'view-webgis': { cat: 'Operasional SITAC & Lapangan', title: 'Peta Sebaran Lokasi Spasial (WebGIS)' }
+      'view-executive': { cat: 'Ringkasan', title: isMobileScreen ? 'Ringkasan Eksekutif' : 'Dashboard Ringkasan Eksekutif' },
+      'view-collo-list': { cat: 'Colocation & Sewa Aset', title: isMobileScreen ? 'Daftar Link & Finansial' : 'Daftar Link & Finansial (Sewa Aset)' },
+      'view-collo-rev-sharing': { cat: 'Colocation & Sewa Aset', title: isMobileScreen ? 'Skema Revenue Sharing' : 'Skema Revenue Sharing Mitra' },
+      'view-collo-alerts': { cat: 'Colocation & Sewa Aset', title: isMobileScreen ? 'Jatuh Tempo Kontrak' : 'Monitoring Jatuh Tempo Kontrak (Alerts)' },
+      'view-sitac-pa': { cat: 'Operasional SITAC & Lapangan', title: 'Monitoring Perizinan (PA)' },
+      'view-sitac-colleagues': { cat: 'Operasional SITAC & Lapangan', title: isMobileScreen ? 'Monitoring Tim SITAC' : 'Monitoring Progres Perizinan Tim SITAC' },
+      'view-efisiensi': { cat: 'Operasional SITAC & Lapangan', title: isMobileScreen ? 'Rekap Efisiensi Biaya' : 'Rekap Efisiensi Biaya Negosiasi' },
+      'view-pic-matrix': { cat: 'Operasional SITAC & Lapangan', title: isMobileScreen ? 'Beban Kerja PIC SITAC' : 'Beban Kerja & Leaderboard PIC SITAC' },
+      'view-webgis': { cat: 'Operasional SITAC & Lapangan', title: isMobileScreen ? 'Peta Sebaran WebGIS' : 'Peta Sebaran Lokasi Spasial (WebGIS)' }
     };
 
     if (metaMap[viewId]) {
@@ -13340,6 +13341,7 @@
 
   function initGlobalSearch() {
     const btnTrigger = document.getElementById('btnOpenGlobalSearch');
+    const btnTriggerMobile = document.getElementById('btnOpenGlobalSearchMobile');
     const modal = document.getElementById('modalGlobalSearch');
     const input = document.getElementById('globalSearchInput');
     const btnClear = document.getElementById('btnGlobalSearchClear');
@@ -13361,6 +13363,7 @@
     };
 
     btnTrigger?.addEventListener('click', () => toggleModal(true));
+    btnTriggerMobile?.addEventListener('click', () => toggleModal(true));
     btnEscKbd?.addEventListener('click', () => toggleModal(false));
     modal?.addEventListener('click', (e) => {
       if (e.target === modal) toggleModal(false);

@@ -4822,11 +4822,11 @@ body.role-lapangan .sales-only {
      MOBILE TOPBAR CLEANUP & RESPONSIVE REFINEMENT (< 640px)
      ------------------------------------------------------------- */
   .portal-topbar {
-    padding-left: 0.65rem !important;
-    padding-right: 0.65rem !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
     padding-top: 0.45rem !important;
     padding-bottom: 0.45rem !important;
-    gap: 0.35rem !important;
+    gap: 0.25rem !important;
   }
 
   /* Completely eliminate wide user profile text pill in mobile topbar */
@@ -4834,26 +4834,41 @@ body.role-lapangan .sales-only {
     display: none !important;
   }
 
+  /* Breadcrumb & Title on mobile: flex-1 without clipping constraints */
+  .breadcrumbs {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+  }
+
+  #breadcrumbPageTitle {
+    max-width: none !important;
+    font-size: 0.8rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
   /* Action buttons cluster on mobile: tight, neat, and aligned */
   .topbar-actions {
-    gap: 0.35rem !important;
+    gap: 0.25rem !important;
     flex-shrink: 0 !important;
   }
 
   .topbar-actions .btn,
   .topbar-actions .btn-dropdown-trigger,
+  #btnOpenGlobalSearchMobile,
   #themeToggleBtn,
   #btnLogout,
   #btnContractAlertBell {
-    height: 34px !important;
-    width: 34px !important;
-    min-width: 34px !important;
-    max-width: 34px !important;
+    height: 30px !important;
+    width: 30px !important;
+    min-width: 30px !important;
+    max-width: 30px !important;
     padding: 0 !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    border-radius: 0.625rem !important;
+    border-radius: 0.5rem !important;
   }
 
   /* Completely hide duplicate Tambah Data, standalone Ekspor, and user profile pill on mobile */

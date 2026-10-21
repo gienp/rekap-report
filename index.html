@@ -68,11 +68,11 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- High-Priority Preloads for Instant Master Dataset & Application Engine -->
-  <link rel="preload" href="sitac_collo_data.js?v=12.16" as="script">
-  <link rel="preload" href="app.js?v=12.16" as="script">
+  <link rel="preload" href="sitac_collo_data.js?v=12.17" as="script">
+  <link rel="preload" href="app.js?v=12.17" as="script">
 
   <!-- Custom Portal Stylesheet -->
-  <link rel="stylesheet" href="styles.css?v=12.4">
+  <link rel="stylesheet" href="styles.css?v=12.5">
 
   <!-- ZERO-FLICKER VIEW PERSISTENCE SYNC (ELIMINATES PAGE REFRESH FLASH) -->
   <script>
@@ -238,21 +238,21 @@
     <header
       class="portal-topbar flex items-center justify-between px-3 sm:px-6 py-2.5 sm:py-3.5 sticky top-0 z-50 gap-1.5 sm:gap-4">
       <!-- Left: Breadcrumb & Title -->
-      <div class="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
+      <div class="flex items-center gap-1.5 sm:gap-3 flex-1 sm:flex-initial min-w-0">
         <button id="sidebarToggleBtn" class="lg:hidden btn-icon shrink-0" title="Toggle Menu">
           <i class="fa-solid fa-bars"></i>
         </button>
-        <div class="breadcrumbs min-w-0">
+        <div class="breadcrumbs min-w-0 flex-1">
           <span class="topbar-category-tag block leading-none text-[10px] sm:text-xs"
             id="breadcrumbCategory">Overview</span>
           <h2
-            class="topbar-page-title truncate max-w-[140px] sm:max-w-none mt-0.5 leading-tight text-xs sm:text-base font-bold"
+            class="topbar-page-title truncate mt-0.5 leading-tight text-xs sm:text-base font-bold"
             id="breadcrumbPageTitle">Dashboard Ringkasan Eksekutif</h2>
         </div>
       </div>
 
-      <!-- Center: Universal Global Search Bar Trigger -->
-      <div class="flex-1 max-w-[190px] sm:max-w-xs md:max-w-sm lg:max-w-md mx-1 sm:mx-3 min-w-0">
+      <!-- Center: Universal Global Search Bar Trigger (Desktop/Tablet >= 640px) -->
+      <div class="hidden sm:flex flex-1 max-w-xs md:max-w-sm lg:max-w-md mx-2 sm:mx-3 min-w-0">
         <button type="button" id="btnOpenGlobalSearch"
           class="w-full flex items-center justify-between px-2.5 sm:px-3 py-1.5 rounded-lg sm:rounded-xl bg-slate-900/80 hover:bg-slate-800/90 border border-white/10 hover:border-cyan-500/40 text-slate-400 hover:text-slate-200 transition text-xs shadow-inner group"
           title="Pencarian Cepat Global (Shortcut: Ctrl + K)">
@@ -270,6 +270,12 @@
 
       <!-- Right: Organized Action Controls (Spacious, Clutter-Free Clusters) -->
       <div class="topbar-actions flex items-center gap-1 sm:gap-2 shrink-0">
+        <!-- Mobile Global Search Icon Trigger (< sm: 640px) -->
+        <button type="button" id="btnOpenGlobalSearchMobile"
+          class="sm:hidden btn btn-secondary h-8.5 w-8.5 !p-0 rounded-lg flex items-center justify-center text-slate-300 hover:text-cyan-400"
+          title="Pencarian Global">
+          <i class="fa-solid fa-magnifying-glass text-cyan-400 text-xs"></i>
+        </button>
 
         <!-- Cluster 1: Core Data Operations (Tambah Data, Ekspor, Alat) -->
         <div class="flex items-center gap-1 sm:gap-1.5">
@@ -575,16 +581,17 @@
       (function () {
         try {
           var t = document.documentElement.getAttribute('data-target-view') || 'view-executive';
+          var isMob = window.innerWidth < 640;
           var m = {
-            'view-executive': { c: 'Ringkasan', t: 'Dashboard Ringkasan Eksekutif' },
-            'view-collo-list': { c: 'Colocation & Sewa Aset', t: 'Daftar Link & Finansial (Sewa Aset)' },
-            'view-collo-rev-sharing': { c: 'Colocation & Sewa Aset', t: 'Skema Revenue Sharing Mitra' },
-            'view-collo-alerts': { c: 'Colocation & Sewa Aset', t: 'Monitoring Jatuh Tempo Kontrak (Alerts)' },
-            'view-sitac-pa': { c: 'Operasional SITAC & Lapangan', t: 'Monitoring Perizinan Proyek (PA)' },
-            'view-sitac-colleagues': { c: 'Operasional SITAC & Lapangan', t: 'Monitoring Progres Perizinan Tim SITAC' },
-            'view-efisiensi': { c: 'Operasional SITAC & Lapangan', t: 'Rekap Efisiensi Biaya Negosiasi' },
-            'view-pic-matrix': { c: 'Operasional SITAC & Lapangan', t: 'Beban Kerja & Leaderboard PIC SITAC' },
-            'view-webgis': { c: 'Operasional SITAC & Lapangan', t: 'Peta Sebaran Lokasi Spasial (WebGIS)' }
+            'view-executive': { c: 'Ringkasan', t: isMob ? 'Ringkasan Eksekutif' : 'Dashboard Ringkasan Eksekutif' },
+            'view-collo-list': { c: 'Colocation & Sewa Aset', t: isMob ? 'Daftar Link & Finansial' : 'Daftar Link & Finansial (Sewa Aset)' },
+            'view-collo-rev-sharing': { c: 'Colocation & Sewa Aset', t: isMob ? 'Skema Revenue Sharing' : 'Skema Revenue Sharing Mitra' },
+            'view-collo-alerts': { c: 'Colocation & Sewa Aset', t: isMob ? 'Jatuh Tempo Kontrak' : 'Monitoring Jatuh Tempo Kontrak (Alerts)' },
+            'view-sitac-pa': { c: 'Operasional SITAC & Lapangan', t: 'Monitoring Perizinan (PA)' },
+            'view-sitac-colleagues': { c: 'Operasional SITAC & Lapangan', t: isMob ? 'Monitoring Tim SITAC' : 'Monitoring Progres Perizinan Tim SITAC' },
+            'view-efisiensi': { c: 'Operasional SITAC & Lapangan', t: isMob ? 'Rekap Efisiensi Biaya' : 'Rekap Efisiensi Biaya Negosiasi' },
+            'view-pic-matrix': { c: 'Operasional SITAC & Lapangan', t: isMob ? 'Beban Kerja PIC SITAC' : 'Beban Kerja & Leaderboard PIC SITAC' },
+            'view-webgis': { c: 'Operasional SITAC & Lapangan', t: isMob ? 'Peta Sebaran WebGIS' : 'Peta Sebaran Lokasi Spasial (WebGIS)' }
           };
           if (t && m[t]) {
             var cEl = document.getElementById('breadcrumbCategory');
@@ -4236,10 +4243,10 @@
   </nav>
 
   <!-- 1. Master Dataset & Fallback Engine (Immediate Priority for Instant First Paint) -->
-  <script src="sitac_collo_data.js?v=12.16"></script>
+  <script src="sitac_collo_data.js?v=12.17"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=12.16"></script>
+  <script src="app.js?v=12.17"></script>
 
   <!-- 3. Firebase Cloud Synchronization SDK (Non-Blocking Deferred) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js" defer></script>
