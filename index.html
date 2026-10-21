@@ -68,11 +68,11 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- High-Priority Preloads for Instant Master Dataset & Application Engine -->
-  <link rel="preload" href="sitac_collo_data.js?v=12.22" as="script">
-  <link rel="preload" href="app.js?v=12.22" as="script">
+  <link rel="preload" href="sitac_collo_data.js?v=12.23" as="script">
+  <link rel="preload" href="app.js?v=12.23" as="script">
 
   <!-- Custom Portal Stylesheet -->
-  <link rel="stylesheet" href="styles.css?v=12.7">
+  <link rel="stylesheet" href="styles.css?v=12.8">
 
   <!-- ZERO-FLICKER VIEW PERSISTENCE SYNC (ELIMINATES PAGE REFRESH FLASH) -->
   <script>
@@ -150,17 +150,20 @@
               id="sidebarUserRoleDisplay">ADMIN</div>
           </div>
         </div>
-        <!-- Quick Actions inside Sidebar Drawer: Theme & Logout -->
+        <!-- Quick Actions inside Sidebar: Theme & Logout -->
         <div class="flex items-center gap-1 shrink-0">
-          <button type="button" class="btn btn-secondary h-8 w-8 !p-0 rounded-lg flex items-center justify-center text-xs text-slate-300 hover:text-amber-300 transition"
-            onclick="document.getElementById('themeToggleBtn')?.click()" title="Ganti Mode Terang / Gelap">
+          <button type="button" id="themeToggleBtn" class="btn btn-secondary h-8 w-8 !p-0 rounded-lg flex items-center justify-center text-xs text-slate-300 hover:text-amber-300 transition"
+            title="Ganti Mode Terang / Gelap">
             <i class="fa-solid fa-moon text-xs"></i>
           </button>
-          <button type="button" class="btn btn-secondary h-8 w-8 !p-0 rounded-lg flex items-center justify-center text-xs text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/40 transition"
-            onclick="document.getElementById('btnLogout')?.click()" title="Keluar / Logout">
+          <button type="button" id="btnLogout" class="btn btn-secondary h-8 w-8 !p-0 rounded-lg flex items-center justify-center text-xs text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/40 transition"
+            title="Keluar / Logout">
             <i class="fa-solid fa-arrow-right-from-bracket text-xs"></i>
           </button>
         </div>
+        <!-- Retained hidden controls for backwards compatibility -->
+        <span id="lockedPicBadgeName" class="hidden">ADMIN</span>
+        <input type="hidden" id="selectActiveTechnician" value="Admin">
       </div>
 
       <!-- Navigation Tree -->
@@ -546,44 +549,6 @@
             </div>
           </div>
 
-          <!-- Single Icon Day/Night Theme Toggle -->
-          <button type="button" id="themeToggleBtn"
-            class="btn btn-secondary h-8.5 w-8.5 sm:h-10 sm:w-10 !p-0 rounded-lg sm:rounded-xl flex items-center justify-center transition theme-toggle-single"
-            title="Ganti Mode Terang / Gelap">
-            <i class="fa-solid fa-moon text-sm sm:text-base"></i>
-          </button>
-        </div>
-
-        <!-- Vertical Divider 2 -->
-        <div class="topbar-divider hidden sm:block"></div>
-
-        <!-- Cluster 3: User Identity & Session (Clean & Compact) -->
-        <div class="flex items-center gap-1.5">
-          <!-- User Profile Badge -->
-          <div id="topbarUserProfile"
-            class="hidden sm:flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs transition"
-            title="Akun Pengguna Aktif">
-            <div id="userRoleAvatar"
-              class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shrink-0">
-              <i class="fa-solid fa-shield-halved" id="userRoleIcon"></i>
-            </div>
-            <div class="leading-tight text-left">
-              <div class="font-bold text-slate-100 text-[11px] whitespace-nowrap" id="userNameDisplay">Administrator
-              </div>
-              <div class="text-[8px] uppercase tracking-wider text-cyan-400 font-semibold leading-none mt-0.5"
-                id="userRoleDisplay">ADMIN</div>
-            </div>
-            <!-- Retained hidden controls for backwards compatibility -->
-            <span id="lockedPicBadgeName" class="hidden">ADMIN</span>
-            <input type="hidden" id="selectActiveTechnician" value="Admin">
-          </div>
-
-          <!-- Logout Button (Square Icon Button) -->
-          <button id="btnLogout"
-            class="btn btn-secondary h-8.5 w-8.5 !p-0 rounded-lg flex items-center justify-center text-xs hover:border-rose-500/50 hover:bg-rose-500/10 hover:text-rose-400 transition"
-            title="Keluar / Logout">
-            <i class="fa-solid fa-arrow-right-from-bracket text-[12px]"></i>
-          </button>
         </div>
       </div>
     </header>
@@ -4310,10 +4275,10 @@
   </nav>
 
   <!-- 1. Master Dataset & Fallback Engine (Immediate Priority for Instant First Paint) -->
-  <script src="sitac_collo_data.js?v=12.22"></script>
+  <script src="sitac_collo_data.js?v=12.23"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=12.22"></script>
+  <script src="app.js?v=12.23"></script>
 
   <!-- 3. Firebase Cloud Synchronization SDK (Non-Blocking Deferred) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js" defer></script>

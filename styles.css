@@ -4872,13 +4872,9 @@ body.role-lapangan .sales-only {
     border-radius: 0.625rem !important;
   }
 
-  /* On mobile (< 640px), keep topbar clean & focused:
-     Theme toggle and Logout belong in the Sidebar/Menu Drawer, not cluttering the topbar */
+  /* On mobile (< 640px), keep topbar clean & focused */
   #btnOpenAddModal,
-  #exportGroupDropdownContainer,
-  #topbarUserProfile,
-  #themeToggleBtn,
-  #btnLogout {
+  #exportGroupDropdownContainer {
     display: none !important;
   }
 
@@ -5045,12 +5041,6 @@ body.role-lapangan .sales-only {
     left: 0.75rem !important;
     bottom: 5.25rem !important;
     align-items: flex-end !important;
-  }
-}
-
-@media (min-width: 640px) {
-  #topbarUserProfile {
-    display: flex !important;
   }
 }
 

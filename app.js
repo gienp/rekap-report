@@ -3729,7 +3729,7 @@
     document.documentElement.setAttribute('data-theme', state.theme);
     const icon = document.querySelector('#themeToggleBtn i');
     if (icon) {
-      icon.className = state.theme === 'light' ? 'fa-solid fa-sun text-base' : 'fa-solid fa-moon text-base';
+      icon.className = state.theme === 'light' ? 'fa-solid fa-sun text-xs' : 'fa-solid fa-moon text-xs';
     }
   }
 
