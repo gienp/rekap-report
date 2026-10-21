@@ -129,8 +129,22 @@
         }
       });
 
-      // 3. Prepend newly created records (if not already present)
-      createdList.forEach(newRec => {
+      // 3. Prepend newly created records (clean any stale automated test records first)
+      const isTestRecord = (r) => {
+        const pa = String(r.no_pa || '').toLowerCase();
+        const cust = String(r.pelanggan || '').toLowerCase();
+        const idStr = String(r.id || '');
+        return pa.includes('cross-sync') || cust.includes('cross sync') || cust.includes('uji lintas') ||
+               cust.includes('persistensi cloud') || cust === 'abc' || pa === '0123456789' || idStr.includes('1792462122');
+      };
+
+      const validCreatedList = createdList.filter(r => !isTestRecord(r));
+      if (validCreatedList.length !== createdList.length) {
+        mut.created[type] = validCreatedList;
+        saveLocalMutations(mut);
+      }
+
+      validCreatedList.forEach(newRec => {
         const exists = data[colKey].some(r => String(r.id) === String(newRec.id));
         if (!exists && !deletedSet.has(String(newRec.id))) {
           data[colKey].unshift({ ...newRec });
@@ -167,106 +181,19 @@
       _cloudSyncActive = true;
       console.log('⚡ [CloudSync] Mengaktifkan sinkronisasi realtime dua arah dengan Cloud Firestore...');
 
-      const collectionsToSync = [
-        { name: 'sitac_records', key: 'sitac_records', type: 'sitac' },
-        { name: 'collo_records', key: 'collo_records', type: 'collo' },
-        { name: 'gangguan_records', key: 'gangguan_records', type: 'gangguan' }
-      ];
-
-      // 1. Listen for documents with created_at != null (covers newly added records across all devices)
-      collectionsToSync.forEach(col => {
-        db.collection(col.name)
-          .where('created_at', '!=', null)
-          .onSnapshot(snapshot => {
-            if (!snapshot) return;
-            const dataRoot = window.SITAC_COLLO_DATA || window.PORTAL_DATASET;
-            if (!dataRoot) return;
-            if (!Array.isArray(dataRoot[col.key])) dataRoot[col.key] = [];
-            const targetList = dataRoot[col.key];
-
-            let changesDetected = false;
-            let newlyAddedCount = 0;
-
-            snapshot.docChanges().forEach(change => {
-              const docData = change.doc.data();
-              const recId = docData.id !== undefined ? String(docData.id) : (docData.recId !== undefined ? String(docData.recId) : String(change.doc.id));
-
-              if (change.type === 'added') {
-                const exists = targetList.some(r => {
-                  if (r._firestoreDocId && r._firestoreDocId === change.doc.id) return true;
-                  if (col.type === 'sitac' && r.no_pa && docData.no_pa) {
-                    return String(r.no_pa).trim().toLowerCase() === String(docData.no_pa).trim().toLowerCase();
-                  }
-                  if (col.type === 'collo' && r.no_so && docData.no_so) {
-                    return String(r.no_so).trim().toLowerCase() === String(docData.no_so).trim().toLowerCase();
-                  }
-                  if (col.type === 'gangguan' && r.no_tiket && docData.no_tiket) {
-                    return String(r.no_tiket).trim().toLowerCase() === String(docData.no_tiket).trim().toLowerCase();
-                  }
-                  return String(r.id) === recId;
-                });
-
-                if (!exists) {
-                  const maxId = targetList.reduce((m, r) => Math.max(m, Number(r.id) || 0), 1000);
-                  const newRecord = {
-                    ...docData,
-                    id: maxId + 1,
-                    _firestoreDocId: change.doc.id
-                  };
-                  targetList.unshift(newRecord);
-                  changesDetected = true;
-                  newlyAddedCount++;
-                }
-              } else if (change.type === 'modified') {
-                const target = targetList.find(r => {
-                  if (r._firestoreDocId && r._firestoreDocId === change.doc.id) return true;
-                  if (col.type === 'sitac' && r.no_pa && docData.no_pa) {
-                    return String(r.no_pa).trim().toLowerCase() === String(docData.no_pa).trim().toLowerCase();
-                  }
-                  if (col.type === 'collo' && r.no_so && docData.no_so) {
-                    return String(r.no_so).trim().toLowerCase() === String(docData.no_so).trim().toLowerCase();
-                  }
-                  if (col.type === 'gangguan' && r.no_tiket && docData.no_tiket) {
-                    return String(r.no_tiket).trim().toLowerCase() === String(docData.no_tiket).trim().toLowerCase();
-                  }
-                  return String(r.id) === recId;
-                });
-                if (target) {
-                  Object.assign(target, docData);
-                  changesDetected = true;
-                }
-              } else if (change.type === 'removed') {
-                const idx = targetList.findIndex(r => String(r.id) === recId || (r._firestoreDocId && r._firestoreDocId === change.doc.id));
-                if (idx >= 0) {
-                  targetList.splice(idx, 1);
-                  changesDetected = true;
-                }
-              }
-            });
-
-            if (changesDetected) {
-              console.log(`⚡ [CloudSync] Sinkronisasi ${col.key} selesai (${targetList.length} data aktif).`);
-              invalidateStaticDataCache();
-              triggerViewRefresh(col.type);
-              if (newlyAddedCount > 0 && typeof showToast === 'function') {
-                showToast(`${newlyAddedCount} data baru disinkronkan dari Cloud!`, 'info');
-              }
-            }
-          }, err => {
-            console.warn(`[CloudSync] Notice for ${col.name}:`, err);
-          });
-      });
-
-      // 2. Listen to user_mutations for real-time edits and deletions across all devices
+      // Ultra-efficient quota-friendly real-time sync using user_mutations only (limit 20)
+      // Eliminates the expensive full-collection reads (3,000+ reads per reload) that burned the daily Cloud quota
       db.collection('user_mutations')
         .orderBy('timestamp', 'desc')
-        .limit(100)
+        .limit(20)
         .onSnapshot(snapshot => {
           if (!snapshot) return;
           const dataRoot = window.SITAC_COLLO_DATA || window.PORTAL_DATASET;
           if (!dataRoot) return;
 
           let mutChanges = false;
+          let newRecordsAdded = 0;
+
           snapshot.docChanges().forEach(change => {
             if (change.type !== 'added' && change.type !== 'modified') return;
             const mut = change.doc.data();
@@ -274,12 +201,38 @@
             const targetList = dataRoot[colKey];
             if (!Array.isArray(targetList)) return;
 
-            const recId = String(mut.record_id);
+            const recId = String(mut.record_id || (mut.data && mut.data.id) || '');
 
-            if (mut.action === 'update' && mut.updates) {
-              const target = targetList.find(r => String(r.id) === recId || (r.no_pa && mut.updates.no_pa && String(r.no_pa).trim().toLowerCase() === String(mut.updates.no_pa).trim().toLowerCase()) || (r.no_so && mut.updates.no_so && String(r.no_so).trim().toLowerCase() === String(mut.updates.no_so).trim().toLowerCase()));
+            if ((mut.action === 'create' || mut.action === 'insert') && (mut.data || mut.record)) {
+              const itemData = mut.data || mut.record;
+              const exists = targetList.some(r => {
+                if (r._firestoreDocId && r._firestoreDocId === change.doc.id) return true;
+                if (mut.type === 'sitac' && r.no_pa && itemData.no_pa) {
+                  return String(r.no_pa).trim().toLowerCase() === String(itemData.no_pa).trim().toLowerCase();
+                }
+                if (mut.type === 'collo' && r.no_so && itemData.no_so) {
+                  return String(r.no_so).trim().toLowerCase() === String(itemData.no_so).trim().toLowerCase();
+                }
+                if (mut.type === 'gangguan' && r.no_tiket && itemData.no_tiket) {
+                  return String(r.no_tiket).trim().toLowerCase() === String(itemData.no_tiket).trim().toLowerCase();
+                }
+                return String(r.id) === String(itemData.id || recId);
+              });
+              if (!exists) {
+                targetList.unshift({ ...itemData, _firestoreDocId: change.doc.id });
+                mutChanges = true;
+                newRecordsAdded++;
+              }
+            } else if (mut.action === 'update' && (mut.updates || mut.data)) {
+              const updates = mut.updates || mut.data;
+              const target = targetList.find(r => 
+                String(r.id) === recId || 
+                (r.no_pa && updates.no_pa && String(r.no_pa).trim().toLowerCase() === String(updates.no_pa).trim().toLowerCase()) || 
+                (r.no_so && updates.no_so && String(r.no_so).trim().toLowerCase() === String(updates.no_so).trim().toLowerCase()) ||
+                (r.no_tiket && updates.no_tiket && String(r.no_tiket).trim().toLowerCase() === String(updates.no_tiket).trim().toLowerCase())
+              );
               if (target) {
-                Object.assign(target, mut.updates);
+                Object.assign(target, updates);
                 mutChanges = true;
               }
             } else if (mut.action === 'delete') {
@@ -294,12 +247,12 @@
           if (mutChanges) {
             invalidateStaticDataCache();
             triggerViewRefresh('all');
-            if (typeof showToast === 'function') {
-              showToast('Perubahan data diperbarui dari Cloud!', 'info');
+            if (newRecordsAdded > 0 && typeof showToast === 'function') {
+              showToast(`${newRecordsAdded} data baru diterima dari Cloud!`, 'info');
             }
           }
         }, err => {
-          console.warn('[CloudSync] Mutations listener notice:', err);
+          console.warn('[CloudSync] Mutations listener standby (kuota Cloud tercapai / offline):', err.message || err);
         });
 
     } catch (e) {
@@ -720,9 +673,12 @@
         sisa_hari: sisa_hari,
         alert_category: alert_cat,
         alert_label: alert_label,
-        alert_color: alert_color,
         spp: String(body.spp || '').trim(),
-        keterangan: String(body.keterangan || '').trim()
+        po_baru: String(body.po_baru || '').trim(),
+        pic_admin: String(body.pic_admin || '').trim(),
+        alamat_pengelola: String(body.alamat_pengelola || '').trim(),
+        keterangan: String(body.keterangan || '').trim(),
+        foto_bukti: String(body.foto_bukti || '').trim() || null
       };
       colloList.unshift(newRec);
       persistNewRecord('collo', newRec);
@@ -899,18 +855,21 @@
         });
         curRekapEff = Object.keys(mEffMap).sort((a, b) => Number(a) - Number(b)).map(k => mEffMap[k]);
       } else {
-        const yEffMap = {};
-        sitacList.forEach(s => {
-          const y = s.tahun || (s.date_pa ? parseInt(s.date_pa.substring(0, 4), 10) : 0);
-          if (y && y >= 2024) {
-            if (!yEffMap[y]) yEffMap[y] = { tahun: y, nilai_awal: 0, nilai_akhir: 0, efisiensi_rupiah: 0 };
-            yEffMap[y].nilai_awal += Number(s.biaya_permintaan_awal) || 0;
-            yEffMap[y].nilai_akhir += Number(s.biaya_final) || 0;
-            yEffMap[y].efisiensi_rupiah += Number(s.efisiensi_rupiah) || 0;
-          }
-        });
-        curRekapEff = Object.values(yEffMap).sort((a, b) => a.tahun - b.tahun);
-        if (curRekapEff.length === 0) curRekapEff = rekapEff;
+        if (rekapEff && rekapEff.length > 0) {
+          curRekapEff = rekapEff.slice().sort((a, b) => Number(a.tahun) - Number(b.tahun));
+        } else {
+          const yEffMap = {};
+          sitacList.forEach(s => {
+            const y = s.tahun || (s.date_pa ? parseInt(s.date_pa.substring(0, 4), 10) : 0);
+            if (y && y >= 2024) {
+              if (!yEffMap[y]) yEffMap[y] = { tahun: y, nilai_awal: 0, nilai_akhir: 0, efisiensi_rupiah: 0 };
+              yEffMap[y].nilai_awal += Number(s.biaya_permintaan_awal) || 0;
+              yEffMap[y].nilai_akhir += Number(s.biaya_final) || 0;
+              yEffMap[y].efisiensi_rupiah += Number(s.efisiensi_rupiah) || 0;
+            }
+          });
+          curRekapEff = Object.values(yEffMap).sort((a, b) => a.tahun - b.tahun);
+        }
       }
 
       const vMap = {};
@@ -1299,10 +1258,25 @@
       const search = (params.get('search') || '').toLowerCase();
       const page = parseInt(params.get('page') || '1', 10);
       const pageSize = parseInt(params.get('pageSize') || '25', 10);
+      const startDate = params.get('startDate') || params.get('start_date') || '';
+      const endDate = params.get('endDate') || params.get('end_date') || '';
+      const dateField = params.get('dateField') || params.get('date_field') || 'date_dispos';
 
       let scopedSitac = sitacList;
       if (isPicLapangan) {
         scopedSitac = scopedSitac.filter(s => isUserAssignedToTask(s, authUser));
+      }
+
+      // Filter by Date Range if specified
+      if (startDate || endDate) {
+        scopedSitac = scopedSitac.filter(s => {
+          const raw = s[dateField] || s.date_dispos || '';
+          const dStr = String(raw).trim().substring(0, 10);
+          if (!dStr) return false;
+          if (startDate && dStr < startDate) return false;
+          if (endDate && dStr > endDate) return false;
+          return true;
+        });
       }
 
       // Calculate region_stats over scopedSitac (respecting other filters)
@@ -1583,6 +1557,7 @@
     'view-collo-rev-sharing',
     'view-collo-alerts',
     'view-sitac-pa',
+    'view-sitac-colleagues',
     'view-efisiensi',
     'view-pic-matrix',
     'view-webgis'
@@ -1647,6 +1622,10 @@
       aging: 'ALL',
       region: 'ALL',
       search: '',
+      startDate: '',
+      endDate: '',
+      dateField: 'date_dispos',
+      datePreset: 'ALL',
       page: 1,
       pageSize: 25,
       data: []
@@ -1680,6 +1659,10 @@
   const charts = {};
   let leafletMap = null;
   let mapMarkersLayer = null;
+  let mapCircuitsLayer = null;
+  let isSitacLayerVisible = true;
+  let isCircuitLayerVisible = true;
+  let currentCircuitFilter = 'ALL';
   let mapBaseLayers = {};
   let currentBaseLayer = 'googleRoadmap';
   let mapResizeObserver = null;
@@ -2536,7 +2519,7 @@
   function updateGlobalNavBadges() {
     try {
       const data = window.SITAC_COLLO_DATA || {};
-      const sitacCount = (data.sitac_records || []).length || 684;
+      const sitacCount = (data.sitac_records || []).length || 686;
       const colloRecords = data.collo_records || [];
       const actCollo = colloRecords.filter(c => c.status === 'ACTIVE').length || 592;
       const revShare = colloRecords.filter(c => (Number(c.rev_sharing_pct) || 0) > 0 || (c.rev_sharing && c.rev_sharing !== '-')).length || 423;
@@ -3213,6 +3196,19 @@
           // Silent fallback to standard pics
         }
       }
+
+      // Pastikan chip tim PIC selalu tampil meski dalam mode offline atau kuota Cloud penuh
+      if (pics.length === 0) {
+        pics = [
+          { username: 'harlan', full_name: 'Harlan Zaelani', badge_color: 'emerald' },
+          { username: 'budi', full_name: 'Budi Rodiyah', badge_color: 'cyan' },
+          { username: 'edi', full_name: 'Edi Swargaloka', badge_color: 'amber' },
+          { username: 'abusopian', full_name: 'M. Abusopian', badge_color: 'indigo' },
+          { username: 'muhidin', full_name: 'Muhidin', badge_color: 'teal' },
+          { username: 'brian', full_name: 'Brian Ariyanto', badge_color: 'purple' },
+          { username: 'zulhadi', full_name: 'Zulhadi Syahril', badge_color: 'blue' }
+        ];
+      }
       
       const container = document.getElementById('loginPicChips');
       if (!container) return;
@@ -3569,7 +3565,7 @@
         targetView = 'view-sitac-pa';
       }
     } else if (isSales) {
-      if (targetView === 'view-sitac-pa' || targetView === 'view-gangguan' || targetView === 'view-pic-matrix' || targetView === 'view-efisiensi') {
+      if (targetView === 'view-sitac-pa' || targetView === 'view-sitac-colleagues' || targetView === 'view-gangguan' || targetView === 'view-pic-matrix' || targetView === 'view-efisiensi') {
         targetView = 'view-executive';
       }
     }
@@ -3639,7 +3635,7 @@
       }
 
       const welcomeName = userObj.full_name || usernameOrEmail;
-      showToast(`Selamat datang, ${welcomeName}! Akses Google Firebase aktif.`, 'success');
+      showToast(`Selamat datang, ${welcomeName}! Akses Cloud Firestore aktif & tersinkronisasi realtime.`, 'success');
 
       if (document.getElementById('loginUsername')) document.getElementById('loginUsername').value = '';
       if (document.getElementById('loginPassword')) document.getElementById('loginPassword').value = '';
@@ -3681,7 +3677,12 @@
           `;
         } else {
           errBox.className = 'p-3 mb-3.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs';
-          errBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1.5"></i> <span id="loginErrorMsg">${escapeHtml(err.message || 'Gagal masuk akun ke Firebase.')}</span>`;
+          const rawMsg = err.message || 'Gagal masuk akun ke Firebase.';
+          const isQuota = rawMsg.toLowerCase().includes('quota') || rawMsg.toLowerCase().includes('daily read units') || rawMsg.includes('RESOURCE_EXHAUSTED');
+          const cleanMsg = isQuota
+            ? 'Batas kuota harian Cloud Firebase tercapai. Silakan masuk menggunakan akun tim lokal Anda (misal: admin, harlan, budi, dll).'
+            : rawMsg;
+          errBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1.5"></i> <span id="loginErrorMsg">${escapeHtml(cleanMsg)}</span>`;
         }
       }
       showToast(err.message || 'Gagal masuk akun', 'error');
@@ -3819,7 +3820,7 @@
     }
 
     // RBAC: Tim Sales cannot access operational SITAC & Field modules
-    if (state.currentUser?.role === 'sales' && (viewId === 'view-sitac-pa' || viewId === 'view-pic-matrix' || viewId === 'view-efisiensi')) {
+    if (state.currentUser?.role === 'sales' && (viewId === 'view-sitac-pa' || viewId === 'view-sitac-colleagues' || viewId === 'view-pic-matrix' || viewId === 'view-efisiensi')) {
       showToast('Akses dibatasi. Modul Operasional SITAC & Lapangan hanya untuk Tim Lapangan & Admin.', 'error');
       viewId = 'view-executive';
     }
@@ -3870,6 +3871,7 @@
       'view-collo-rev-sharing': { cat: 'Colocation & Sewa Aset', title: 'Skema Revenue Sharing Mitra' },
       'view-collo-alerts': { cat: 'Colocation & Sewa Aset', title: 'Monitoring Jatuh Tempo Kontrak (Alerts)' },
       'view-sitac-pa': { cat: 'Operasional SITAC & Lapangan', title: 'Monitoring Perizinan Proyek (PA)' },
+      'view-sitac-colleagues': { cat: 'Operasional SITAC & Lapangan', title: 'Monitoring Progres Perizinan Tim SITAC' },
       'view-efisiensi': { cat: 'Operasional SITAC & Lapangan', title: 'Rekap Efisiensi Biaya Negosiasi' },
       'view-pic-matrix': { cat: 'Operasional SITAC & Lapangan', title: 'Beban Kerja & Leaderboard PIC SITAC' },
       'view-webgis': { cat: 'Operasional SITAC & Lapangan', title: 'Peta Sebaran Lokasi Spasial (WebGIS)' }
@@ -3893,6 +3895,9 @@
     else if (viewId === 'view-collo-rev-sharing') loadRevSharingData();
     else if (viewId === 'view-collo-alerts') loadAlertsData();
     else if (viewId === 'view-sitac-pa') loadSitacData();
+    else if (viewId === 'view-sitac-colleagues') {
+      if (window.initColleaguesView) window.initColleaguesView();
+    }
     else if (viewId === 'view-efisiensi') loadEfisiensiData();
     else if (viewId === 'view-pic-matrix') loadPicMatrixData();
     else if (viewId === 'view-webgis') {
@@ -4010,7 +4015,7 @@
       const bAlerts = document.getElementById('badgeNavCriticalAlerts');
       if (bAlerts) bAlerts.textContent = Number(c.critical_alerts_count ?? 36).toLocaleString('id-ID');
       const bSitac = document.getElementById('badgeNavSitac');
-      if (bSitac) bSitac.textContent = Number(s.total_pa || 684).toLocaleString('id-ID');
+      if (bSitac) bSitac.textContent = Number(s.total_pa || 686).toLocaleString('id-ID');
       const bGangguan = document.getElementById('badgeNavGangguan');
       if (bGangguan) bGangguan.textContent = Number(data.gangguan?.total ?? 98).toLocaleString('id-ID');
 
@@ -5155,15 +5160,31 @@
   // =========================================================================
   // VIEW 5: MONITORING PERIZINAN PROYEK PA (MODUL B)
   // =========================================================================
+  function formatDisplayDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+      const parts = String(dateStr).trim().substring(0, 10).split('-');
+      if (parts.length === 3) {
+        const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const mIdx = parseInt(parts[1], 10);
+        return `${parseInt(parts[2], 10)} ${monthNames[mIdx] || parts[1]} ${parts[0]}`;
+      }
+      return dateStr;
+    } catch(e) { return dateStr; }
+  }
+
   async function loadSitacData() {
-    const { status, pic, year, aging, region, search, page, pageSize } = state.sitac;
+    const { status, pic, year, aging, region, search, startDate, endDate, dateField, page, pageSize } = state.sitac;
     const isLapangan = state.currentUser?.role === 'lapangan';
     const finalPic = (isLapangan || state.myTasksOnlySitac) && state.activeTechnician && state.activeTechnician !== 'Admin'
       ? state.activeTechnician
       : pic;
     const finalRegion = region || 'ALL';
     const params = new URLSearchParams({
-      status, pic: finalPic, year, aging, region: finalRegion, search, page, pageSize
+      status, pic: finalPic, year, aging, region: finalRegion, search, page, pageSize,
+      startDate: startDate || '',
+      endDate: endDate || '',
+      dateField: dateField || 'date_dispos'
     });
 
     try {
@@ -5181,6 +5202,30 @@
         } else {
           myTasksBadge.classList.add('hidden');
         }
+      }
+
+      // Update Date Range summary text & badge
+      const activeBadge = document.getElementById('sitacDateActiveBadge');
+      const activeText = document.getElementById('sitacDateActiveText');
+      const summaryText = document.getElementById('sitacDateSummaryText');
+
+      if (startDate || endDate) {
+        if (activeBadge) activeBadge.classList.remove('hidden');
+        const sFmt = startDate ? formatDisplayDate(startDate) : 'Awal';
+        const eFmt = endDate ? formatDisplayDate(endDate) : 'Sekarang';
+        const fieldLabel = dateField === 'date_close' ? 'Tgl Selesai' : 'Tgl Disposisi';
+        if (activeText) activeText.textContent = `${fieldLabel}: ${sFmt} s/d ${eFmt}`;
+        if (summaryText) {
+          const stats = (json.region_stats && json.region_stats[finalRegion]) || (json.region_stats && json.region_stats.ALL) || {};
+          const bAwal = Number(stats.biaya_awal) || 0;
+          const bFinal = Number(stats.biaya_final) || 0;
+          const bHemat = Math.max(0, bAwal - bFinal);
+          const bPct = bAwal > 0 ? (bHemat / bAwal * 100).toFixed(1) : '0';
+          summaryText.innerHTML = `Periode: <b class="text-cyan-300">${sFmt} &ndash; ${eFmt}</b> &bull; Total Biaya: <b class="text-amber-300">${formatRupiah(bFinal)}</b> &bull; Efisiensi: <b class="text-emerald-300">${formatRupiah(bHemat)} (${bPct}%)</b>`;
+        }
+      } else {
+        if (activeBadge) activeBadge.classList.add('hidden');
+        if (summaryText) summaryText.textContent = 'Menampilkan data kumulatif seluruh periode (Tanpa batas tanggal)';
       }
 
       // Update Regional Filter Badges & KPI Stat Cards
@@ -5239,7 +5284,16 @@
           BANTEN: 'Banten (Serang, Cilegon, Pandeglang, Lebak)',
           TANGERANG: 'Kota Tangerang, Tangerang Selatan, Kab Tangerang'
         };
-        if (elScopeDesc) elScopeDesc.textContent = scopeLabels[curRegion] || curRegion;
+        if (elScopeDesc) {
+          const baseScope = scopeLabels[curRegion] || curRegion;
+          if (startDate || endDate) {
+            const sFmt = startDate ? formatDisplayDate(startDate) : 'Awal';
+            const eFmt = endDate ? formatDisplayDate(endDate) : 'Sekarang';
+            elScopeDesc.textContent = `${baseScope} (${sFmt} - ${eFmt})`;
+          } else {
+            elScopeDesc.textContent = baseScope;
+          }
+        }
       }
 
       // Pagination
@@ -5264,7 +5318,8 @@
               <td class="text-right font-mono font-bold text-emerald-400 col-sitac-financial">${formatRupiah(s.efisiensi_rupiah)}</td>
               <td class="text-center">${getStatusBadge(s.progress)}</td>
               <td class="text-center">${getAgingBadge(s.durasi_hari)}</td>
-              <td class="text-xs text-slate-400">${s.date_dispos || '-'} s/d ${s.date_close || '-'}</td>
+              <td class="text-xs text-slate-300 font-mono whitespace-nowrap">${s.date_dispos || '-'}</td>
+              <td class="text-xs text-slate-300 font-mono whitespace-nowrap">${s.date_close || '-'}</td>
               <td class="text-center">
                 <div class="flex items-center justify-center gap-1.5">
                   <button class="btn-action btn-wa-dispatch text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-500/40" data-type="sitac" data-id="${s.id}" title="Follow Up WhatsApp"><i class="fa-brands fa-whatsapp text-sm"></i></button>
@@ -5291,7 +5346,7 @@
         const holdBadge = document.getElementById('sitacHoldBadge');
         const cancelBadge = document.getElementById('sitacCancelBadge');
 
-        if (totalBadge) totalBadge.textContent = json.status_counts.ALL ?? 451;
+        if (totalBadge) totalBadge.textContent = json.status_counts.ALL ?? 686;
         if (finishBadge) finishBadge.textContent = json.status_counts.Finish ?? 0;
         if (ongoingBadge) ongoingBadge.textContent = json.status_counts.Ongoing ?? 0;
         if (holdBadge) holdBadge.textContent = json.status_counts.Hold ?? 0;
@@ -5320,12 +5375,12 @@
     const currentStatus = state.sitac.status || 'ALL';
 
     const sc = statusCounts || state.sitacStatusCounts || (state.execData?.sitac ? {
-      Finish: state.execData.sitac.finish_count || 373,
-      Ongoing: state.execData.sitac.ongoing_count || 10,
-      Hold: state.execData.sitac.hold_count || 5,
-      Cancel: state.execData.sitac.cancel_count || 63,
-      ALL: state.execData.sitac.total_pa || 451
-    } : { Finish: 373, Ongoing: 10, Hold: 5, Cancel: 63, ALL: 451 });
+      Finish: state.execData.sitac.finish_count || 534,
+      Ongoing: state.execData.sitac.ongoing_count || 35,
+      Hold: state.execData.sitac.hold_count || 9,
+      Cancel: state.execData.sitac.cancel_count || 108,
+      ALL: state.execData.sitac.total_pa || 686
+    } : { Finish: 534, Ongoing: 35, Hold: 9, Cancel: 108, ALL: 686 });
 
     const ag = agingDist || state.sitacAgingDist || (state.execData?.sitac_aging_dist || { green: 173, yellow: 82, red: 179 });
 
@@ -5382,7 +5437,7 @@
         data = [sc.Finish || 0, sc.Ongoing || 0, sc.Hold || 0, sc.Cancel || 0];
         bgColors = ['#10B981', '#0EA5E9', '#F59E0B', '#F43F5E'];
         if (statusBadge) {
-          statusBadge.textContent = `Total ${sc.ALL || 451} PA`;
+          statusBadge.textContent = `Total ${sc.ALL || 686} PA`;
           statusBadge.className = 'pbi-visual-badge';
         }
       } else if (currentStatus === 'Finish') {
@@ -5470,6 +5525,300 @@
       });
     }
   }
+
+  // =========================================================================
+  // VIEW 6: MONITORING TIM SITAC (RUANG KOORDINASI PIC SITAC LAPANGAN)
+  // =========================================================================
+  let colleaguesInitialized = false;
+  let colleaguesAllRecords = [];
+  const colleaguesState = {
+    selectedPic: '',
+    search: '',
+    status: 'ALL',
+    page: 1,
+    pageSize: 15
+  };
+
+  async function initColleaguesView() {
+    window.initColleaguesView = initColleaguesView;
+    try {
+      // 1. Fetch full SITAC records if not already loaded
+      if (!colleaguesAllRecords || colleaguesAllRecords.length === 0) {
+        if (window.SITAC_COLLO_DATA?.sitac_records?.length > 0) {
+          colleaguesAllRecords = window.SITAC_COLLO_DATA.sitac_records;
+        } else {
+          try {
+            const res = await fetch('/api/sitac?pageSize=1000');
+            if (res.ok) {
+              const json = await res.json();
+              colleaguesAllRecords = json.data || [];
+            }
+          } catch (e) {
+            console.warn('[ColleaguesView] Fetch fallback to static dataset:', e);
+          }
+        }
+      }
+
+      // 2. Populate PIC Selector Dropdown
+      const picSelect = document.getElementById('selectColleaguesPic');
+      if (picSelect && picSelect.options.length <= 1) {
+        const picSet = new Set();
+        (colleaguesAllRecords || []).forEach(r => {
+          const p = (r.pic_perijinan || '').trim();
+          if (p && !p.toLowerCase().includes('all') && !p.toLowerCase().includes('null') && !p.toLowerCase().includes('none')) {
+            picSet.add(formatPicName(p));
+          }
+        });
+        const sortedPics = Array.from(picSet).sort((a, b) => a.localeCompare(b));
+        sortedPics.forEach(pic => {
+          const opt = document.createElement('option');
+          opt.value = pic;
+          opt.textContent = `PIC: ${pic}`;
+          picSelect.appendChild(opt);
+        });
+      }
+
+      // 3. Bind Event Listeners once
+      if (!colleaguesInitialized) {
+        colleaguesInitialized = true;
+
+        // PIC select change
+        picSelect?.addEventListener('change', (e) => {
+          colleaguesState.selectedPic = e.target.value.trim();
+          colleaguesState.page = 1;
+          renderColleaguesView();
+        });
+
+        // Search input with debounce
+        const searchInput = document.getElementById('searchColleaguesSitac');
+        let searchTimer;
+        searchInput?.addEventListener('input', (e) => {
+          clearTimeout(searchTimer);
+          searchTimer = setTimeout(() => {
+            colleaguesState.search = e.target.value.trim().toLowerCase();
+            colleaguesState.page = 1;
+            renderColleaguesView();
+          }, 250);
+        });
+
+        // Status Tabs click
+        document.querySelectorAll('.colleagues-tab-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('.colleagues-tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            colleaguesState.status = btn.getAttribute('data-colleagues-tab') || 'ALL';
+            colleaguesState.page = 1;
+            renderColleaguesView();
+          });
+        });
+
+        // Pagination buttons
+        document.getElementById('btnColleaguesPrevPage')?.addEventListener('click', () => {
+          if (colleaguesState.page > 1) {
+            colleaguesState.page--;
+            renderColleaguesView();
+          }
+        });
+
+        document.getElementById('btnColleaguesNextPage')?.addEventListener('click', () => {
+          const maxPage = Math.ceil((window._colleaguesFilteredCount || 1) / colleaguesState.pageSize);
+          if (colleaguesState.page < maxPage) {
+            colleaguesState.page++;
+            renderColleaguesView();
+          }
+        });
+      }
+
+      renderColleaguesView();
+    } catch (err) {
+      console.warn('Error in initColleaguesView:', err);
+    }
+  }
+
+  function renderColleaguesView() {
+    const records = colleaguesAllRecords || [];
+    const { selectedPic, search, status, page, pageSize } = colleaguesState;
+
+    // Filter by PIC first for KPIs & Tab Counts
+    const picFiltered = selectedPic
+      ? records.filter(r => formatPicName(r.pic_perijinan || '').toLowerCase() === selectedPic.toLowerCase())
+      : records;
+
+    // Compute status counts for the selected PIC
+    let countAll = picFiltered.length;
+    let countOngoing = 0;
+    let countFinish = 0;
+    let countHold = 0;
+    let countCancel = 0;
+
+    picFiltered.forEach(r => {
+      const prog = (r.progress || '').toLowerCase();
+      if (prog.includes('finish') || prog.includes('done') || prog.includes('selesai')) {
+        countFinish++;
+      } else if (prog.includes('ongoing') || prog.includes('proses') || prog.includes('open') || prog.includes('jalan')) {
+        countOngoing++;
+      } else if (prog.includes('hold') || prog.includes('kendala') || prog.includes('pending')) {
+        countHold++;
+      } else if (prog.includes('cancel') || prog.includes('batal')) {
+        countCancel++;
+      } else {
+        countOngoing++;
+      }
+    });
+
+    // Update Tab Badges
+    const elAll = document.getElementById('countColleaguesAll');
+    const elOngoing = document.getElementById('countColleaguesOngoing');
+    const elFinish = document.getElementById('countColleaguesFinish');
+    const elHold = document.getElementById('countColleaguesHold');
+    const elCancel = document.getElementById('countColleaguesCancel');
+    if (elAll) elAll.textContent = countAll;
+    if (elOngoing) elOngoing.textContent = countOngoing;
+    if (elFinish) elFinish.textContent = countFinish;
+    if (elHold) elHold.textContent = countHold;
+    if (elCancel) elCancel.textContent = countCancel;
+
+    // Update Mini KPI Cards
+    const kpiTotal = document.getElementById('kpiColleaguesTotal');
+    const kpiOngoing = document.getElementById('kpiColleaguesOngoing');
+    const kpiFinish = document.getElementById('kpiColleaguesFinish');
+    const kpiRate = document.getElementById('kpiColleaguesRate');
+    if (kpiTotal) kpiTotal.textContent = countAll;
+    if (kpiOngoing) kpiOngoing.textContent = countOngoing;
+    if (kpiFinish) kpiFinish.textContent = countFinish;
+    if (kpiRate) {
+      const rateVal = countAll > 0 ? Math.round((countFinish / countAll) * 100) : 0;
+      kpiRate.textContent = `${rateVal}%`;
+    }
+
+    // Now filter by Status tab & Search keyword
+    let tableRecords = picFiltered.filter(r => {
+      // Status filter
+      if (status !== 'ALL') {
+        const prog = (r.progress || '').toLowerCase();
+        if (status === 'FINISH' && !(prog.includes('finish') || prog.includes('done') || prog.includes('selesai'))) return false;
+        if (status === 'ONGOING' && !(prog.includes('ongoing') || prog.includes('proses') || prog.includes('open') || prog.includes('jalan'))) return false;
+        if (status === 'HOLD' && !(prog.includes('hold') || prog.includes('kendala') || prog.includes('pending'))) return false;
+        if (status === 'CANCEL' && !(prog.includes('cancel') || prog.includes('batal'))) return false;
+      }
+
+      // Search keyword
+      if (search) {
+        const q = search;
+        const textToSearch = [
+          r.no_pa,
+          r.pelanggan,
+          r.terminating,
+          r.pic_perijinan,
+          r.ptl,
+          r.update_pekerjaan
+        ].filter(Boolean).join(' ').toLowerCase();
+        if (!textToSearch.includes(q)) return false;
+      }
+
+      return true;
+    });
+
+    window._colleaguesFilteredCount = tableRecords.length;
+
+    // Update Table Badge & Title
+    const countBadge = document.getElementById('colleaguesCountBadge');
+    if (countBadge) countBadge.textContent = tableRecords.length;
+    const tableTitle = document.getElementById('colleaguesTableTitle');
+    if (tableTitle) {
+      tableTitle.textContent = selectedPic ? `Daftar Perizinan: PIC ${selectedPic}` : 'Daftar Perizinan Seluruh Tim SITAC';
+    }
+
+    // Paginate
+    const totalItems = tableRecords.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const startIdx = (safePage - 1) * pageSize;
+    const pagedRecords = tableRecords.slice(startIdx, startIdx + pageSize);
+
+    // Update pagination controls
+    const pagInfo = document.getElementById('colleaguesPaginationInfo');
+    const prevBtn = document.getElementById('btnColleaguesPrevPage');
+    const nextBtn = document.getElementById('btnColleaguesNextPage');
+    const pageNum = document.getElementById('colleaguesPageNumber');
+
+    if (pagInfo) {
+      pagInfo.textContent = totalItems === 0
+        ? 'Menampilkan 0 - 0 dari 0 data'
+        : `Menampilkan ${startIdx + 1} - ${Math.min(startIdx + pageSize, totalItems)} dari ${totalItems} data`;
+    }
+    if (pageNum) pageNum.textContent = `${safePage} / ${totalPages}`;
+    if (prevBtn) prevBtn.disabled = safePage <= 1;
+    if (nextBtn) nextBtn.disabled = safePage >= totalPages;
+
+    // Render table rows
+    const tbody = document.getElementById('colleaguesTableBody');
+    if (tbody) {
+      if (pagedRecords.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" class="text-center py-10 text-slate-400">
+              <i class="fa-solid fa-folder-open text-2xl mb-2 text-slate-500"></i>
+              <p>Tidak ada data penugasan perizinan yang sesuai dengan filter.</p>
+            </td>
+          </tr>
+        `;
+      } else {
+        let html = '';
+        pagedRecords.forEach((r, idx) => {
+          const rowNum = startIdx + idx + 1;
+          const picFormatted = formatPicName(r.pic_perijinan || '-');
+          const siteName = r.terminating || '-';
+          const tgl = r.date_dispos || r.date_pa || '-';
+          const biayaAwal = Number(r.biaya_permintaan_awal) || 0;
+          const biayaFinal = Number(r.biaya_final) || 0;
+          const efisiensi = Number(r.efisiensi_rupiah) || Math.max(0, biayaAwal - biayaFinal);
+
+          html += `
+            <tr class="hover:bg-slate-800/40 transition-colors">
+              <td class="font-mono text-xs text-slate-500 py-2.5 px-3">${rowNum}</td>
+              <td class="py-2.5 px-3">
+                <div class="font-mono font-bold text-cyan-400 text-xs">${escapeHtml(r.no_pa || '-')}</div>
+                <div class="text-[10px] text-slate-400 mt-0.5"><i class="fa-regular fa-calendar mr-1"></i>${tgl}</div>
+              </td>
+              <td class="py-2.5 px-3 whitespace-nowrap">
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-semibold text-[11px]">
+                  <i class="fa-solid fa-user text-[9px]"></i>
+                  <span>${escapeHtml(picFormatted)}</span>
+                </span>
+              </td>
+              <td class="py-2.5 px-3 max-w-[200px] truncate" title="${escapeHtml(siteName)}">
+                <div class="font-medium text-slate-200 truncate">${escapeHtml(siteName)}</div>
+                <div class="text-[10px] text-slate-400 truncate">${escapeHtml(r.pelanggan || '')}</div>
+              </td>
+              <td class="py-2.5 px-3 max-w-[150px] truncate text-slate-300">
+                ${escapeHtml(r.ptl || r.tiering || '-')}
+              </td>
+              <td class="py-2.5 px-3 text-right font-mono whitespace-nowrap">
+                <div class="text-slate-400 text-[11px]">${formatRupiah(biayaAwal)}</div>
+                <div class="font-bold text-amber-300 text-xs">${formatRupiah(biayaFinal)}</div>
+                ${efisiensi > 0 ? `<div class="text-[10px] text-emerald-400 font-semibold">+${formatRupiah(efisiensi)}</div>` : ''}
+              </td>
+              <td class="py-2.5 px-3 text-center whitespace-nowrap">
+                <div>${getStatusBadge(r.progress)}</div>
+                ${r.durasi_hari ? `<div class="mt-1">${getAgingBadge(r.durasi_hari)}</div>` : ''}
+              </td>
+              <td class="py-2.5 px-3 text-center whitespace-nowrap">
+                <button type="button" class="btn btn-secondary text-[11px] py-1 px-2.5 rounded-lg border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 inline-flex items-center gap-1.5 transition active:scale-95"
+                  onclick="openDetailModal('sitac', ${r.id})">
+                  <i class="fa-solid fa-eye text-cyan-400"></i>
+                  <span>Detail</span>
+                </button>
+              </td>
+            </tr>
+          `;
+        });
+        tbody.innerHTML = html;
+      }
+    }
+  }
+
+  window.initColleaguesView = initColleaguesView;
 
   // =========================================================================
   // VIEW 6: TIKET GANGGUAN DARURAT (MODUL B)
@@ -6069,6 +6418,9 @@
       mapMarkersLayer = L.layerGroup().addTo(leafletMap);
       window.mapMarkersLayer = mapMarkersLayer;
 
+      mapCircuitsLayer = L.layerGroup().addTo(leafletMap);
+      window.mapCircuitsLayer = mapCircuitsLayer;
+
       // Auto-detect container size changes using ResizeObserver
       if (window.ResizeObserver && !mapResizeObserver) {
         mapResizeObserver = new ResizeObserver(() => {
@@ -6082,6 +6434,23 @@
           leafletMap.invalidateSize();
         }
       });
+
+      // Bind dynamic actions inside Leaflet popups
+      leafletMap.on('popupopen', (e) => {
+        const popupEl = e.popup && e.popup.getElement();
+        if (!popupEl) return;
+        const btnCollo = popupEl.querySelector('.btn-view-contract-detail');
+        if (btnCollo) {
+          btnCollo.onclick = (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            const colloId = parseInt(btnCollo.getAttribute('data-collo-id'), 10);
+            if (window.openDetailModal && colloId) {
+              window.openDetailModal('collo', colloId);
+            }
+          };
+        }
+      });
     }
 
     // Force multiple invalidateSize steps to guarantee no blank/gray tiles
@@ -6089,23 +6458,43 @@
     setTimeout(() => { if (leafletMap) leafletMap.invalidateSize(); }, 150);
     setTimeout(() => { if (leafletMap) leafletMap.invalidateSize(); }, 350);
 
-    await updateMapMarkers();
+    await Promise.all([
+      updateMapMarkers(),
+      updateNetworkCircuits(currentCircuitFilter)
+    ]);
   }
 
   async function updateMapMarkers(filterStatus = 'ALL') {
     if (!leafletMap || !mapMarkersLayer) return;
     mapMarkersLayer.clearLayers();
 
+    // Check layer visibility toggle
+    if (!isSitacLayerVisible) {
+      if (leafletMap.hasLayer(mapMarkersLayer)) leafletMap.removeLayer(mapMarkersLayer);
+      return;
+    } else {
+      if (!leafletMap.hasLayer(mapMarkersLayer)) mapMarkersLayer.addTo(leafletMap);
+    }
+
     try {
-      const res = await fetch(`/api/map-coordinates?status=${filterStatus}`);
-      if (!res.ok) throw new Error('Failed to load map coords');
-      let pins = await res.json();
+      let pins = [];
+      try {
+        const res = await fetch(`/api/map-coordinates?status=${filterStatus}`);
+        if (res.ok) pins = await res.json();
+      } catch (err) {
+        console.warn('Backend map coords fetch failed, using fallback:', err);
+      }
+
+      if (!pins || pins.length === 0) {
+        const fallbackSitac = (window.SITAC_COLLO_DATA && window.SITAC_COLLO_DATA.sitac_records) || [];
+        pins = fallbackSitac.filter(s => s.latitude && s.longitude && (!filterStatus || filterStatus === 'ALL' || s.progress === filterStatus));
+      }
 
       // Ensure only verified exact / user-entered coordinates are rendered
       pins = (pins || []).filter(p => {
         if (!p.latitude || !p.longitude) return false;
         const ct = (p.coord_type || '').toUpperCase();
-        return ct === 'EXACT' || ct === 'EXACT_COORDS' || ct === 'USER_INPUT';
+        return ct === 'EXACT' || ct === 'EXACT_COORDS' || ct === 'USER_INPUT' || !p.coord_type;
       });
 
       // Update counter pill
@@ -6155,7 +6544,7 @@
 
         const statusCfg = colors[p.progress] || colors.Ongoing;
         const marker = L.circleMarker([lat, lng], {
-          radius: 8,
+          radius: 7,
           fillColor: statusCfg.color,
           color: '#ffffff',
           weight: 2,
@@ -6165,24 +6554,24 @@
 
         const gmapsCoordQuery = encodeURIComponent(`${lat.toFixed(6)},${lng.toFixed(6)}`);
         marker.bindPopup(`
-          <div class="p-2 space-y-1.5 font-sans min-w-[220px]">
-            <div class="flex justify-between items-center text-xs border-b border-white/10 pb-1 gap-2">
+          <div class="p-2.5 space-y-2 font-sans min-w-[260px] max-w-[320px]">
+            <div class="flex justify-between items-center text-xs border-b border-white/10 pb-1.5 pr-7 gap-2">
               <strong class="font-mono text-cyan-400 font-bold">${escapeHtml(p.no_pa || 'PA')}</strong>
               ${getStatusBadge(p.progress)}
             </div>
             <div class="font-bold text-sm text-slate-100 mt-1">${escapeHtml(p.pelanggan || 'Pelanggan')}</div>
             <div class="text-xs text-slate-300 leading-relaxed"><i class="fa-solid fa-location-dot text-rose-400 mr-1"></i>${escapeHtml(p.terminating || '-')}</div>
-            <div class="text-xs text-slate-300">PIC: <strong>${escapeHtml(p.pic_perijinan || '-')}</strong></div>
-            <div class="flex justify-between text-xs pt-1 border-t border-white/10 mt-1">
-              <span>Realisasi Biaya:</span>
-              <strong class="text-amber-400 font-mono">${formatRupiah(p.biaya_final)}</strong>
+            <div class="text-xs text-slate-300">PIC: <strong class="text-slate-100">${escapeHtml(p.pic_perijinan || '-')}</strong></div>
+            <div class="flex justify-between items-center text-xs pt-1.5 border-t border-white/10">
+              <span class="text-slate-400">Realisasi Biaya:</span>
+              <strong class="text-amber-400 font-mono font-bold text-xs">${formatRupiah(p.biaya_final)}</strong>
             </div>
-            <div class="pt-1.5 flex items-center gap-1.5">
-              <a href="https://www.google.com/maps/search/?api=1&query=${gmapsCoordQuery}" target="_blank" rel="noopener noreferrer" class="btn-gmaps-link flex-1 text-center py-1">
+            <div class="pt-1.5 flex items-center gap-2">
+              <a href="https://www.google.com/maps/search/?api=1&query=${gmapsCoordQuery}" target="_blank" rel="noopener noreferrer" class="btn-gmaps-link flex-1 text-center py-1.5 text-xs">
                 <i class="fa-brands fa-google text-rose-400 mr-1"></i> Google Maps
               </a>
-              <button type="button" class="px-2.5 py-1 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 text-[10px] font-semibold transition" onclick="window.openDetailModal && window.openDetailModal('sitac', ${p.id})">
-                <i class="fa-solid fa-eye"></i> Detail
+              <button type="button" class="px-3 py-1.5 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition" onclick="window.openDetailModal && window.openDetailModal('sitac', ${p.id})">
+                <i class="fa-solid fa-eye mr-1"></i> Detail
               </button>
             </div>
           </div>
@@ -6192,15 +6581,231 @@
         bounds.push([lat, lng]);
       });
 
-      if (bounds.length > 0) {
+      if (bounds.length > 0 && isSitacLayerVisible && !isCircuitLayerVisible) {
         lastMapBounds = L.latLngBounds(bounds);
         leafletMap.fitBounds(lastMapBounds, { padding: [40, 40], maxZoom: 13 });
       }
 
-      // Re-trigger invalidateSize after points render
       setTimeout(() => { if (leafletMap) leafletMap.invalidateSize(); }, 200);
     } catch (e) {
       console.error('Error updating map markers:', e);
+    }
+  }
+
+  async function updateNetworkCircuits(filterStatus = 'ALL') {
+    if (!leafletMap || !mapCircuitsLayer) return;
+    mapCircuitsLayer.clearLayers();
+    currentCircuitFilter = filterStatus;
+
+    try {
+      let data = null;
+      try {
+        const res = await fetch(`/api/network-links?status=${filterStatus}`);
+        if (res.ok) data = await res.json();
+      } catch (err) {
+        console.warn('Backend /api/network-links fetch failed, using fallback:', err);
+      }
+
+      // Offline / fallback data
+      if (!data || !data.links) {
+        let fallbackLinks = (window.SITAC_COLLO_DATA && window.SITAC_COLLO_DATA.network_links) || [];
+        if (filterStatus !== 'ALL') {
+          fallbackLinks = fallbackLinks.filter(l => (l.status || '').toUpperCase() === filterStatus.toUpperCase());
+        }
+        data = {
+          total: fallbackLinks.length,
+          links: fallbackLinks,
+          status_counts: {
+            ALL: fallbackLinks.length,
+            ACTIVE: fallbackLinks.filter(l => l.status === 'ACTIVE').length,
+            DEACTIVASI: fallbackLinks.filter(l => l.status === 'DEACTIVASI').length,
+            'NON ACTIVE': fallbackLinks.filter(l => l.status === 'NON ACTIVE').length
+          }
+        };
+      }
+
+      const links = data.links || [];
+      const counts = data.status_counts || {};
+
+      // Update counters in UI
+      const countEl = document.getElementById('mapCircuitCount');
+      if (countEl) countEl.textContent = links.length;
+      if (document.getElementById('filterCountCircuitsAll')) document.getElementById('filterCountCircuitsAll').textContent = counts.ALL || 0;
+      if (document.getElementById('filterCountCircuitsActive')) document.getElementById('filterCountCircuitsActive').textContent = counts.ACTIVE || 0;
+      if (document.getElementById('filterCountCircuitsDeact')) document.getElementById('filterCountCircuitsDeact').textContent = counts.DEACTIVASI || 0;
+      if (document.getElementById('filterCountCircuitsNon')) document.getElementById('filterCountCircuitsNon').textContent = counts['NON ACTIVE'] || 0;
+
+      // If user toggled circuit layer off, keep layer cleared
+      if (!isCircuitLayerVisible) {
+        if (leafletMap.hasLayer(mapCircuitsLayer)) leafletMap.removeLayer(mapCircuitsLayer);
+        return;
+      } else {
+        if (!leafletMap.hasLayer(mapCircuitsLayer)) mapCircuitsLayer.addTo(leafletMap);
+      }
+
+      const circuitStyles = {
+        ACTIVE: {
+          color: '#10b981',       // Emerald
+          weight: 3.5,
+          opacity: 0.85,
+          dashArray: null,
+          label: 'Aktif'
+        },
+        DEACTIVASI: {
+          color: '#f59e0b',       // Amber
+          weight: 3.0,
+          opacity: 0.85,
+          dashArray: null,
+          label: 'Deaktivasi'
+        },
+        'NON ACTIVE': {
+          color: '#94a3b8',       // Slate
+          weight: 2.2,
+          opacity: 0.65,
+          dashArray: '6, 8',
+          label: 'Non-Aktif'
+        }
+      };
+
+      const bounds = [];
+      const origCounts = {};
+      const termCounts = {};
+
+      links.forEach(l => {
+        const orig = l.originating;
+        const term = l.terminating;
+        if (!orig || !orig.lat || !orig.lng || !term || !term.lat || !term.lng) return;
+
+        const stKey = (l.status || 'ACTIVE').toUpperCase();
+        const style = circuitStyles[stKey] || circuitStyles.ACTIVE;
+
+        // Polyline connecting Originating -> Terminating
+        const polyline = L.polyline([
+          [orig.lat, orig.lng],
+          [term.lat, term.lng]
+        ], {
+          color: style.color,
+          weight: style.weight,
+          opacity: style.opacity,
+          dashArray: style.dashArray,
+          lineCap: 'round',
+          lineJoin: 'round',
+          className: 'network-circuit-line'
+        });
+
+        const popupContent = `
+          <div class="circuit-popup space-y-2.5 font-sans min-w-[280px] max-w-[360px] text-xs">
+            <div class="flex justify-between items-center border-b border-white/10 pb-2 pr-7 gap-2">
+              <span class="font-mono text-cyan-400 font-bold flex items-center gap-1.5">
+                <i class="fa-solid fa-network-wired text-cyan-400"></i>
+                <span>${escapeHtml(l.no_so || 'SO')}</span>
+              </span>
+              ${getStatusBadge(l.status)}
+            </div>
+            <div>
+              <div class="font-bold text-sm text-slate-100 leading-snug">${escapeHtml(l.pelanggan || '-')}</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">Pengelola: <strong class="text-slate-200">${escapeHtml(l.pengelola || '-')}</strong></div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-slate-900/80 border border-white/10 space-y-2">
+              <div class="flex items-start gap-2">
+                <span class="w-4 h-4 rounded-sm bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 flex items-center justify-center text-[10px] font-bold mt-0.5 shrink-0">A</span>
+                <div class="min-w-0 flex-1">
+                  <div class="text-[9px] uppercase tracking-wider text-cyan-400 font-semibold">Originating (Asal)</div>
+                  <div class="text-slate-200 text-xs font-medium break-words leading-tight" title="${escapeHtml(orig.raw || '')}">${escapeHtml(orig.label || orig.raw)}</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 pl-1.5 my-1 text-slate-500 text-[10px]">
+                <div class="w-0.5 h-3 bg-cyan-500/30 ml-1"></div>
+                <i class="fa-solid fa-arrow-down text-cyan-400 text-xs"></i>
+                <span class="text-[10px] text-slate-400 font-medium">Jalur Transmisi Sirkuit</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center text-[10px] font-bold mt-0.5 shrink-0">B</span>
+                <div class="min-w-0 flex-1">
+                  <div class="text-[9px] uppercase tracking-wider text-emerald-400 font-semibold">Terminating (Tujuan)</div>
+                  <div class="text-slate-200 text-xs font-medium break-words leading-tight" title="${escapeHtml(term.raw || '')}">${escapeHtml(term.label || term.raw)}</div>
+                </div>
+              </div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-slate-900/60 border border-white/5 space-y-2">
+              <div class="flex justify-between items-center text-xs gap-2">
+                <span class="text-slate-400 text-[11px]">Layanan & Kapasitas:</span>
+                <strong class="text-slate-200 font-medium text-xs text-right truncate max-w-[180px]">${escapeHtml(l.layanan || 'Interkoneksi')} (${escapeHtml(l.kapasitas || 'Standard')})</strong>
+              </div>
+              <div class="flex justify-between items-center text-xs gap-2 pt-1.5 border-t border-white/10">
+                <span class="text-slate-400 text-[11px]">Biaya Sewa / Thn:</span>
+                <strong class="text-amber-400 font-mono font-bold text-sm tracking-wide text-right">${formatRupiah(l.biaya_sewa_tahun)}</strong>
+              </div>
+            </div>
+            <div class="pt-1 flex items-center gap-2">
+              <button type="button" class="btn btn-secondary btn-sm flex-1 text-center py-2 text-xs font-medium flex items-center justify-center gap-1.5 hover:bg-slate-700/80 transition btn-view-contract-detail" data-collo-id="${l.collo_id || l.id}" onclick="event.stopPropagation(); window.openDetailModal && window.openDetailModal('collo', ${l.collo_id || l.id}); return false;">
+                <i class="fa-solid fa-file-contract text-cyan-400"></i>
+                <span>Rincian Kontrak</span>
+              </button>
+            </div>
+          </div>
+        `;
+
+        polyline.bindPopup(popupContent, { className: 'circuit-route-popup', maxWidth: 380, minWidth: 290 });
+
+        // Interactive hover
+        polyline.on('mouseover', () => {
+          polyline.setStyle({
+            weight: style.weight + 3,
+            opacity: 1
+          });
+          polyline.bringToFront();
+        });
+        polyline.on('mouseout', () => {
+          polyline.setStyle({
+            weight: style.weight,
+            opacity: style.opacity
+          });
+        });
+
+        // Originating marker (Point A: Square/Diamond Cyan)
+        const origKey = `${orig.lat.toFixed(4)},${orig.lng.toFixed(4)}`;
+        if (!origCounts[origKey]) {
+          origCounts[origKey] = true;
+          const origMarker = L.circleMarker([orig.lat, orig.lng], {
+            radius: 5,
+            fillColor: '#06b6d4',
+            color: '#ffffff',
+            weight: 1.5,
+            opacity: 1,
+            fillOpacity: 0.95
+          });
+          origMarker.bindTooltip(`<strong>Titik A (Originating)</strong>: ${escapeHtml(orig.label || orig.raw)}`, { direction: 'top' });
+          mapCircuitsLayer.addLayer(origMarker);
+        }
+
+        // Terminating marker (Point B: Circle Emerald)
+        const termKey = `${term.lat.toFixed(4)},${term.lng.toFixed(4)}`;
+        if (!termCounts[termKey]) {
+          termCounts[termKey] = true;
+          const termMarker = L.circleMarker([term.lat, term.lng], {
+            radius: 5,
+            fillColor: style.color,
+            color: '#ffffff',
+            weight: 1.5,
+            opacity: 1,
+            fillOpacity: 0.95
+          });
+          termMarker.bindTooltip(`<strong>Titik B (Terminating)</strong>: ${escapeHtml(term.label || term.raw)}`, { direction: 'top' });
+          mapCircuitsLayer.addLayer(termMarker);
+        }
+
+        mapCircuitsLayer.addLayer(polyline);
+        bounds.push([orig.lat, orig.lng]);
+        bounds.push([term.lat, term.lng]);
+      });
+
+      if (bounds.length > 0 && !lastMapBounds) {
+        lastMapBounds = L.latLngBounds(bounds);
+        leafletMap.fitBounds(lastMapBounds, { padding: [40, 40], maxZoom: 13 });
+      }
+    } catch (e) {
+      console.error('Error updating network circuits:', e);
     }
   }
 
@@ -6401,9 +7006,9 @@
               <div>
                 <label class="form-label text-slate-300 font-medium text-xs mb-1 block">Status Sirkuit *</label>
                 <select name="status" class="filter-select w-full text-xs font-bold">
-                  <option value="ACTIVE" ${rec.status === 'ACTIVE' ? 'selected' : ''}>🟢 ACTIVE</option>
-                  <option value="NON ACTIVE" ${rec.status === 'NON ACTIVE' ? 'selected' : ''}>⚪ NON ACTIVE</option>
-                  <option value="DEACTIVASI" ${rec.status === 'DEACTIVASI' ? 'selected' : ''}>🔴 DEACTIVASI</option>
+                  <option value="ACTIVE" ${rec.status === 'ACTIVE' ? 'selected' : ''}>ACTIVE</option>
+                  <option value="NON ACTIVE" ${rec.status === 'NON ACTIVE' ? 'selected' : ''}>NON ACTIVE</option>
+                  <option value="DEACTIVASI" ${rec.status === 'DEACTIVASI' ? 'selected' : ''}>DEACTIVASI</option>
                 </select>
               </div>
               <div>
@@ -6449,6 +7054,24 @@
             <div>
               <label class="form-label text-slate-300 font-medium text-xs mb-1 block">Catatan Keterangan</label>
               <textarea name="keterangan" rows="2" class="filter-input w-full text-xs" placeholder="Catatan kontrak / rekanan...">${escapeHtml(rec.keterangan || '')}</textarea>
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="form-label text-slate-300 font-medium text-xs mb-0 block">Upload / Ganti Dokumen Kontrak / Berita Acara / Foto Titik Jaringan (Opsional)</label>
+                <button type="button" id="btnCancelQuickEditFoto" class="hidden text-[11px] px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30 transition-colors">
+                  <i class="fa-solid fa-xmark mr-1"></i>Batal Pilih File
+                </button>
+              </div>
+              <input type="file" id="quickEditFotoInput" accept="image/*,application/pdf" class="filter-input w-full text-xs cursor-pointer">
+              <div id="quickEditFotoHelp" class="mt-1">
+                ${rec.foto_bukti ? `
+                  <div class="flex items-center justify-between text-[11px] text-emerald-400 bg-emerald-950/30 p-1.5 rounded border border-emerald-500/30">
+                    <span class="truncate mr-2"><i class="fa-solid fa-file-check mr-1"></i> File: <strong>${escapeHtml(rec.foto_bukti)}</strong></span>
+                    <label class="flex items-center text-rose-300 hover:text-rose-200 cursor-pointer text-[10px] shrink-0">
+                      <input type="checkbox" id="chkDeleteFotoBukti" name="delete_foto_bukti" value="1" class="mr-1 rounded"> Hapus Foto/Dokumen Ini
+                    </label>
+                  </div>` : '<span class="text-[10px] text-slate-500 block">Format: JPG, PNG, atau PDF (Lampiran Berita Acara / Kontrak / SPP)</span>'}
+              </div>
             </div>
           </div>
         </div>
@@ -6944,6 +7567,16 @@
 
         // Reset form inputs
         form.reset();
+        const cancelBtn = form.querySelector('button[id^="btnCancelAdd"]');
+        if (cancelBtn) cancelBtn.classList.add('hidden');
+        const helpText = form.querySelector('span[id$="FotoHelpText"]');
+        if (helpText) {
+          if (endpoint === 'collo') {
+            helpText.textContent = 'Format: JPG, PNG, atau PDF (Lampiran Berita Acara / Kontrak Sewa / SPP)';
+          } else {
+            helpText.textContent = 'Format: JPG, PNG, atau PDF (Surat izin, kuitansi retribusi, dll.)';
+          }
+        }
 
         // Refresh global state & meta
         await loadMetaOptions();
@@ -7207,12 +7840,12 @@
                 <i class="fa-solid fa-cloud-arrow-up text-lg"></i>
               </div>
               <div class="text-left">
-                <div class="text-xs font-bold text-slate-200">Belum Ada Foto Bukti Lapangan</div>
+                <div class="text-xs font-bold text-slate-200">Belum Ada Bukti yang Diupload</div>
                 <div class="text-[10px] text-slate-400">Klik di sini untuk mengunggah foto fisik tiang, FO cut, atau dokumen berita acara</div>
               </div>
             </div>
             <button type="button" class="btn btn-secondary text-[11px] py-1.5 px-3 pointer-events-none">
-              <i class="fa-solid fa-camera mr-1"></i> Upload Bukti
+              Upload Bukti
             </button>
           </div>
           <input type="file" id="detailDirectFileInput" accept="image/*,application/pdf" style="display:none;" onchange="window.uploadBuktiDirect('${type}', ${id}, this)">
@@ -7366,25 +7999,62 @@
     }
   }
 
-  function openDetailModal(type, id) {
+  async function openDetailModal(type, id, fallbackIdentifier) {
     const overlay = document.getElementById('modalDetail');
     const content = document.getElementById('detailContent');
     const title = document.getElementById('detailTitle');
     const sub = document.getElementById('detailSubtitle');
 
+    if (!overlay || !content) return;
+
     if (type === 'collo') {
-      if (state.currentUser?.role === 'lapangan') {
-        showToast('Akses ditolak: Hanya Manajemen/Admin yang dapat melihat detail Colocation', 'error');
+      const isLapangan = state.currentUser?.role === 'lapangan';
+      let rec = (state.collo?.data || []).find(c => c.id == id) ||
+                (state.alerts?.data || []).find(c => c.id == id) ||
+                (state.revSharing?.data || []).find(c => c.id == id) ||
+                (window.SITAC_COLLO_DATA?.collo_records || []).find(c => c.id == id);
+
+      // Fallback search by fallbackIdentifier or if id is passed as string / SO number
+      if (!rec && fallbackIdentifier) {
+        rec = (state.collo?.data || []).find(c => c.no_so == fallbackIdentifier || c.sid == fallbackIdentifier) ||
+              (window.SITAC_COLLO_DATA?.collo_records || []).find(c => c.no_so == fallbackIdentifier || c.sid == fallbackIdentifier);
+      }
+
+      if (!rec && typeof id === 'string') {
+        rec = (state.collo?.data || []).find(c => c.no_so == id || c.sid == id) ||
+              (window.SITAC_COLLO_DATA?.collo_records || []).find(c => c.no_so == id || c.sid == id);
+      }
+
+      // Fallback search via network_links
+      if (!rec && window.SITAC_COLLO_DATA?.network_links) {
+        const link = window.SITAC_COLLO_DATA.network_links.find(l => l.id == id || l.collo_id == id);
+        if (link && link.no_so) {
+          rec = (window.SITAC_COLLO_DATA?.collo_records || []).find(c => c.no_so == link.no_so);
+        }
+      }
+
+      // If still not found and backend API is reachable, attempt to fetch
+      if (!rec) {
+        try {
+          const res = await fetch(`/api/collo-records/${id}`);
+          if (res.ok) rec = await res.json();
+        } catch (e) {
+          console.warn('Could not fetch collo record from server:', e);
+        }
+      }
+
+      if (!rec) {
+        showToast('Data rincian kontrak Colocation tidak ditemukan', 'warning');
         return;
       }
-      const rec = state.collo.data.find(c => c.id == id) || (state.alerts.data || []).find(c => c.id == id) || (state.revSharing.data || []).find(c => c.id == id);
-      if (!rec) return;
 
       const allPelangganList = (rec.pelanggan || '').split(/[\r\n]+/).map(s => s.trim().replace(/^\d+[\.\)]\s*/, '')).filter(Boolean);
       const firstPel = allPelangganList[0] || 'Colocation';
       const allSos = String(rec.no_so || '').split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
       const firstSo = allSos[0] || '-';
       const soDisplay = allSos.length > 1 ? `${firstSo} (+${allSos.length - 1} SO)` : firstSo;
+
+      title.textContent = `Rincian Kontrak: ${firstPel}`;
       sub.textContent = `SID: ${rec.sid || '-'} | NO SO: ${soDisplay}`;
 
       let pelangganDetailHtml = '';
@@ -7412,7 +8082,7 @@
         `;
       }
 
-      content.innerHTML = `
+      const financialSection = !isLapangan ? `
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 text-xs mb-3">
           <div class="p-2.5 sm:p-3 bg-emerald-950/30 rounded-lg border border-emerald-500/20 overflow-hidden min-w-0" title="${formatRupiah(rec.rev_sewa_tahun)}">
             <span class="text-slate-400 uppercase text-[10px] block font-semibold truncate">Rev Sewa (1 Thn) Pelanggan</span>
@@ -7431,13 +8101,26 @@
             <span class="font-bold text-xs sm:text-sm text-amber-400 font-mono mt-0.5 block truncate tracking-tight">${formatRupiah(rec.biaya_sewa_tahun)}</span>
           </div>
         </div>
+      ` : `
+        <div class="p-2.5 bg-slate-900/60 rounded-lg border border-cyan-500/20 text-xs text-slate-400 mb-3 flex items-center justify-between">
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-lock text-amber-400"></i> Informasi Finansial (Biaya/Margin) dibatasi untuk Manajemen / Administrator</span>
+          <span class="badge-pill bg-slate-800 text-cyan-300 text-[10px]">Akses Lapangan</span>
+        </div>
+      `;
+
+      const marginRevSharingHtml = !isLapangan ? `
+        <div class="p-2.5 bg-slate-900 rounded border border-white/5 overflow-hidden min-w-0" title="${formatRupiah(rec.margin_rupiah)} (${rec.margin_persen}%)"><span class="text-slate-500 uppercase block truncate">Margin (Rev - Biaya)</span><span class="font-bold text-cyan-400 font-mono text-xs sm:text-sm truncate block">${formatRupiah(rec.margin_rupiah)} (${rec.margin_persen}%)</span></div>
+        <div class="p-2.5 bg-slate-900 rounded border border-white/5 overflow-hidden min-w-0" title="${escapeHtml(rec.rev_sharing_raw || '-')}"><span class="text-slate-500 uppercase block truncate">Rev Sharing</span><span class="font-bold text-amber-400 font-mono text-xs sm:text-sm truncate block">${escapeHtml(rec.rev_sharing_raw || '-')}</span></div>
+      ` : '';
+
+      content.innerHTML = `
+        ${financialSection}
         <div class="grid grid-cols-2 gap-2.5 sm:gap-3 text-xs">
           <div class="p-2.5 bg-slate-900 rounded border border-white/5 overflow-hidden min-w-0"><span class="text-slate-500 uppercase block truncate">Status</span><span class="font-bold text-sm text-slate-100 truncate block">${escapeHtml(rec.status)}</span></div>
           <div class="p-2.5 bg-slate-900 rounded border border-white/5 overflow-hidden min-w-0"><span class="text-slate-500 uppercase block truncate">Layanan / Jenis</span><span class="font-bold text-sm text-slate-100 truncate block">${escapeHtml(rec.layanan || rec.jenis_sewa || '-')}</span></div>
-          <div class="p-2.5 bg-slate-900 rounded border border-white/5 overflow-hidden min-w-0" title="${formatRupiah(rec.margin_rupiah)} (${rec.margin_persen}%)"><span class="text-slate-500 uppercase block truncate">Margin (Rev - Biaya)</span><span class="font-bold text-cyan-400 font-mono text-xs sm:text-sm truncate block">${formatRupiah(rec.margin_rupiah)} (${rec.margin_persen}%)</span></div>
-          <div class="p-2.5 bg-slate-900 rounded border border-white/5 overflow-hidden min-w-0" title="${escapeHtml(rec.rev_sharing_raw || '-')}"><span class="text-slate-500 uppercase block truncate">Rev Sharing</span><span class="font-bold text-amber-400 font-mono text-xs sm:text-sm truncate block">${escapeHtml(rec.rev_sharing_raw || '-')}</span></div>
+          ${marginRevSharingHtml}
           ${pelangganDetailHtml}
-          <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2 overflow-hidden min-w-0"><span class="text-slate-500 uppercase block truncate">Masa Berlaku</span><span class="font-mono text-slate-200 text-xs sm:text-sm truncate block">${rec.start_date || '-'} s/d ${rec.end_date || '-'} (Sisa ${rec.sisa_hari} Hari)</span></div>
+          <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2 overflow-hidden min-w-0"><span class="text-slate-500 uppercase block truncate">Masa Berlaku</span><span class="font-mono text-slate-200 text-xs sm:text-sm truncate block">${rec.start_date || '-'} s/d ${rec.end_date || '-'} (Sisa ${rec.sisa_hari !== undefined && rec.sisa_hari !== null ? rec.sisa_hari : '-'} Hari)</span></div>
           ${rec.site ? `<div class="p-2.5 bg-slate-900 rounded border border-emerald-500/25 col-span-2 flex items-center justify-between overflow-hidden min-w-0"><span class="text-emerald-400 uppercase text-[10px] font-semibold flex items-center gap-1.5 shrink-0"><i class="fa-solid fa-server"></i> Site / Titik Jaringan</span><span class="font-bold text-slate-100 text-xs truncate max-w-[65%]" title="${escapeHtml(rec.site)}">${escapeHtml(rec.site)}</span></div>` : ''}
           <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2 overflow-hidden min-w-0"><span class="text-slate-500 uppercase block truncate">Originating / Terminating</span><span class="text-slate-200 text-xs truncate block" title="${escapeHtml(rec.originating || '-')} &rarr; ${escapeHtml(rec.terminating || '-')}">${escapeHtml(rec.originating || '-')} &rarr; ${escapeHtml(rec.terminating || '-')}</span></div>
           <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2 overflow-hidden min-w-0"><span class="text-slate-500 uppercase block truncate">Admin & Kontak</span><span class="text-slate-200 text-xs truncate block" title="PIC Admin: ${escapeHtml(rec.pic_admin || '-')} | Rekanan: ${escapeHtml(rec.pic_rekanan || '-')} (${escapeHtml(rec.telp || '-')})">PIC Admin: ${escapeHtml(rec.pic_admin || '-')} | Rekanan: ${escapeHtml(rec.pic_rekanan || '-')} (${escapeHtml(rec.telp || '-')})</span></div>
@@ -7446,8 +8129,19 @@
         </div>
       `;
     } else if (type === 'sitac') {
-      const rec = (state.sitac?.data || []).find(s => s.id == id) || (window.SITAC_COLLO_DATA?.sitac_records || []).find(s => s.id == id);
-      if (!rec) return;
+      let rec = (state.sitac?.data || []).find(s => s.id == id) || (window.SITAC_COLLO_DATA?.sitac_records || []).find(s => s.id == id);
+      if (!rec) {
+        try {
+          const res = await fetch(`/api/sitac-records/${id}`);
+          if (res.ok) rec = await res.json();
+        } catch (e) {
+          console.warn('Could not fetch sitac detail:', e);
+        }
+      }
+      if (!rec) {
+        showToast('Data rincian SITAC tidak ditemukan', 'warning');
+        return;
+      }
 
       const isLapangan = state.currentUser?.role === 'lapangan';
       const firstSitacPel = (rec.pelanggan || '').split(/[\r\n]+/)[0]?.replace(/^\d+[\.\)]\s*/, '') || '-';
@@ -7497,8 +8191,19 @@
         </div>
       `;
     } else if (type === 'gangguan') {
-      const rec = (state.gangguan.data || []).find(g => g.id == id);
-      if (!rec) return;
+      let rec = (state.gangguan?.data || []).find(g => g.id == id) || (window.SITAC_COLLO_DATA?.gangguan_records || []).find(g => g.id == id);
+      if (!rec) {
+        try {
+          const res = await fetch(`/api/gangguan/${id}`);
+          if (res.ok) rec = await res.json();
+        } catch (e) {
+          console.warn('Could not fetch gangguan detail:', e);
+        }
+      }
+      if (!rec) {
+        showToast('Data tiket gangguan tidak ditemukan', 'warning');
+        return;
+      }
 
       const isLapangan = state.currentUser?.role === 'lapangan';
       title.textContent = `Tiket Gangguan: ${rec.no_tiket || '-'}`;
@@ -10342,13 +11047,14 @@
       performLogout();
     });
 
-    // 1. Sidebar Nav Click
-    document.querySelectorAll('.nav-item').forEach(btn => {
-      btn.addEventListener('click', () => {
+    // 1. Sidebar Nav Click & Any [data-view] Buttons
+    document.querySelectorAll('.nav-item, [data-view]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const viewId = btn.getAttribute('data-view');
+        if (!viewId) return;
         if (window.innerWidth < 1024) {
           toggleMobileSidebar(false);
         }
-        const viewId = btn.getAttribute('data-view');
         switchView(viewId);
       });
     });
@@ -10531,7 +11237,7 @@
       const rawUser = state.currentUser?.full_name || state.currentUser?.username || 'Administrator';
       const cleanUser = rawUser.replace(/\s*\([^)]*\)/g, '').trim();
       if (greetingTitleEl) {
-        greetingTitleEl.innerHTML = `${salam} <span class="text-cyan-400 font-bold" id="execGreetingName">${escapeHtml(cleanUser)}</span> 👋`;
+        greetingTitleEl.innerHTML = `${salam} <span class="text-cyan-400 font-bold" id="execGreetingName">${escapeHtml(cleanUser)}</span>`;
       }
       if (dateEl) {
         try {
@@ -10776,10 +11482,134 @@
       state.sitac.page = 1;
       loadSitacData();
     });
-    document.getElementById('sitacFilterYear')?.addEventListener('change', (e) => {
-      state.sitac.year = e.target.value;
+    function applySitacDatePreset(preset) {
+      const today = new Date();
+      const curYear = today.getFullYear();
+      const curMonth = today.getMonth();
+
+      let start = '';
+      let end = '';
+
+      if (preset === 'THIS_MONTH') {
+        const firstDay = new Date(curYear, curMonth, 1);
+        const lastDay = new Date(curYear, curMonth + 1, 0);
+        start = firstDay.toISOString().slice(0, 10);
+        end = lastDay.toISOString().slice(0, 10);
+      } else if (preset === 'LAST_MONTH') {
+        const firstDay = new Date(curYear, curMonth - 1, 1);
+        const lastDay = new Date(curYear, curMonth, 0);
+        start = firstDay.toISOString().slice(0, 10);
+        end = lastDay.toISOString().slice(0, 10);
+      } else if (preset === '2026') {
+        start = '2026-01-01';
+        end = '2026-12-31';
+      } else if (preset === '2025') {
+        start = '2025-01-01';
+        end = '2025-12-31';
+      } else if (preset === '2024') {
+        start = '2024-01-01';
+        end = '2024-12-31';
+      } else if (preset === 'ALL') {
+        start = '';
+        end = '';
+      }
+
+      state.sitac.datePreset = preset;
+      state.sitac.startDate = start;
+      state.sitac.endDate = end;
+
+      const inpStart = document.getElementById('sitacStartDate');
+      const inpEnd = document.getElementById('sitacEndDate');
+      if (inpStart) inpStart.value = start;
+      if (inpEnd) inpEnd.value = end;
+
+      document.querySelectorAll('#sitacDatePresets .sitac-date-preset-btn').forEach(btn => {
+        if (btn.getAttribute('data-preset') === preset) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+
+      const yrSelect = document.getElementById('sitacFilterYear');
+      if (yrSelect) {
+        if (['2024', '2025', '2026', 'ALL'].includes(preset)) {
+          yrSelect.value = preset;
+          state.sitac.year = preset;
+        } else {
+          yrSelect.value = 'ALL';
+          state.sitac.year = 'ALL';
+        }
+      }
+
       state.sitac.page = 1;
+      scrollTableToTop('#view-sitac-pa .table-container-card');
       loadSitacData();
+    }
+
+    // Bind Date Preset buttons
+    document.querySelectorAll('#sitacDatePresets .sitac-date-preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const preset = btn.getAttribute('data-preset') || 'ALL';
+        applySitacDatePreset(preset);
+      });
+    });
+
+    // Custom Date Range: Filter button
+    document.getElementById('btnApplySitacDate')?.addEventListener('click', () => {
+      const start = document.getElementById('sitacStartDate')?.value || '';
+      const end = document.getElementById('sitacEndDate')?.value || '';
+      const field = document.getElementById('sitacDateField')?.value || 'date_dispos';
+
+      if (start && end && start > end) {
+        alert('Tanggal mulai tidak boleh lebih besar dari tanggal akhir!');
+        return;
+      }
+
+      state.sitac.startDate = start;
+      state.sitac.endDate = end;
+      state.sitac.dateField = field;
+      state.sitac.datePreset = (start || end) ? 'CUSTOM' : 'ALL';
+
+      document.querySelectorAll('#sitacDatePresets .sitac-date-preset-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+
+      state.sitac.page = 1;
+      scrollTableToTop('#view-sitac-pa .table-container-card');
+      loadSitacData();
+    });
+
+    // Custom Date Range: Reset button
+    document.getElementById('btnResetSitacDate')?.addEventListener('click', () => {
+      applySitacDatePreset('ALL');
+    });
+
+    // Quick clear date badge button
+    document.getElementById('btnQuickClearDate')?.addEventListener('click', () => {
+      applySitacDatePreset('ALL');
+    });
+
+    // Date field selection change
+    document.getElementById('sitacDateField')?.addEventListener('change', (e) => {
+      state.sitac.dateField = e.target.value;
+      if (state.sitac.startDate || state.sitac.endDate) {
+        state.sitac.page = 1;
+        loadSitacData();
+      }
+    });
+
+    document.getElementById('sitacFilterYear')?.addEventListener('change', (e) => {
+      const val = e.target.value;
+      state.sitac.year = val;
+      if (val === 'ALL') {
+        applySitacDatePreset('ALL');
+      } else if (['2024', '2025', '2026'].includes(val)) {
+        applySitacDatePreset(val);
+      } else {
+        state.sitac.page = 1;
+        loadSitacData();
+      }
     });
 
     // Regional SITAC Filter Tabs (JAKPUSEL, JAKUTIM, BODEBEK, JAKBAR, BANTEN, TANGERANG)
@@ -10947,7 +11777,25 @@
       applyGangguanQuickPeriod('all');
     });
 
-    // 9. View 9 (WebGIS) Controls
+    // 9. View 9 (WebGIS) Controls & Dual-Layer Event Handlers
+    // 9a. Layer Visibility Toggles (SITAC vs Circuits)
+    document.getElementById('btnToggleSitacLayer')?.addEventListener('click', function() {
+      isSitacLayerVisible = !isSitacLayerVisible;
+      this.classList.toggle('active', isSitacLayerVisible);
+      const group = document.getElementById('sitacPinFiltersGroup');
+      if (group) group.style.opacity = isSitacLayerVisible ? '1' : '0.4';
+      updateMapMarkers();
+    });
+
+    document.getElementById('btnToggleCircuitLayer')?.addEventListener('click', function() {
+      isCircuitLayerVisible = !isCircuitLayerVisible;
+      this.classList.toggle('active', isCircuitLayerVisible);
+      const group = document.getElementById('circuitFiltersGroup');
+      if (group) group.style.opacity = isCircuitLayerVisible ? '1' : '0.4';
+      updateNetworkCircuits(currentCircuitFilter);
+    });
+
+    // 9b. SITAC Pin Status Filters
     document.querySelectorAll('.map-tag-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.map-tag-btn').forEach(b => b.classList.remove('active'));
@@ -10957,7 +11805,17 @@
       });
     });
 
-    // Base Layer switcher buttons
+    // 9c. Circuit Routes Status Filters
+    document.querySelectorAll('.map-circuit-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.map-circuit-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const st = btn.getAttribute('data-circuit-status') || 'ALL';
+        updateNetworkCircuits(st);
+      });
+    });
+
+    // 9d. Base Layer switcher buttons
     document.querySelectorAll('.map-layer-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const layerKey = btn.getAttribute('data-layer');
@@ -10965,15 +11823,50 @@
       });
     });
 
-    // Fit Bounds button (zoom into all pins)
+    // 9e. Fit Bounds button (zoom into all active pins & circuits)
     document.getElementById('btnFitMapBounds')?.addEventListener('click', () => {
-      if (leafletMap && lastMapBounds) {
+      if (!leafletMap) return;
+      const allBounds = [];
+      if (isSitacLayerVisible && mapMarkersLayer) {
+        mapMarkersLayer.eachLayer(l => {
+          if (l.getLatLng) allBounds.push(l.getLatLng());
+        });
+      }
+      if (isCircuitLayerVisible && mapCircuitsLayer) {
+        mapCircuitsLayer.eachLayer(l => {
+          if (l.getLatLng) allBounds.push(l.getLatLng());
+          if (l.getLatLngs) {
+            const lls = l.getLatLngs();
+            if (Array.isArray(lls)) {
+              lls.forEach(pt => allBounds.push(pt));
+            }
+          }
+        });
+      }
+      if (allBounds.length > 0) {
+        leafletMap.fitBounds(L.latLngBounds(allBounds), { padding: [40, 40], maxZoom: 13 });
+      } else if (lastMapBounds) {
         leafletMap.fitBounds(lastMapBounds, { padding: [40, 40], maxZoom: 13 });
       }
     });
 
     document.getElementById('btnResetWebgisView')?.addEventListener('click', () => {
       if (leafletMap) leafletMap.setView([-6.2200, 106.8400], 11);
+    });
+
+    // 9f. Legend Collapse/Expand Toggle
+    document.getElementById('btnToggleLegendCollapse')?.addEventListener('click', () => {
+      const content = document.getElementById('webgisLegendContent');
+      const icon = document.getElementById('iconLegendCollapse');
+      if (!content) return;
+      const isHidden = content.classList.contains('hidden');
+      if (isHidden) {
+        content.classList.remove('hidden');
+        if (icon) icon.className = 'fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform duration-200';
+      } else {
+        content.classList.add('hidden');
+        if (icon) icon.className = 'fa-solid fa-chevron-up text-[10px] text-slate-400 transition-transform duration-200';
+      }
     });
 
     // 10. Table Action Buttons Delegation (View Detail, Delete & Quick Edit)
@@ -11307,6 +12200,34 @@
           addFotoHelp.textContent = 'Format: JPG, PNG, atau PDF (Surat izin, kuitansi retribusi, dll.)';
         }
         showToast('Pilihan file foto dibatalkan', 'info');
+      });
+    }
+
+    // 14e. Cancel and preview file document selection in modalAddCollo
+    const addColloFotoInp = document.getElementById('addColloFotoInput');
+    const btnCancelAddColloFoto = document.getElementById('btnCancelAddColloFoto');
+    const addColloFotoHelp = document.getElementById('addColloFotoHelpText');
+    if (addColloFotoInp && btnCancelAddColloFoto) {
+      addColloFotoInp.addEventListener('change', () => {
+        if (addColloFotoInp.files && addColloFotoInp.files.length > 0) {
+          btnCancelAddColloFoto.classList.remove('hidden');
+          if (addColloFotoHelp) {
+            addColloFotoHelp.innerHTML = `<span class="text-emerald-400 font-medium"><i class="fa-solid fa-file-contract mr-1"></i> File dipilih: ${escapeHtml(addColloFotoInp.files[0].name)} (${(addColloFotoInp.files[0].size / 1024).toFixed(1)} KB)</span>`;
+          }
+        } else {
+          btnCancelAddColloFoto.classList.add('hidden');
+          if (addColloFotoHelp) {
+            addColloFotoHelp.textContent = 'Format: JPG, PNG, atau PDF (Lampiran Berita Acara / Kontrak Sewa / SPP)';
+          }
+        }
+      });
+      btnCancelAddColloFoto.addEventListener('click', () => {
+        addColloFotoInp.value = '';
+        btnCancelAddColloFoto.classList.add('hidden');
+        if (addColloFotoHelp) {
+          addColloFotoHelp.textContent = 'Format: JPG, PNG, atau PDF (Lampiran Berita Acara / Kontrak Sewa / SPP)';
+        }
+        showToast('Pilihan file dokumen link sewa dibatalkan', 'info');
       });
     }
 
