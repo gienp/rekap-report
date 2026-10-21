@@ -3523,12 +3523,20 @@
     // 2. Hide / Show Sidebar Menus
     const groupCollo = document.getElementById('groupCollo');
     const execNavWrap = document.querySelector('.nav-item[data-view="view-executive"]')?.closest('.nav-section-wrap');
+    const btnNavSitacColleagues = document.getElementById('btnNavSitacColleagues');
+    const btnSitacColleaguesQuick = document.getElementById('btnSitacColleaguesQuick');
 
     if (groupCollo) {
       groupCollo.style.display = isLapangan ? 'none' : '';
     }
     if (execNavWrap) {
       execNavWrap.style.display = isLapangan ? 'none' : '';
+    }
+    if (btnNavSitacColleagues) {
+      btnNavSitacColleagues.style.display = isLapangan ? '' : 'none';
+    }
+    if (btnSitacColleaguesQuick) {
+      btnSitacColleaguesQuick.style.display = isLapangan ? '' : 'none';
     }
 
     // 4. Role-based Notifications (Strict: Notifications appear for Admin & Sales)
@@ -3567,6 +3575,10 @@
     } else if (isSales) {
       if (targetView === 'view-sitac-pa' || targetView === 'view-sitac-colleagues' || targetView === 'view-gangguan' || targetView === 'view-pic-matrix' || targetView === 'view-efisiensi') {
         targetView = 'view-executive';
+      }
+    } else if (isAdmin) {
+      if (targetView === 'view-sitac-colleagues') {
+        targetView = 'view-sitac-pa';
       }
     }
 
@@ -3823,6 +3835,11 @@
     if (state.currentUser?.role === 'sales' && (viewId === 'view-sitac-pa' || viewId === 'view-sitac-colleagues' || viewId === 'view-pic-matrix' || viewId === 'view-efisiensi')) {
       showToast('Akses dibatasi. Modul Operasional SITAC & Lapangan hanya untuk Tim Lapangan & Admin.', 'error');
       viewId = 'view-executive';
+    }
+
+    // RBAC: Admin tidak memerlukan view-sitac-colleagues karena sudah memiliki akses penuh di view-sitac-pa
+    if (state.currentUser?.role === 'admin' && viewId === 'view-sitac-colleagues') {
+      viewId = 'view-sitac-pa';
     }
 
     state.activeView = viewId;

@@ -68,11 +68,11 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- High-Priority Preloads for Instant Master Dataset & Application Engine -->
-  <link rel="preload" href="sitac_collo_data.js?v=12.15" as="script">
-  <link rel="preload" href="app.js?v=12.15" as="script">
+  <link rel="preload" href="sitac_collo_data.js?v=12.16" as="script">
+  <link rel="preload" href="app.js?v=12.16" as="script">
 
   <!-- Custom Portal Stylesheet -->
-  <link rel="stylesheet" href="styles.css?v=12.3">
+  <link rel="stylesheet" href="styles.css?v=12.4">
 
   <!-- ZERO-FLICKER VIEW PERSISTENCE SYNC (ELIMINATES PAGE REFRESH FLASH) -->
   <script>
@@ -93,6 +93,8 @@
           target = 'view-sitac-pa';
         } else if (user && user.role === 'sales' && (target === 'view-sitac-pa' || target === 'view-sitac-colleagues' || target === 'view-pic-matrix' || target === 'view-efisiensi')) {
           target = 'view-executive';
+        } else if (user && user.role === 'admin' && target === 'view-sitac-colleagues') {
+          target = 'view-sitac-pa';
         }
 
         document.documentElement.setAttribute('data-target-view', target);
@@ -194,7 +196,7 @@
               <span class="nav-label">Monitoring Perizinan (PA)</span>
               <span class="badge-counter badge-cyan" id="badgeNavSitac">686</span>
             </button>
-            <button class="nav-item" data-view="view-sitac-colleagues" id="btnNavSitacColleagues">
+            <button class="nav-item lapangan-only" data-view="view-sitac-colleagues" id="btnNavSitacColleagues">
               <span class="nav-label">Monitoring Tim SITAC</span>
               <span class="badge-counter badge-amber text-[9px] px-1.5 py-0.5">View</span>
             </button>
@@ -1516,7 +1518,7 @@
               </div>
             </div>
             <button type="button" id="btnSitacColleaguesQuick" data-view="view-sitac-colleagues"
-              class="btn bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-xs px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-sm transition-all"
+              class="btn lapangan-only bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-xs px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-sm transition-all"
               title="Lihat progres perizinan seluruh tim SITAC (Mode View Only)">
               <i class="fa-solid fa-users-viewfinder text-amber-400"></i>
               <span class="font-semibold">Monitoring Tim SITAC</span>
@@ -4234,10 +4236,10 @@
   </nav>
 
   <!-- 1. Master Dataset & Fallback Engine (Immediate Priority for Instant First Paint) -->
-  <script src="sitac_collo_data.js?v=12.15"></script>
+  <script src="sitac_collo_data.js?v=12.16"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=12.15"></script>
+  <script src="app.js?v=12.16"></script>
 
   <!-- 3. Firebase Cloud Synchronization SDK (Non-Blocking Deferred) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js" defer></script>

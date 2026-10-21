@@ -585,6 +585,67 @@ h4,
   }
 }
 
+/* =========================================================================
+   ZERO-FLICKER VIEW PERSISTENCE (ELIMINATES PAGE REFRESH FLASH)
+   ========================================================================= */
+html[data-target-view] .portal-view {
+  display: none !important;
+  animation: none !important;
+}
+
+html[data-target-view="view-executive"] #view-executive,
+html[data-target-view="view-collo-list"] #view-collo-list,
+html[data-target-view="view-collo-rev-sharing"] #view-collo-rev-sharing,
+html[data-target-view="view-collo-alerts"] #view-collo-alerts,
+html[data-target-view="view-sitac-pa"] #view-sitac-pa,
+html[data-target-view="view-sitac-colleagues"] #view-sitac-colleagues,
+html[data-target-view="view-gangguan"] #view-gangguan,
+html[data-target-view="view-efisiensi"] #view-efisiensi,
+html[data-target-view="view-pic-matrix"] #view-pic-matrix,
+html[data-target-view="view-webgis"] #view-webgis {
+  display: block !important;
+  animation: none !important;
+}
+
+/* Zero-flicker sidebar active button sync */
+html[data-target-view="view-executive"] .nav-item[data-view="view-executive"],
+html[data-target-view="view-collo-list"] .nav-item[data-view="view-collo-list"],
+html[data-target-view="view-collo-rev-sharing"] .nav-item[data-view="view-collo-rev-sharing"],
+html[data-target-view="view-collo-alerts"] .nav-item[data-view="view-collo-alerts"],
+html[data-target-view="view-sitac-pa"] .nav-item[data-view="view-sitac-pa"],
+html[data-target-view="view-sitac-colleagues"] .nav-item[data-view="view-sitac-colleagues"],
+html[data-target-view="view-gangguan"] .nav-item[data-view="view-gangguan"],
+html[data-target-view="view-efisiensi"] .nav-item[data-view="view-efisiensi"],
+html[data-target-view="view-pic-matrix"] .nav-item[data-view="view-pic-matrix"],
+html[data-target-view="view-webgis"] .nav-item[data-view="view-webgis"] {
+  background-color: rgba(6, 182, 212, 0.15) !important;
+  color: #38bdf8 !important;
+  border-color: rgba(6, 182, 212, 0.3) !important;
+}
+
+/* Zero-flicker accordion auto-expand */
+html[data-target-view^="view-collo-"] #groupCollo.collapsed .section-items {
+  display: flex !important;
+}
+html[data-target-view^="view-collo-"] #groupCollo.collapsed .section-chevron {
+  transform: rotate(180deg) !important;
+}
+
+html[data-target-view="view-sitac-pa"] #groupSitac.collapsed .section-items,
+html[data-target-view="view-sitac-colleagues"] #groupSitac.collapsed .section-items,
+html[data-target-view="view-efisiensi"] #groupSitac.collapsed .section-items,
+html[data-target-view="view-pic-matrix"] #groupSitac.collapsed .section-items,
+html[data-target-view="view-webgis"] #groupSitac.collapsed .section-items {
+  display: flex !important;
+}
+html[data-target-view="view-sitac-pa"] #groupSitac.collapsed .section-chevron,
+html[data-target-view="view-sitac-colleagues"] #groupSitac.collapsed .section-chevron,
+html[data-target-view="view-efisiensi"] #groupSitac.collapsed .section-chevron,
+html[data-target-view="view-pic-matrix"] #groupSitac.collapsed .section-chevron,
+html[data-target-view="view-webgis"] #groupSitac.collapsed .section-chevron {
+  transform: rotate(180deg) !important;
+}
+
 .kpi-card {
   background: rgba(15, 23, 42, 0.75);
   backdrop-filter: blur(16px);
@@ -988,6 +1049,7 @@ canvas {
 
 .collo-status-tab,
 .sitac-tab-btn,
+.colleagues-tab-btn,
 .gangguan-tab-btn,
 .map-tag-btn {
   padding: 0.35rem 0.75rem;
@@ -1008,6 +1070,7 @@ canvas {
 
 .collo-status-tab.active,
 .sitac-tab-btn.active,
+.colleagues-tab-btn.active,
 .gangguan-tab-btn.active,
 .map-tag-btn.active {
   background: rgba(6, 182, 212, 0.15);
@@ -1371,6 +1434,28 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 
 .portal-modal-card .modal-body {
   background-color: #0b1329;
+}
+
+/* Universal Anti-Overflow Protection for Modal Content */
+.portal-modal-card .grid > div {
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.portal-modal-card .grid > div span,
+.portal-modal-card .grid > div strong {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portal-modal-card .grid .font-mono {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .modal-top {
@@ -2827,6 +2912,7 @@ select:focus {
 /* --- Status/Filter Tabs --- */
 [data-theme="light"] .collo-status-tab,
 [data-theme="light"] .sitac-tab-btn,
+[data-theme="light"] .colleagues-tab-btn,
 [data-theme="light"] .gangguan-tab-btn,
 [data-theme="light"] .map-tag-btn,
 [data-theme="light"] .gangguan-period-btn {
@@ -2836,6 +2922,7 @@ select:focus {
 }
 [data-theme="light"] .collo-status-tab:hover,
 [data-theme="light"] .sitac-tab-btn:hover,
+[data-theme="light"] .colleagues-tab-btn:hover,
 [data-theme="light"] .gangguan-tab-btn:hover,
 [data-theme="light"] .map-tag-btn:hover,
 [data-theme="light"] .gangguan-period-btn:hover {
@@ -2844,6 +2931,7 @@ select:focus {
 }
 [data-theme="light"] .collo-status-tab.active,
 [data-theme="light"] .sitac-tab-btn.active,
+[data-theme="light"] .colleagues-tab-btn.active,
 [data-theme="light"] .gangguan-tab-btn.active,
 [data-theme="light"] .map-tag-btn.active {
   background: #0b97d4 !important;
@@ -3202,6 +3290,104 @@ select:focus {
   background: #e0f2fe;
   border-color: #38bdf8;
   box-shadow: 0 2px 8px rgba(2, 132, 199, 0.18);
+}
+
+.sitac-date-preset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sitac-date-preset-btn:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.sitac-date-preset-btn.active {
+  color: #06b6d4;
+  background: rgba(6, 182, 212, 0.15);
+  border-color: rgba(6, 182, 212, 0.45);
+  box-shadow: 0 0 16px rgba(6, 182, 212, 0.22);
+}
+
+[data-theme="light"] .sitac-date-preset-btn {
+  color: #475569;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+[data-theme="light"] .sitac-date-preset-btn:hover {
+  color: #0f172a;
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+[data-theme="light"] .sitac-date-preset-btn.active {
+  color: #0284c7;
+  background: #e0f2fe;
+  border-color: #38bdf8;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.18);
+}
+
+
+/* SITAC Date Range Filter & Preset Buttons */
+.sitac-date-preset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sitac-date-preset-btn:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.sitac-date-preset-btn.active {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.45);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+}
+
+[data-theme="light"] .sitac-date-preset-btn {
+  color: #475569;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+[data-theme="light"] .sitac-date-preset-btn:hover {
+  color: #0f172a;
+  background: #e2e8f0;
+}
+
+[data-theme="light"] .sitac-date-preset-btn.active {
+  color: #0284c7;
+  background: #e0f2fe;
+  border-color: #38bdf8;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.15);
 }
 
 [data-theme="light"] #sitacRegionalFilterCard {
@@ -4305,6 +4491,14 @@ body.role-lapangan #btnOpenAdminUsers {
 
 body.role-sales .admin-only,
 body.role-sales .pic-only,
+body.role-sales .operasional-only,
+body.role-sales #groupSitac,
+body.role-sales #btnMobSitac,
+body.role-sales #btnMobGangguan,
+body.role-sales #btnMobAddData,
+body.role-sales #sitacFilterGroup,
+body.role-sales #btnSitacMyTasks,
+body.role-sales #btnGangguanMyTasks,
 body.role-sales .btn-delete-row,
 body.role-sales #btnDetailDeleteAction,
 body.role-sales #btnOpenDatabaseViewer,
@@ -4314,8 +4508,21 @@ body.role-sales #btnOpenAdminUsers {
   display: none !important;
 }
 
+body.role-sales .sales-only {
+  display: flex !important;
+}
+
 body.role-admin .pic-only,
-body.role-admin .sales-only {
+body.role-admin .lapangan-only,
+body.role-admin #btnNavSitacColleagues,
+body.role-admin #btnSitacColleaguesQuick,
+body.role-admin [data-view="view-sitac-colleagues"],
+body.role-sales .pic-only,
+body.role-sales .lapangan-only,
+body.role-sales #btnNavSitacColleagues,
+body.role-sales #btnSitacColleaguesQuick,
+body.role-sales [data-view="view-sitac-colleagues"],
+body.role-lapangan .sales-only {
   display: none !important;
 }
 
@@ -4656,16 +4863,116 @@ body.role-admin .sales-only {
     display: none !important;
   }
 
-  /* Notification Bell badge position */
+  /* Notification Bell badge - docked cleanly on button without overflow */
   #contractAlertBellBadge {
-    top: -3px !important;
-    right: -3px !important;
+    top: 1px !important;
+    right: 1px !important;
     font-size: 8px !important;
-    height: 16px !important;
-    min-width: 16px !important;
-    padding: 0 3px !important;
-    line-height: 16px !important;
-    box-shadow: 0 0 0 2px var(--bg-app) !important;
+    height: 14px !important;
+    min-width: 14px !important;
+    max-width: 22px !important;
+    padding: 0 2.5px !important;
+    line-height: 14px !important;
+    box-shadow: 0 0 0 1.5px var(--bg-app) !important;
+    overflow: hidden !important;
+    text-overflow: clip !important;
+    pointer-events: none !important;
+  }
+
+  /* Universal Mobile Button & Pill Anti-Overflow Protection */
+  .btn,
+  button,
+  .sitac-region-btn,
+  .sitac-date-preset-btn,
+  .sitac-tab-btn,
+  .colleagues-tab-btn,
+  .collo-status-tab,
+  .map-tag-btn,
+  .map-layer-btn,
+  .alert-filter-card {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .btn {
+    padding: 0.4rem 0.65rem !important;
+    font-size: 0.75rem !important;
+    gap: 0.3rem !important;
+  }
+
+  .btn span {
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .sitac-region-btn,
+  .sitac-date-preset-btn {
+    padding: 0.28rem 0.55rem !important;
+    font-size: 0.68rem !important;
+    gap: 0.25rem !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  .sitac-tab-btn,
+  .colleagues-tab-btn,
+  .collo-status-tab,
+  .map-tag-btn,
+  .map-layer-btn {
+    padding: 0.3rem 0.55rem !important;
+    font-size: 0.7rem !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Prevent text and currency numbers from spilling out of KPI & Financial cards on mobile */
+  #sitacRegionalKpiGrid > div,
+  #colloFinSummaryCard > div,
+  .portal-modal-card .grid > div {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    padding: 0.625rem !important;
+    box-sizing: border-box !important;
+  }
+
+  #sitacRegionalKpiGrid .font-mono,
+  #colloFinSummaryCard .font-mono,
+  .portal-modal-card .grid .font-mono {
+    font-size: clamp(0.70rem, 3.2vw, 0.92rem) !important;
+    line-height: 1.25 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+    display: block !important;
+  }
+
+  #colloFinSummaryCard span,
+  .portal-modal-card .grid > div span {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+  }
+
+  #regKpiHematPersen {
+    font-size: 0.65rem !important;
+    padding: 0.15rem 0.4rem !important;
+  }
+
+  /* Urgency filter cards in View 4 */
+  .alert-filter-card {
+    padding: 0.75rem !important;
+    overflow: hidden !important;
+  }
+
+  .alert-filter-card .alert-tag {
+    font-size: 0.75rem !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
   }
 
   /* Breadcrumb text sizing & truncation on mobile */
@@ -4736,4 +5043,298 @@ body.role-admin .sales-only {
 .no-scrollbar {
   -ms-overflow-style: none !important;
   scrollbar-width: none !important;
+}
+
+/* =========================================================================
+   UNIVERSAL GLOBAL SEARCH & COMMAND PALETTE (CTRL+K)
+   ========================================================================= */
+.global-search-result-item {
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.75rem;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.global-search-result-item:hover,
+.global-search-result-item.active-search-item {
+  background: rgba(6, 182, 212, 0.14) !important;
+  border-color: rgba(6, 182, 212, 0.45) !important;
+  transform: translateX(3px);
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.15);
+}
+
+.global-search-result-item mark {
+  background: rgba(6, 182, 212, 0.35);
+  color: #a5f3fc;
+  padding: 0 0.2rem;
+  border-radius: 0.25rem;
+}
+
+[data-theme="light"] .global-search-result-item {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .global-search-result-item:hover,
+[data-theme="light"] .global-search-result-item.active-search-item {
+  background: #f0fdfa !important;
+  border-color: #0d9488 !important;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.1);
+}
+
+[data-theme="light"] .global-search-result-item mark {
+  background: #fef08a;
+  color: #854d0e;
+}
+
+[data-theme="light"] #modalGlobalSearch .portal-modal-card {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+[data-theme="light"] #modalGlobalSearch .bg-slate-900\/60,
+[data-theme="light"] #modalGlobalSearch .bg-slate-900\/30 {
+  background-color: #f8fafc !important;
+}
+
+[data-theme="light"] #modalGlobalSearch .bg-slate-950 {
+  background-color: #f1f5f9 !important;
+}
+
+[data-theme="light"] #globalSearchInput {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] #globalSearchInput::placeholder {
+  color: #94a3b8 !important;
+}
+
+[data-theme="light"] #modalWhatsAppDispatch .modal-top {
+  background: linear-gradient(to right, #ecfdf5, #ffffff) !important;
+  border-color: #a7f3d0 !important;
+}
+
+[data-theme="light"] #waMessageText {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #a7f3d0 !important;
+}
+
+[data-theme="light"] #waTargetPhone {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+[data-theme="light"] #btnOpenGlobalSearch {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #475569 !important;
+}
+
+[data-theme="light"] #btnOpenGlobalSearch:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+  border-color: #0284c7 !important;
+}
+
+[data-theme="light"] #btnOpenGlobalSearch kbd {
+  background: #e2e8f0 !important;
+  color: #475569 !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* =========================================================================
+   WEBGIS NETWORK TRANSMISSION CIRCUIT ROUTES (ORIGINATING -> TERMINATING)
+   ========================================================================= */
+.map-layer-toggle-btn {
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.map-layer-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.map-layer-toggle-btn.active {
+  background: rgba(6, 182, 212, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.25);
+}
+
+.map-circuit-filter-btn {
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.map-circuit-filter-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-main);
+}
+
+.map-circuit-filter-btn.active {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+/* Polylines for Network Transmission Routes */
+.network-circuit-line {
+  transition: stroke-width 0.2s ease, stroke-opacity 0.2s ease, filter 0.2s ease;
+  cursor: pointer;
+}
+
+.network-circuit-line:hover {
+  stroke-width: 6.5px !important;
+  stroke-opacity: 1 !important;
+  filter: drop-shadow(0 0 8px currentColor);
+}
+
+.circuit-route-popup .leaflet-popup-content-wrapper,
+.leaflet-popup-content-wrapper {
+  background: rgba(15, 23, 42, 0.96) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 20px 30px -5px rgba(0, 0, 0, 0.6), 0 10px 15px -5px rgba(0, 0, 0, 0.4) !important;
+  padding: 0 !important;
+}
+
+.circuit-route-popup .leaflet-popup-content,
+.leaflet-popup-content {
+  margin: 12px 14px !important;
+  line-height: 1.4 !important;
+}
+
+.circuit-route-popup .leaflet-popup-tip,
+.leaflet-popup-tip {
+  background: rgba(15, 23, 42, 0.96) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+.circuit-route-popup .leaflet-popup-close-button,
+.leaflet-container .leaflet-popup-close-button {
+  color: #94a3b8 !important;
+  padding: 6px !important;
+  font-size: 16px !important;
+  top: 8px !important;
+  right: 8px !important;
+  width: 26px !important;
+  height: 26px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 6px !important;
+  transition: all 0.15s ease !important;
+  text-decoration: none !important;
+}
+
+.circuit-route-popup .leaflet-popup-close-button:hover,
+.leaflet-container .leaflet-popup-close-button:hover {
+  color: #f8fafc !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* ==========================================================================
+   VIEW: MONITORING PROGRES PERIZINAN TIM SITAC (VIEW ONLY)
+   ========================================================================== */
+.colleagues-banner {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(15, 23, 42, 0.85) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 1rem;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 4px 20px -2px rgba(245, 158, 11, 0.1);
+}
+
+.read-only-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(245, 158, 11, 0.18);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.colleagues-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #94a3b8;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.colleagues-tab-btn:hover {
+  color: #f1f5f9;
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(30, 41, 59, 0.8);
+}
+
+.colleagues-tab-btn.active {
+  color: #fef3c7;
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.5);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.2);
+}
+
+.colleagues-tab-btn .count {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+}
+
+.colleagues-tab-btn.active .count {
+  background: rgba(245, 158, 11, 0.4);
+  color: #fff;
 }
