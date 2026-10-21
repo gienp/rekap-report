@@ -4517,6 +4517,8 @@ body.role-admin .lapangan-only,
 body.role-admin #btnNavSitacColleagues,
 body.role-admin #btnSitacColleaguesQuick,
 body.role-admin [data-view="view-sitac-colleagues"],
+body.role-admin #btnMobAlerts,
+body.role-admin #btnMobAddData,
 body.role-sales .pic-only,
 body.role-sales .lapangan-only,
 body.role-sales #btnNavSitacColleagues,
@@ -4822,11 +4824,11 @@ body.role-lapangan .sales-only {
      MOBILE TOPBAR CLEANUP & RESPONSIVE REFINEMENT (< 640px)
      ------------------------------------------------------------- */
   .portal-topbar {
-    padding-left: 0.5rem !important;
-    padding-right: 0.5rem !important;
-    padding-top: 0.45rem !important;
-    padding-bottom: 0.45rem !important;
-    gap: 0.25rem !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+    gap: 0.5rem !important;
   }
 
   /* Completely eliminate wide user profile text pill in mobile topbar */
@@ -4842,55 +4844,56 @@ body.role-lapangan .sales-only {
 
   #breadcrumbPageTitle {
     max-width: none !important;
-    font-size: 0.8rem !important;
+    font-size: 0.85rem !important;
+    font-weight: 700 !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
   }
 
-  /* Action buttons cluster on mobile: tight, neat, and aligned */
+  /* Action buttons cluster on mobile: tight, neat, and aligned (Search, Alat, Bell) */
   .topbar-actions {
-    gap: 0.25rem !important;
+    gap: 0.45rem !important;
     flex-shrink: 0 !important;
   }
 
   .topbar-actions .btn,
   .topbar-actions .btn-dropdown-trigger,
   #btnOpenGlobalSearchMobile,
-  #themeToggleBtn,
-  #btnLogout,
   #btnContractAlertBell {
-    height: 30px !important;
-    width: 30px !important;
-    min-width: 30px !important;
-    max-width: 30px !important;
+    height: 34px !important;
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
     padding: 0 !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    border-radius: 0.5rem !important;
+    border-radius: 0.625rem !important;
   }
 
-  /* Completely hide duplicate Tambah Data, standalone Ekspor, and user profile pill on mobile */
+  /* On mobile (< 640px), keep topbar clean & focused:
+     Theme toggle and Logout belong in the Sidebar/Menu Drawer, not cluttering the topbar */
   #btnOpenAddModal,
   #exportGroupDropdownContainer,
-  #topbarUserProfile {
+  #topbarUserProfile,
+  #themeToggleBtn,
+  #btnLogout {
     display: none !important;
   }
 
   /* Notification Bell badge - docked cleanly on button without overflow */
   #contractAlertBellBadge {
-    top: 1px !important;
-    right: 1px !important;
-    font-size: 8px !important;
-    height: 14px !important;
-    min-width: 14px !important;
-    max-width: 22px !important;
-    padding: 0 2.5px !important;
-    line-height: 14px !important;
-    box-shadow: 0 0 0 1.5px var(--bg-app) !important;
+    top: -2px !important;
+    right: -2px !important;
+    font-size: 8.5px !important;
+    height: 15px !important;
+    min-width: 15px !important;
+    max-width: 24px !important;
+    padding: 0 3px !important;
+    line-height: 15px !important;
+    box-shadow: 0 0 0 2px var(--bg-app) !important;
     overflow: hidden !important;
-    text-overflow: clip !important;
     pointer-events: none !important;
   }
 

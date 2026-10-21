@@ -68,38 +68,38 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- High-Priority Preloads for Instant Master Dataset & Application Engine -->
-  <link rel="preload" href="sitac_collo_data.js?v=12.19" as="script">
-  <link rel="preload" href="app.js?v=12.19" as="script">
+  <link rel="preload" href="sitac_collo_data.js?v=12.20" as="script">
+  <link rel="preload" href="app.js?v=12.20" as="script">
 
   <!-- Custom Portal Stylesheet -->
-  <link rel="stylesheet" href="styles.css?v=12.6">
+  <link rel="stylesheet" href="styles.css?v=12.7">
 
   <!-- ZERO-FLICKER VIEW PERSISTENCE SYNC (ELIMINATES PAGE REFRESH FLASH) -->
   <script>
-    (function () {
-      try {
-        var VALID = [
-          'view-executive', 'view-collo-list', 'view-collo-rev-sharing',
-          'view-collo-alerts', 'view-sitac-pa', 'view-sitac-colleagues',
-          'view-efisiensi', 'view-pic-matrix', 'view-webgis'
-        ];
-        var hash = (window.location.hash || '').replace(/^#/, '').trim();
-        var saved = localStorage.getItem('telecom_portal_active_view');
-        var user = null;
-        try { user = JSON.parse(localStorage.getItem('telecom_portal_user') || 'null'); } catch (e) {}
-        var target = (hash && VALID.indexOf(hash) !== -1) ? hash : ((saved && VALID.indexOf(saved) !== -1) ? saved : 'view-executive');
+      (function () {
+        try {
+          var VALID = [
+            'view-executive', 'view-collo-list', 'view-collo-rev-sharing',
+            'view-collo-alerts', 'view-sitac-pa', 'view-sitac-colleagues',
+            'view-efisiensi', 'view-pic-matrix', 'view-webgis'
+          ];
+          var hash = (window.location.hash || '').replace(/^#/, '').trim();
+          var saved = localStorage.getItem('telecom_portal_active_view');
+          var user = null;
+          try { user = JSON.parse(localStorage.getItem('telecom_portal_user') || 'null'); } catch (e) { }
+          var target = (hash && VALID.indexOf(hash) !== -1) ? hash : ((saved && VALID.indexOf(saved) !== -1) ? saved : 'view-executive');
 
-        if (user && user.role === 'lapangan' && (target === 'view-executive' || target.indexOf('view-collo-') === 0 || target === 'view-efisiensi')) {
-          target = 'view-sitac-pa';
-        } else if (user && user.role === 'sales' && (target === 'view-sitac-pa' || target === 'view-sitac-colleagues' || target === 'view-pic-matrix' || target === 'view-efisiensi')) {
-          target = 'view-executive';
-        } else if (user && user.role === 'admin' && target === 'view-sitac-colleagues') {
-          target = 'view-sitac-pa';
-        }
+          if (user && user.role === 'lapangan' && (target === 'view-executive' || target.indexOf('view-collo-') === 0 || target === 'view-efisiensi')) {
+            target = 'view-sitac-pa';
+          } else if (user && user.role === 'sales' && (target === 'view-sitac-pa' || target === 'view-sitac-colleagues' || target === 'view-pic-matrix' || target === 'view-efisiensi')) {
+            target = 'view-executive';
+          } else if (user && user.role === 'admin' && target === 'view-sitac-colleagues') {
+            target = 'view-sitac-pa';
+          }
 
-        document.documentElement.setAttribute('data-target-view', target);
-      } catch (e) {}
-    })();
+          document.documentElement.setAttribute('data-target-view', target);
+        } catch (e) { }
+      })();
   </script>
 </head>
 
@@ -138,15 +138,28 @@
 
       <!-- Logged-in User Profile Card in Sidebar -->
       <div id="sidebarUserProfileCard"
-        class="mx-3 mt-3 mb-2 p-2.5 rounded-xl bg-slate-900/80 border border-white/10 flex items-center gap-3">
-        <div id="sidebarUserRoleAvatar"
-          class="w-8 h-8 rounded-full flex items-center justify-center text-xs bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shrink-0">
-          <i class="fa-solid fa-shield-halved" id="sidebarUserRoleIcon"></i>
+        class="mx-3 mt-3 mb-2 p-2.5 rounded-xl bg-slate-900/80 border border-white/10 flex items-center justify-between gap-2.5">
+        <div class="flex items-center gap-2.5 min-w-0 flex-1">
+          <div id="sidebarUserRoleAvatar"
+            class="w-8 h-8 rounded-full flex items-center justify-center text-xs bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shrink-0">
+            <i class="fa-solid fa-shield-halved" id="sidebarUserRoleIcon"></i>
+          </div>
+          <div class="min-w-0 flex-1 leading-tight">
+            <div class="font-bold text-slate-100 text-xs truncate" id="sidebarUserNameDisplay">Administrator</div>
+            <div class="text-[9px] uppercase tracking-wider text-cyan-400 font-semibold mt-0.5"
+              id="sidebarUserRoleDisplay">ADMIN</div>
+          </div>
         </div>
-        <div class="min-w-0 flex-1 leading-tight">
-          <div class="font-bold text-slate-100 text-xs truncate" id="sidebarUserNameDisplay">Administrator</div>
-          <div class="text-[9px] uppercase tracking-wider text-cyan-400 font-semibold mt-0.5"
-            id="sidebarUserRoleDisplay">ADMIN</div>
+        <!-- Quick Actions inside Sidebar Drawer: Theme & Logout -->
+        <div class="flex items-center gap-1 shrink-0">
+          <button type="button" class="btn btn-secondary h-8 w-8 !p-0 rounded-lg flex items-center justify-center text-xs text-slate-300 hover:text-amber-300 transition"
+            onclick="document.getElementById('themeToggleBtn')?.click()" title="Ganti Mode Terang / Gelap">
+            <i class="fa-solid fa-moon text-xs"></i>
+          </button>
+          <button type="button" class="btn btn-secondary h-8 w-8 !p-0 rounded-lg flex items-center justify-center text-xs text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/40 transition"
+            onclick="document.getElementById('btnLogout')?.click()" title="Keluar / Logout">
+            <i class="fa-solid fa-arrow-right-from-bracket text-xs"></i>
+          </button>
         </div>
       </div>
 
@@ -245,8 +258,7 @@
         <div class="breadcrumbs min-w-0 flex-1">
           <span class="topbar-category-tag block leading-none text-[10px] sm:text-xs"
             id="breadcrumbCategory">Overview</span>
-          <h2
-            class="topbar-page-title truncate mt-0.5 leading-tight text-xs sm:text-base font-bold"
+          <h2 class="topbar-page-title truncate mt-0.5 leading-tight text-xs sm:text-base font-bold"
             id="breadcrumbPageTitle">Dashboard Ringkasan Eksekutif</h2>
         </div>
       </div>
@@ -599,7 +611,7 @@
             if (cEl) cEl.textContent = m[t].c;
             if (tEl) tEl.textContent = m[t].t;
           }
-        } catch (e) {}
+        } catch (e) { }
       })();
     </script>
 
@@ -630,25 +642,25 @@
 
         <!-- Period Filter & Custom Date Range Toolbar -->
         <div
-          class="p-3.5 rounded-2xl bg-card border border-subtle flex flex-wrap items-center justify-between gap-3 text-xs shadow-sm">
-          <div class="flex items-center gap-2">
-            <i class="fa-solid fa-calendar-days text-cyan-500 text-sm"></i>
-            <span class="font-bold text-main">Filter Periode:</span>
-            <!-- Segmented Quick Pills (DayNight Chart Pill Style) -->
-            <div class="exec-period-segmented hidden md:inline-flex" id="execPeriodQuickPills">
+          class="p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl bg-card border border-subtle flex flex-wrap items-center justify-between gap-2.5 text-xs shadow-sm">
+          <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 w-full sm:w-auto">
+            <i class="fa-solid fa-calendar-days text-cyan-500 text-xs sm:text-sm shrink-0"></i>
+            <span class="font-bold text-main shrink-0 text-xs">Periode:</span>
+            <!-- Segmented Quick Pills -->
+            <div class="exec-period-segmented inline-flex shrink-0" id="execPeriodQuickPills">
               <button type="button" class="exec-period-pill active" data-period="ALL">Semua Periode</button>
               <button type="button" class="exec-period-pill" data-period="2024">2024</button>
               <button type="button" class="exec-period-pill" data-period="2025">2025</button>
               <button type="button" class="exec-period-pill" data-period="2026">2026</button>
             </div>
           </div>
-          <div class="flex flex-wrap items-center gap-2">
+          <div class="hidden sm:flex flex-wrap items-center gap-2">
             <select id="execFilterPeriod"
               class="filter-input px-3 py-1.5 rounded-xl border border-subtle font-semibold cursor-pointer">
               <option value="ALL">Semua Periode (Akumulasi)</option>
               <option value="2024">Tahun 2024</option>
               <option value="2025">Tahun 2025</option>
-              <option value="2026">Tahun 2026 (Tahun Berjalan)</option>
+              <option value="2026">Tahun 2026</option>
               <option value="CUSTOM">Rentang Tanggal Custom...</option>
             </select>
             <div id="execCustomDateWrap" class="hidden items-center gap-1.5">
@@ -1037,7 +1049,8 @@
         <div class="filter-toolbar-card">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <!-- Status Filter Toggle (Default ACTIVE) -->
-            <div class="w-full sm:w-auto overflow-x-auto scrollbar-none flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-xl border border-white/10 shrink-0">
+            <div
+              class="w-full sm:w-auto overflow-x-auto scrollbar-none flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-xl border border-white/10 shrink-0">
               <button class="collo-status-tab active shrink-0 whitespace-nowrap" data-status="ACTIVE">
                 <i class="fa-solid fa-circle-check text-emerald-400 text-xs"></i>
                 <span>Aktif (Default)</span>
@@ -1097,25 +1110,46 @@
 
             <!-- Financial Summary Panel (Langsung Ditampilkan) -->
             <div id="colloFinSummaryCard" class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3 text-xs">
-              <div class="p-2.5 sm:p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/20 overflow-hidden min-w-0" title="Total Revenue Sewa (1 Tahun)">
-                <span class="text-[10px] text-slate-400 uppercase block font-semibold truncate">Total Rev Sewa (1 Thn)</span>
-                <strong class="text-emerald-400 font-mono text-xs xs:text-sm sm:text-base block mt-1 truncate tracking-tight" id="colloSumRev">Rp 0</strong>
+              <div
+                class="p-2.5 sm:p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/20 overflow-hidden min-w-0"
+                title="Total Revenue Sewa (1 Tahun)">
+                <span class="text-[10px] text-slate-400 uppercase block font-semibold truncate">Total Rev Sewa (1
+                  Thn)</span>
+                <strong
+                  class="text-emerald-400 font-mono text-xs xs:text-sm sm:text-base block mt-1 truncate tracking-tight"
+                  id="colloSumRev">Rp 0</strong>
               </div>
-              <div class="p-2.5 sm:p-3 rounded-xl bg-purple-950/30 border border-purple-500/20 overflow-hidden min-w-0" title="Total Biaya One Time Charge">
+              <div class="p-2.5 sm:p-3 rounded-xl bg-purple-950/30 border border-purple-500/20 overflow-hidden min-w-0"
+                title="Total Biaya One Time Charge">
                 <span class="text-[10px] text-slate-400 uppercase block font-semibold truncate">Total Biaya OTC</span>
-                <strong class="text-purple-400 font-mono text-xs xs:text-sm sm:text-base block mt-1 truncate tracking-tight" id="colloSumOtc">Rp 0</strong>
+                <strong
+                  class="text-purple-400 font-mono text-xs xs:text-sm sm:text-base block mt-1 truncate tracking-tight"
+                  id="colloSumOtc">Rp 0</strong>
               </div>
-              <div class="p-2.5 sm:p-3 rounded-xl bg-blue-950/30 border border-blue-500/20 overflow-hidden min-w-0" title="Total Biaya Deposito">
-                <span class="text-[10px] text-slate-400 uppercase block font-semibold truncate">Total Biaya Deposito</span>
-                <strong class="text-blue-400 font-mono text-xs xs:text-sm sm:text-base block mt-1 truncate tracking-tight" id="colloSumDeposit">Rp 0</strong>
+              <div class="p-2.5 sm:p-3 rounded-xl bg-blue-950/30 border border-blue-500/20 overflow-hidden min-w-0"
+                title="Total Biaya Deposito">
+                <span class="text-[10px] text-slate-400 uppercase block font-semibold truncate">Total Biaya
+                  Deposito</span>
+                <strong
+                  class="text-blue-400 font-mono text-xs xs:text-sm sm:text-base block mt-1 truncate tracking-tight"
+                  id="colloSumDeposit">Rp 0</strong>
               </div>
-              <div class="p-2.5 sm:p-3 rounded-xl bg-amber-950/30 border border-amber-500/20 overflow-hidden min-w-0" title="Total Biaya Sewa (1 Tahun)">
-                <span class="text-[10px] text-slate-400 uppercase block font-semibold truncate">Total Biaya Sewa (1 Thn)</span>
-                <strong class="text-amber-400 font-mono text-xs xs:text-sm sm:text-base block mt-1 truncate tracking-tight" id="colloSumBiaya">Rp 0</strong>
+              <div class="p-2.5 sm:p-3 rounded-xl bg-amber-950/30 border border-amber-500/20 overflow-hidden min-w-0"
+                title="Total Biaya Sewa (1 Tahun)">
+                <span class="text-[10px] text-slate-400 uppercase block font-semibold truncate">Total Biaya Sewa (1
+                  Thn)</span>
+                <strong
+                  class="text-amber-400 font-mono text-xs xs:text-sm sm:text-base block mt-1 truncate tracking-tight"
+                  id="colloSumBiaya">Rp 0</strong>
               </div>
-              <div class="p-2.5 sm:p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/20 col-span-2 sm:col-span-1 overflow-hidden min-w-0" title="Total Gross Margin (Revenue - Biaya)">
-                <span class="text-[10px] text-slate-400 uppercase block font-semibold truncate">Total Gross Margin</span>
-                <strong class="text-cyan-400 font-mono text-xs xs:text-sm sm:text-base block mt-1 truncate tracking-tight" id="colloSumMargin">Rp 0</strong>
+              <div
+                class="p-2.5 sm:p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/20 col-span-2 sm:col-span-1 overflow-hidden min-w-0"
+                title="Total Gross Margin (Revenue - Biaya)">
+                <span class="text-[10px] text-slate-400 uppercase block font-semibold truncate">Total Gross
+                  Margin</span>
+                <strong
+                  class="text-cyan-400 font-mono text-xs xs:text-sm sm:text-base block mt-1 truncate tracking-tight"
+                  id="colloSumMargin">Rp 0</strong>
               </div>
             </div>
           </div>
@@ -1165,7 +1199,8 @@
               <tbody id="colloTableBody">
                 <tr id="colloTableLoadingSkeleton">
                   <td colspan="14" class="p-8 text-center text-xs text-slate-400">
-                    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-cyan-400 font-semibold shadow-lg">
+                    <div
+                      class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-cyan-400 font-semibold shadow-lg">
                       <i class="fa-solid fa-circle-notch fa-spin"></i>
                       <span>Memuat data sirkuit...</span>
                     </div>
@@ -1521,7 +1556,8 @@
                 <h4 class="text-xs font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
                   <span>Filter & Perhitungan Wilayah Penugasan SITAC</span>
                 </h4>
-                <p class="text-[11px] text-slate-400">Pilih rentang tanggal dan wilayah untuk melihat rincian biaya awal, realisasi final, serta penghematan.</p>
+                <p class="text-[11px] text-slate-400">Pilih rentang tanggal dan wilayah untuk melihat rincian biaya
+                  awal, realisasi final, serta penghematan.</p>
               </div>
             </div>
             <button type="button" id="btnSitacColleaguesQuick" data-view="view-sitac-colleagues"
@@ -1541,10 +1577,12 @@
                   <i class="fa-regular fa-calendar-days"></i>
                 </div>
                 <span class="text-xs font-bold text-slate-200">Rentang Tanggal & Analisis Biaya:</span>
-                <span id="sitacDateActiveBadge" class="hidden px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center gap-1">
+                <span id="sitacDateActiveBadge"
+                  class="hidden px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center gap-1">
                   <i class="fa-solid fa-clock-rotate-left text-[9px]"></i>
                   <span id="sitacDateActiveText">Periode Aktif</span>
-                  <button type="button" id="btnQuickClearDate" class="ml-1 text-cyan-300 hover:text-white" title="Hapus filter tanggal">&times;</button>
+                  <button type="button" id="btnQuickClearDate" class="ml-1 text-cyan-300 hover:text-white"
+                    title="Hapus filter tanggal">&times;</button>
                 </span>
               </div>
               <div class="text-[11px] text-slate-400" id="sitacDateSummaryText">
@@ -1580,21 +1618,29 @@
               <div class="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
                 <div class="flex items-center gap-1 bg-slate-900/90 px-2 py-1 rounded-lg border border-white/10">
                   <span class="text-[10px] font-medium text-slate-400">Dari:</span>
-                  <input type="date" id="sitacStartDate" class="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer" title="Tanggal Mulai">
+                  <input type="date" id="sitacStartDate"
+                    class="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer"
+                    title="Tanggal Mulai">
                 </div>
                 <div class="flex items-center gap-1 bg-slate-900/90 px-2 py-1 rounded-lg border border-white/10">
                   <span class="text-[10px] font-medium text-slate-400">s/d:</span>
-                  <input type="date" id="sitacEndDate" class="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer" title="Tanggal Akhir">
+                  <input type="date" id="sitacEndDate"
+                    class="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer"
+                    title="Tanggal Akhir">
                 </div>
                 <select id="sitacDateField" class="filter-select text-xs py-1 px-2 h-auto" title="Pilih acuan tanggal">
                   <option value="date_dispos">Tgl Disposisi</option>
                   <option value="date_close">Tgl Selesai</option>
                 </select>
-                <button type="button" id="btnApplySitacDate" class="btn btn-primary text-xs py-1 px-2.5 flex items-center gap-1 shadow-sm" title="Terapkan filter rentang tanggal">
+                <button type="button" id="btnApplySitacDate"
+                  class="btn btn-primary text-xs py-1 px-2.5 flex items-center gap-1 shadow-sm"
+                  title="Terapkan filter rentang tanggal">
                   <i class="fa-solid fa-filter text-[10px]"></i>
                   <span>Filter</span>
                 </button>
-                <button type="button" id="btnResetSitacDate" class="btn btn-secondary text-xs py-1 px-2 text-slate-400 hover:text-white" title="Reset filter tanggal">
+                <button type="button" id="btnResetSitacDate"
+                  class="btn btn-secondary text-xs py-1 px-2 text-slate-400 hover:text-white"
+                  title="Reset filter tanggal">
                   <i class="fa-solid fa-rotate-left text-[10px]"></i>
                 </button>
               </div>
@@ -1806,7 +1852,8 @@
               <tbody id="sitacTableBody">
                 <tr id="sitacTableLoadingSkeleton">
                   <td colspan="13" class="p-8 text-center text-xs text-slate-400">
-                    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-cyan-400 font-semibold shadow-lg">
+                    <div
+                      class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-cyan-400 font-semibold shadow-lg">
                       <i class="fa-solid fa-circle-notch fa-spin"></i>
                       <span>Memuat data perizinan SITAC...</span>
                     </div>
@@ -1836,12 +1883,14 @@
         <!-- Notice Banner -->
         <div class="colleagues-banner flex flex-wrap items-center justify-between gap-3">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 text-lg shrink-0">
+            <div
+              class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 text-lg shrink-0">
               <i class="fa-solid fa-users-viewfinder"></i>
             </div>
             <div>
               <div class="flex items-center gap-2">
-                <h3 class="text-sm font-bold text-amber-200 uppercase tracking-wider">Monitoring Progres Perizinan Tim SITAC</h3>
+                <h3 class="text-sm font-bold text-amber-200 uppercase tracking-wider">Monitoring Progres Perizinan Tim
+                  SITAC</h3>
                 <span class="read-only-badge"><i class="fa-solid fa-lock"></i> View Only</span>
               </div>
               <p class="text-xs text-slate-300 mt-0.5">
@@ -1850,7 +1899,9 @@
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <button type="button" id="btnBackToMySitac" class="btn btn-secondary text-xs py-1.5 px-3 rounded-xl border border-white/10 hover:border-cyan-500/50 flex items-center gap-2" data-view="view-sitac-pa">
+            <button type="button" id="btnBackToMySitac"
+              class="btn btn-secondary text-xs py-1.5 px-3 rounded-xl border border-white/10 hover:border-cyan-500/50 flex items-center gap-2"
+              data-view="view-sitac-pa">
               <i class="fa-solid fa-arrow-left text-cyan-400"></i>
               <span>Kembali ke Pekerjaan Saya</span>
             </button>
@@ -1862,25 +1913,29 @@
           <div class="flex flex-wrap items-center justify-between gap-3">
             <!-- PIC Selector -->
             <div class="flex items-center gap-2.5 flex-1 min-w-[260px]">
-              <label for="selectColleaguesPic" class="text-xs font-semibold text-slate-300 shrink-0 flex items-center gap-1.5">
+              <label for="selectColleaguesPic"
+                class="text-xs font-semibold text-slate-300 shrink-0 flex items-center gap-1.5">
                 <i class="fa-solid fa-user-tag text-amber-400"></i>
                 <span>Pilih PIC SITAC:</span>
               </label>
-              <select id="selectColleaguesPic" class="filter-select text-xs py-1.5 px-3 flex-1 bg-slate-950 border border-amber-500/30 rounded-xl text-slate-200 focus:outline-none focus:border-amber-400">
+              <select id="selectColleaguesPic"
+                class="filter-select text-xs py-1.5 px-3 flex-1 bg-slate-950 border border-amber-500/30 rounded-xl text-slate-200 focus:outline-none focus:border-amber-400">
                 <option value="">-- Semua PIC SITAC --</option>
               </select>
             </div>
 
             <!-- Search Field -->
             <div class="relative w-full sm:w-64">
-              <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+              <i
+                class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
               <input type="text" id="searchColleaguesSitac" placeholder="Cari No PA, Site, Wilayah..."
                 class="w-full bg-slate-950 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-400">
             </div>
           </div>
 
           <!-- Status Pill Tabs -->
-          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 border-t border-white/5 pt-2" id="colleaguesStatusTabs">
+          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 border-t border-white/5 pt-2"
+            id="colleaguesStatusTabs">
             <button type="button" class="colleagues-tab-btn active" data-colleagues-tab="ALL">
               <span>Semua</span>
               <span class="count" id="countColleaguesAll">0</span>
@@ -1959,7 +2014,8 @@
           <div class="table-container max-h-[560px] overflow-x-auto">
             <table class="table-modern w-full text-xs text-left">
               <thead>
-                <tr class="bg-slate-950/80 border-b border-white/10 text-[11px] uppercase tracking-wider text-slate-400">
+                <tr
+                  class="bg-slate-950/80 border-b border-white/10 text-[11px] uppercase tracking-wider text-slate-400">
                   <th class="py-2.5 px-3">No</th>
                   <th class="py-2.5 px-3">No PA & Tanggal</th>
                   <th class="py-2.5 px-3">PIC SITAC</th>
@@ -1982,7 +2038,8 @@
           </div>
 
           <!-- Pagination -->
-          <div class="p-3 bg-slate-950/70 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div
+            class="p-3 bg-slate-950/70 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs">
             <div class="text-slate-400" id="colleaguesPaginationInfo">
               Menampilkan 0 - 0 dari 0 data
             </div>
@@ -2201,16 +2258,21 @@
             <!-- Base Map Providers -->
             <div class="flex items-center gap-1.5 flex-wrap">
               <span class="text-xs font-semibold text-slate-400 mr-1">Peta:</span>
-              <button type="button" class="map-layer-btn active" id="btnLayerGoogle" data-layer="googleRoadmap">Google Maps</button>
-              <button type="button" class="map-layer-btn" id="btnLayerGoogleHybrid" data-layer="googleHybrid">Satelit</button>
-              <button type="button" class="map-layer-btn" id="btnLayerGoogleTerrain" data-layer="googleTerrain">Medan</button>
+              <button type="button" class="map-layer-btn active" id="btnLayerGoogle" data-layer="googleRoadmap">Google
+                Maps</button>
+              <button type="button" class="map-layer-btn" id="btnLayerGoogleHybrid"
+                data-layer="googleHybrid">Satelit</button>
+              <button type="button" class="map-layer-btn" id="btnLayerGoogleTerrain"
+                data-layer="googleTerrain">Medan</button>
               <button type="button" class="map-layer-btn" id="btnLayerDark" data-layer="cartoDark">Gelap</button>
             </div>
 
             <!-- Focus & Reset -->
             <div class="flex items-center gap-2">
-              <button id="btnFitMapBounds" class="btn btn-secondary text-xs" title="Fokuskan tampilan ke seluruh titik & rute"><i class="fa-solid fa-expand"></i> Fokus</button>
-              <button id="btnResetWebgisView" class="btn btn-secondary text-xs" title="Kembali ke pusat Jakarta"><i class="fa-solid fa-crosshairs"></i> Reset</button>
+              <button id="btnFitMapBounds" class="btn btn-secondary text-xs"
+                title="Fokuskan tampilan ke seluruh titik & rute"><i class="fa-solid fa-expand"></i> Fokus</button>
+              <button id="btnResetWebgisView" class="btn btn-secondary text-xs" title="Kembali ke pusat Jakarta"><i
+                  class="fa-solid fa-crosshairs"></i> Reset</button>
             </div>
           </div>
 
@@ -2220,19 +2282,30 @@
             <div class="flex items-center gap-1 flex-wrap" id="sitacPinFiltersGroup">
               <span class="text-slate-400 font-semibold mr-1">Filter Pin:</span>
               <button type="button" class="map-tag-btn active" data-status="ALL">Semua</button>
-              <button type="button" class="map-tag-btn text-emerald-400" data-status="Finish"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block mr-1"></span>Finish</button>
-              <button type="button" class="map-tag-btn text-cyan-400" data-status="Ongoing"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block mr-1"></span>Ongoing</button>
-              <button type="button" class="map-tag-btn text-amber-400" data-status="Hold"><span class="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block mr-1"></span>Hold</button>
-              <button type="button" class="map-tag-btn text-rose-400" data-status="Cancel"><span class="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block mr-1"></span>Cancel</button>
+              <button type="button" class="map-tag-btn text-emerald-400" data-status="Finish"><span
+                  class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block mr-1"></span>Finish</button>
+              <button type="button" class="map-tag-btn text-cyan-400" data-status="Ongoing"><span
+                  class="w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block mr-1"></span>Ongoing</button>
+              <button type="button" class="map-tag-btn text-amber-400" data-status="Hold"><span
+                  class="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block mr-1"></span>Hold</button>
+              <button type="button" class="map-tag-btn text-rose-400" data-status="Cancel"><span
+                  class="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block mr-1"></span>Cancel</button>
             </div>
 
             <!-- Circuit Transmission Routes Status Filters -->
             <div class="flex items-center gap-1 flex-wrap" id="circuitFiltersGroup">
               <span class="text-slate-400 font-semibold mr-1">Jalur Sirkuit:</span>
-              <button type="button" class="map-circuit-filter-btn active" data-circuit-status="ALL">Semua (<span id="filterCountCircuitsAll">305</span>)</button>
-              <button type="button" class="map-circuit-filter-btn text-emerald-400" data-circuit-status="ACTIVE"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block mr-1"></span>Aktif (<span id="filterCountCircuitsActive">134</span>)</button>
-              <button type="button" class="map-circuit-filter-btn text-amber-400" data-circuit-status="DEACTIVASI"><span class="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block mr-1"></span>Deaktivasi (<span id="filterCountCircuitsDeact">41</span>)</button>
-              <button type="button" class="map-circuit-filter-btn text-slate-400" data-circuit-status="NON ACTIVE"><span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block mr-1"></span>Non-Aktif (<span id="filterCountCircuitsNon">130</span>)</button>
+              <button type="button" class="map-circuit-filter-btn active" data-circuit-status="ALL">Semua (<span
+                  id="filterCountCircuitsAll">305</span>)</button>
+              <button type="button" class="map-circuit-filter-btn text-emerald-400" data-circuit-status="ACTIVE"><span
+                  class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block mr-1"></span>Aktif (<span
+                  id="filterCountCircuitsActive">134</span>)</button>
+              <button type="button" class="map-circuit-filter-btn text-amber-400" data-circuit-status="DEACTIVASI"><span
+                  class="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block mr-1"></span>Deaktivasi (<span
+                  id="filterCountCircuitsDeact">41</span>)</button>
+              <button type="button" class="map-circuit-filter-btn text-slate-400" data-circuit-status="NON ACTIVE"><span
+                  class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block mr-1"></span>Non-Aktif (<span
+                  id="filterCountCircuitsNon">130</span>)</button>
             </div>
           </div>
         </div>
@@ -2244,9 +2317,12 @@
           <!-- Quick Map Floating Info & Status Legend Overlay (Clean & Collapsible) -->
           <div id="webgisLegendBox"
             class="absolute bottom-4 left-4 z-[500] bg-slate-900/90 backdrop-blur-md border border-white/10 p-3 rounded-xl text-xs text-slate-300 shadow-xl max-w-xs pointer-events-auto transition-all duration-200">
-            <div class="flex items-center justify-between gap-3 pb-1.5 border-b border-white/10 cursor-pointer select-none" id="btnToggleLegendCollapse" title="Sembunyikan / Tampilkan Legenda">
+            <div
+              class="flex items-center justify-between gap-3 pb-1.5 border-b border-white/10 cursor-pointer select-none"
+              id="btnToggleLegendCollapse" title="Sembunyikan / Tampilkan Legenda">
               <span class="font-semibold text-slate-200 text-xs tracking-wide">Legenda Peta</span>
-              <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform duration-200" id="iconLegendCollapse"></i>
+              <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform duration-200"
+                id="iconLegendCollapse"></i>
             </div>
 
             <!-- Legend Content Body -->
@@ -2605,11 +2681,14 @@
                 <i class="fa-solid fa-xmark mr-1"></i> Batal
               </button>
             </div>
-            <span class="text-[10px] text-slate-500 mt-0.5 block" id="addColloFotoHelpText">Format: JPG, PNG, atau PDF (Lampiran Berita Acara / Kontrak Sewa / SPP)</span>
+            <span class="text-[10px] text-slate-500 mt-0.5 block" id="addColloFotoHelpText">Format: JPG, PNG, atau PDF
+              (Lampiran Berita Acara / Kontrak Sewa / SPP)</span>
           </div>
         </div>
-        <div class="modal-footer px-6 py-3.5 bg-slate-950/70 border-t border-white/5 flex items-center justify-between gap-3 shrink-0">
-          <button type="button" class="btn btn-secondary text-xs" onclick="document.getElementById('modalAddCollo').style.display='none'">Batal</button>
+        <div
+          class="modal-footer px-6 py-3.5 bg-slate-950/70 border-t border-white/5 flex items-center justify-between gap-3 shrink-0">
+          <button type="button" class="btn btn-secondary text-xs"
+            onclick="document.getElementById('modalAddCollo').style.display='none'">Batal</button>
           <button type="submit" class="btn btn-primary text-xs bg-indigo-600 hover:bg-indigo-500 border-indigo-500"><i
               class="fa-solid fa-save"></i> Simpan Link Sewa</button>
         </div>
@@ -4234,10 +4313,10 @@
   </nav>
 
   <!-- 1. Master Dataset & Fallback Engine (Immediate Priority for Instant First Paint) -->
-  <script src="sitac_collo_data.js?v=12.19"></script>
+  <script src="sitac_collo_data.js?v=12.20"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=12.19"></script>
+  <script src="app.js?v=12.20"></script>
 
   <!-- 3. Firebase Cloud Synchronization SDK (Non-Blocking Deferred) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js" defer></script>
