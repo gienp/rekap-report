@@ -5573,7 +5573,7 @@
         sortedPics.forEach(pic => {
           const opt = document.createElement('option');
           opt.value = pic;
-          opt.textContent = `PIC: ${pic}`;
+          opt.textContent = pic;
           picSelect.appendChild(opt);
         });
       }
@@ -5726,7 +5726,7 @@
     if (countBadge) countBadge.textContent = tableRecords.length;
     const tableTitle = document.getElementById('colleaguesTableTitle');
     if (tableTitle) {
-      tableTitle.textContent = selectedPic ? `Daftar Perizinan: PIC ${selectedPic}` : 'Daftar Perizinan Seluruh Tim SITAC';
+      tableTitle.textContent = selectedPic ? `Daftar Perizinan: ${selectedPic}` : 'Daftar Perizinan Seluruh Tim SITAC';
     }
 
     // Paginate
