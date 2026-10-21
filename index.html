@@ -68,11 +68,11 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- High-Priority Preloads for Instant Master Dataset & Application Engine -->
-  <link rel="preload" href="sitac_collo_data.js?v=12.14" as="script">
-  <link rel="preload" href="app.js?v=12.14" as="script">
+  <link rel="preload" href="sitac_collo_data.js?v=12.15" as="script">
+  <link rel="preload" href="app.js?v=12.15" as="script">
 
   <!-- Custom Portal Stylesheet -->
-  <link rel="stylesheet" href="styles.css?v=12.2">
+  <link rel="stylesheet" href="styles.css?v=12.3">
 
   <!-- ZERO-FLICKER VIEW PERSISTENCE SYNC (ELIMINATES PAGE REFRESH FLASH) -->
   <script>
@@ -153,7 +153,6 @@
         <!-- 1. Executive Overview -->
         <div class="nav-section-wrap">
           <button class="nav-item" data-view="view-executive">
-            <i class="fa-solid fa-chart-pie nav-icon text-cyan-400"></i>
             <span class="nav-label">Dashboard Ringkasan</span>
           </button>
         </div>
@@ -162,24 +161,20 @@
         <div class="nav-section-group collapsed" id="groupCollo">
           <button type="button" class="section-dropdown-btn" data-toggle="groupCollo">
             <div class="flex items-center gap-2">
-              <i class="fa-solid fa-building-circle-check text-indigo-400"></i>
               <span>Colocation & Sewa Aset</span>
             </div>
             <i class="fa-solid fa-chevron-down section-chevron"></i>
           </button>
           <div class="section-items">
             <button class="nav-item" data-view="view-collo-list">
-              <i class="fa-solid fa-server nav-icon"></i>
               <span class="nav-label">Daftar Link & Finansial</span>
               <span class="badge-counter badge-cyan" id="badgeNavActiveCollo">880</span>
             </button>
             <button class="nav-item" data-view="view-collo-rev-sharing">
-              <i class="fa-solid fa-handshake-angle nav-icon"></i>
               <span class="nav-label">Skema Revenue Sharing</span>
               <span class="badge-counter badge-amber" id="badgeNavRevShare">423</span>
             </button>
             <button class="nav-item" data-view="view-collo-alerts">
-              <i class="fa-solid fa-triangle-exclamation nav-icon"></i>
               <span class="nav-label">Jatuh Tempo Kontrak</span>
               <span class="badge-counter badge-rose" id="badgeNavCriticalAlerts">40</span>
             </button>
@@ -190,32 +185,26 @@
         <div class="nav-section-group collapsed operasional-only" id="groupSitac">
           <button type="button" class="section-dropdown-btn" data-toggle="groupSitac">
             <div class="flex items-center gap-2">
-              <i class="fa-solid fa-helmet-safety text-amber-400"></i>
               <span>Operasional SITAC & Lapangan</span>
             </div>
             <i class="fa-solid fa-chevron-down section-chevron"></i>
           </button>
           <div class="section-items">
             <button class="nav-item" data-view="view-sitac-pa">
-              <i class="fa-solid fa-file-signature nav-icon"></i>
               <span class="nav-label">Monitoring Perizinan (PA)</span>
               <span class="badge-counter badge-cyan" id="badgeNavSitac">686</span>
             </button>
             <button class="nav-item" data-view="view-sitac-colleagues" id="btnNavSitacColleagues">
-              <i class="fa-solid fa-users-viewfinder nav-icon text-amber-400"></i>
               <span class="nav-label">Monitoring Tim SITAC</span>
               <span class="badge-counter badge-amber text-[9px] px-1.5 py-0.5">View</span>
             </button>
             <button class="nav-item admin-only" data-view="view-efisiensi">
-              <i class="fa-solid fa-piggy-bank nav-icon"></i>
               <span class="nav-label">Efisiensi Negosiasi Biaya</span>
             </button>
             <button class="nav-item" data-view="view-pic-matrix">
-              <i class="fa-solid fa-users-gear nav-icon"></i>
               <span class="nav-label">Beban Kerja PIC SITAC</span>
             </button>
             <button class="nav-item" data-view="view-webgis">
-              <i class="fa-solid fa-map-location-dot nav-icon"></i>
               <span class="nav-label">Peta Sebaran Perizinan (GIS)</span>
             </button>
           </div>
@@ -4245,10 +4234,10 @@
   </nav>
 
   <!-- 1. Master Dataset & Fallback Engine (Immediate Priority for Instant First Paint) -->
-  <script src="sitac_collo_data.js?v=12.14"></script>
+  <script src="sitac_collo_data.js?v=12.15"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=12.14"></script>
+  <script src="app.js?v=12.15"></script>
 
   <!-- 3. Firebase Cloud Synchronization SDK (Non-Blocking Deferred) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js" defer></script>
