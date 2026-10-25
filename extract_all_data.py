@@ -427,11 +427,23 @@ def process_collo_file():
         telp = clean_text(r[33] if len(r) > 33 else "")
         keterangan = clean_text(r[44] if len(r) > 44 else "")
 
+        # Extract site location from Excel
+        site_val = ""
+        if alamat_pengelola and alamat_pengelola.lower() != 'y':
+            site_val = alamat_pengelola
+        elif originating and originating != '-':
+            site_val = originating
+        elif terminating and terminating != '-':
+            site_val = terminating
+        else:
+            site_val = pengelola
+
         collo_records.append({
             "id": c_id,
             "pengelola": pengelola,
             "pelanggan": pelanggan,
             "alamat_pengelola": alamat_pengelola,
+            "site": site_val,
             "originating": originating,
             "terminating": terminating,
             "metode_kerjasama": metode_kerjasama,

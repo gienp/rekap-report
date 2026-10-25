@@ -24,3 +24,8 @@ venv/
 # Operating System
 .DS_Store
 Thumbs.db
+
+scratch/
+uploads/
+*.db
+
