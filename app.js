@@ -11061,8 +11061,16 @@
       }
     });
 
-    document.getElementById('btnLogout')?.addEventListener('click', () => {
-      performLogout();
+    const logoutBtn = document.getElementById('btnLogout');
+    logoutBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      logoutBtn.classList.remove('anim-logout-click');
+      void logoutBtn.offsetWidth; // trigger reflow
+      logoutBtn.classList.add('anim-logout-click');
+      setTimeout(() => {
+        logoutBtn.classList.remove('anim-logout-click');
+        performLogout();
+      }, 220);
     });
 
     // 1. Sidebar Nav Click & Any [data-view] Buttons
@@ -11192,7 +11200,14 @@
       }
     };
 
-    document.getElementById('themeToggleBtn')?.addEventListener('click', () => {
+    const themeBtn = document.getElementById('themeToggleBtn');
+    themeBtn?.addEventListener('click', () => {
+      themeBtn.classList.remove('anim-theme-click');
+      void themeBtn.offsetWidth; // trigger reflow
+      themeBtn.classList.add('anim-theme-click');
+      setTimeout(() => {
+        themeBtn.classList.remove('anim-theme-click');
+      }, 550);
       applyThemeChange(state.theme === 'dark' ? 'light' : 'dark');
     });
 
