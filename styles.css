@@ -866,14 +866,22 @@ html[data-target-view="view-webgis"] #groupSitac.collapsed .section-chevron {
 }
 
 .bento-icon-badge {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bento-icon-badge i {
+  font-size: 1.25rem !important;
+  line-height: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .bento-kpi-card:hover .bento-icon-badge {
@@ -905,10 +913,10 @@ html[data-target-view="view-webgis"] #groupSitac.collapsed .section-chevron {
 }
 
 .bento-label {
-  font-size: 0.72rem;
+  font-size: 0.82rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: #8baaa5;
 }
 
@@ -2697,7 +2705,8 @@ select:focus {
 }
 
 [data-theme="light"] .bento-label {
-  color: #475569 !important;
+  color: #334155 !important;
+  font-size: 0.82rem !important;
   font-weight: 700 !important;
 }
 
