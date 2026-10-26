@@ -3679,7 +3679,7 @@
       }
 
       const welcomeName = userObj.full_name || usernameOrEmail;
-      showToast(`Selamat datang, ${welcomeName}! Akses Cloud Firestore aktif & tersinkronisasi realtime.`, 'success');
+      showToast(`Selamat datang kembali, ${welcomeName}! Berhasil masuk ke portal.`, 'success');
 
       if (document.getElementById('loginUsername')) document.getElementById('loginUsername').value = '';
       if (document.getElementById('loginPassword')) document.getElementById('loginPassword').value = '';
