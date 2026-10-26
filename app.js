@@ -318,6 +318,20 @@
     return tokens.some(t => picField.includes(t) || norm.includes(t));
   }
 
+  function isTaskEditableByUser(rec) {
+    if (!rec) return false;
+    // When in Monitoring Tim SITAC view, it's always read-only
+    if (state.activeView === 'view-sitac-colleagues') return false;
+    // Admins can edit anything
+    if (state.currentUser?.role === 'admin') return true;
+    // Tim Lapangan can ONLY edit tasks assigned to them
+    if (state.currentUser?.role === 'lapangan') {
+      return isUserAssignedToTask(rec, state.currentUser);
+    }
+    // Sales role cannot edit operational tasks
+    return false;
+  }
+
   // Static (Firebase Hosting / offline) mode = no local Python server available
   function isStaticMode() {
     return !(window.location.port === '8888' || window.location.port === '8000');
@@ -7293,27 +7307,21 @@
     const sub = document.getElementById('quickEditModalSub');
     const isLapangan = state.currentUser?.role === 'lapangan';
 
-    if (state.activeView === 'view-sitac-colleagues') {
-      showToast('Mode Lihat Saja: Monitoring Tim SITAC bersifat Read-Only untuk koordinasi tim.', 'warning');
-      return;
-    }
+    const colName = type === 'sitac' ? 'sitac_records' : (type === 'gangguan' ? 'gangguan_records' : 'collo_records');
+    const targetRec = (window.SITAC_COLLO_DATA?.[colName] || []).find(r => r.id == id) ||
+                      (state.sitac?.data || []).find(s => s.id == id) ||
+                      (state.colleagues?.data || []).find(s => s.id == id) ||
+                      (state.gangguan?.data || []).find(g => g.id == id) ||
+                      (state.collo?.data || []).find(c => c.id == id);
 
     if (isLapangan && type === 'collo') {
       showToast('Akses ditolak: Hanya Administrator yang berhak mengedit data Colocation', 'error');
       return;
     }
 
-    if (isLapangan) {
-      let targetRec = null;
-      if (type === 'sitac') {
-        targetRec = (state.sitac.data || []).find(s => s.id == id);
-      } else if (type === 'gangguan') {
-        targetRec = (state.gangguan.data || []).find(g => g.id == id);
-      }
-      if (targetRec && !isUserAssignedToTask(targetRec, state.currentUser)) {
-        showToast('Akses ditolak: Anda hanya berwenang memperbarui tugas/tiket yang ditugaskan kepada Anda', 'error');
-        return;
-      }
+    if (!isTaskEditableByUser(targetRec)) {
+      showToast('Akses ditolak: Anda hanya berwenang memperbarui tugas/tiket yang ditugaskan kepada Anda (Mode Lihat Saja).', 'error');
+      return;
     }
 
     document.getElementById('quickEditTargetType').value = type;
@@ -8082,6 +8090,18 @@
   // =========================================================================
   async function uploadBuktiDirect(type, id, fileInput) {
     if (!fileInput.files || !fileInput.files[0]) return;
+    const colName = type === 'sitac' ? 'sitac_records' : (type === 'gangguan' ? 'gangguan_records' : 'collo_records');
+    const targetRec = (window.SITAC_COLLO_DATA?.[colName] || []).find(r => r.id == id) ||
+                      (state.sitac?.data || []).find(s => s.id == id) ||
+                      (state.colleagues?.data || []).find(s => s.id == id) ||
+                      (state.gangguan?.data || []).find(g => g.id == id) ||
+                      (state.collo?.data || []).find(c => c.id == id);
+    if (!isTaskEditableByUser(targetRec)) {
+      showToast('Akses ditolak: Anda tidak memiliki izin untuk mengunggah bukti pada penugasan ini (Mode Lihat Saja).', 'error');
+      fileInput.value = '';
+      return;
+    }
+
     const file = fileInput.files[0];
     const container = fileInput.closest('.col-span-2') || fileInput.parentElement;
     const prevHtml = container.innerHTML;
@@ -8112,7 +8132,6 @@
       showToast('Foto bukti lapangan berhasil disimpan!');
 
       // Update in memory master data
-      const colName = type === 'sitac' ? 'sitac_records' : (type === 'gangguan' ? 'gangguan_records' : 'collo_records');
       const memRec = (window.SITAC_COLLO_DATA?.[colName] || []).find(r => r.id == id);
       if (memRec && data.filename) {
         memRec.foto_bukti = data.filename;
@@ -8135,6 +8154,17 @@
   window.uploadBuktiDirect = uploadBuktiDirect;
 
   async function deleteBuktiDirect(type, id) {
+    const colName = type === 'sitac' ? 'sitac_records' : (type === 'gangguan' ? 'gangguan_records' : 'collo_records');
+    const targetRec = (window.SITAC_COLLO_DATA?.[colName] || []).find(r => r.id == id) ||
+                      (state.sitac?.data || []).find(s => s.id == id) ||
+                      (state.colleagues?.data || []).find(s => s.id == id) ||
+                      (state.gangguan?.data || []).find(g => g.id == id) ||
+                      (state.collo?.data || []).find(c => c.id == id);
+    if (!isTaskEditableByUser(targetRec)) {
+      showToast('Akses ditolak: Anda tidak memiliki izin untuk menghapus bukti pada penugasan ini (Mode Lihat Saja).', 'error');
+      return;
+    }
+
     if (!confirm('Apakah Anda yakin ingin membatalkan / menghapus foto bukti lapangan ini?')) return;
 
     const container = document.getElementById('detailPhotoSectionWrap');
@@ -8194,6 +8224,7 @@
   window.deleteBuktiDirect = deleteBuktiDirect;
 
   function renderPhotoBuktiSection(rec, type, id) {
+    const canEdit = isTaskEditableByUser(rec);
     const foto = rec.foto_bukti;
     const isImage = foto && fotoIsImage(foto);
     const isPdf = foto && fotoIsPdf(foto);
@@ -8211,7 +8242,7 @@
               <a href="${url}" target="_blank" rel="noopener noreferrer" class="text-[11px] text-cyan-300 hover:text-cyan-200 underline flex items-center gap-1 font-semibold">
                 <i class="fa-solid fa-arrow-up-right-from-square"></i> Buka File Penuh
               </a>
-              ${state.activeView !== 'view-sitac-colleagues' ? `
+              ${canEdit ? `
               <button type="button" class="text-[10px] text-slate-300 hover:text-white px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 cursor-pointer" onclick="document.getElementById('detailDirectFileInput').click()" title="Ganti dengan foto lain">
                 <i class="fa-solid fa-arrows-rotate mr-1"></i> Ganti
               </button>
@@ -8249,11 +8280,11 @@
               <a href="${url}" target="_blank" class="btn btn-secondary text-xs py-1 px-3">Buka File</a>
             </div>
           `}
-          ${state.activeView !== 'view-sitac-colleagues' ? `<input type="file" id="detailDirectFileInput" accept="image/*,application/pdf" style="display:none;" onchange="window.uploadBuktiDirect('${type}', ${id}, this)">` : ''}
+          ${canEdit ? `<input type="file" id="detailDirectFileInput" accept="image/*,application/pdf" style="display:none;" onchange="window.uploadBuktiDirect('${type}', ${id}, this)">` : ''}
         </div>
       `;
     } else {
-      if (state.activeView === 'view-sitac-colleagues') {
+      if (!canEdit) {
         return `
           <div class="col-span-2 mt-2">
             <div class="flex items-center gap-3 p-3 rounded-xl border border-white/10 bg-slate-900/60">
@@ -8262,7 +8293,7 @@
               </div>
               <div class="text-left">
                 <div class="text-xs font-semibold text-slate-300">Belum Ada Foto Bukti Lapangan</div>
-                <div class="text-[10px] text-slate-500">Dokumen atau foto fisik belum diunggah untuk penugasan ini.</div>
+                <div class="text-[10px] text-slate-500">Dokumen atau foto fisik belum diunggah untuk penugasan ini (Mode Lihat Saja).</div>
               </div>
             </div>
           </div>
@@ -8607,7 +8638,7 @@
         </div>` : `
         <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2 flex items-center justify-between text-slate-400 text-xs">
           <span class="text-[11px]"><i class="fa-solid fa-map-pin mr-1.5 text-slate-500"></i> Belum ada titik GPS terverifikasi</span>
-          ${state.activeView !== 'view-sitac-colleagues' ? `
+          ${isTaskEditableByUser(rec) ? `
           <button type="button" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-semibold px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20" onclick="document.getElementById('modalDetail').style.display='none'; openQuickEditModal('sitac', ${rec.id})">
             + Tambahkan Koordinat
           </button>` : ''}
@@ -8670,11 +8701,12 @@
       btnDeleteAction.style.display = isLapangan ? 'none' : '';
     }
     if (btnEditAction) {
-      let targetRec = null;
-      if (type === 'sitac') targetRec = (state.sitac.data || []).find(s => s.id == id);
-      else if (type === 'gangguan') targetRec = (state.gangguan.data || []).find(g => g.id == id);
-      const isAllowedEdit = state.activeView !== 'view-sitac-colleagues' && (!isLapangan || (targetRec && isUserAssignedToTask(targetRec, state.currentUser)));
-      btnEditAction.style.display = isAllowedEdit ? '' : 'none';
+      const colName = type === 'sitac' ? 'sitac_records' : (type === 'gangguan' ? 'gangguan_records' : 'collo_records');
+      const targetRec = (window.SITAC_COLLO_DATA?.[colName] || []).find(r => r.id == id) ||
+                        (state.sitac?.data || []).find(s => s.id == id) ||
+                        (state.colleagues?.data || []).find(s => s.id == id) ||
+                        (state.gangguan?.data || []).find(g => g.id == id);
+      btnEditAction.style.display = isTaskEditableByUser(targetRec) ? '' : 'none';
     }
 
     if (btnWhatsAppAction) {
