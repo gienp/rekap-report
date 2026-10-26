@@ -4094,9 +4094,21 @@
         const segAct = document.getElementById('bentoColloActiveSegment');
         const segDeact = document.getElementById('bentoColloDeactSegment');
         const segOther = document.getElementById('bentoColloOtherSegment');
-        if (segAct) segAct.style.width = `${((actCollo / totalCollo) * 100).toFixed(1)}%`;
-        if (segDeact) segDeact.style.width = `${((deactCollo / totalCollo) * 100).toFixed(1)}%`;
-        if (segOther) segOther.style.width = `${((otherCollo / totalCollo) * 100).toFixed(1)}%`;
+        const actPct = ((actCollo / totalCollo) * 100).toFixed(1);
+        const deactPct = ((deactCollo / totalCollo) * 100).toFixed(1);
+        const otherPct = ((otherCollo / totalCollo) * 100).toFixed(1);
+        if (segAct) {
+          segAct.style.width = `${actPct}%`;
+          segAct.title = `Active: ${actCollo.toLocaleString('id-ID')} Link (${actPct}%)`;
+        }
+        if (segDeact) {
+          segDeact.style.width = `${deactPct}%`;
+          segDeact.title = `Deactivated: ${deactCollo.toLocaleString('id-ID')} Link (${deactPct}%)`;
+        }
+        if (segOther) {
+          segOther.style.width = `${otherPct}%`;
+          segOther.title = `Histori / Non-Aktif: ${otherCollo.toLocaleString('id-ID')} Link (${otherPct}%)`;
+        }
       }
 
       const sitacRate = (s.total_pa > 0) ? (s.finish_count / s.total_pa * 100).toFixed(1) : 0;
