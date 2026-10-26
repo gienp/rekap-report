@@ -1713,7 +1713,8 @@
     const tooltipBg      = isDark ? 'rgba(6, 21, 26, 0.96)' : 'rgba(255, 255, 255, 0.98)';
     const tooltipBorder  = isDark ? 'rgba(5, 199, 242, 0.35)' : 'rgba(14, 96, 115, 0.25)';
     const tooltipText    = isDark ? '#F2F2F2' : '#0a1f24';
-    const donutBorder    = isDark ? '#06151a' : '#ffffff';
+    const donutBorder    = isDark ? 'transparent' : '#ffffff';
+    const donutBorderWidth = isDark ? 0 : 2;
 
     // Global Chart.js defaults — set once per theme switch
     Chart.defaults.font.family = "'DM Sans', sans-serif";
@@ -1736,6 +1737,7 @@
     // Elements defaults
     if (Chart.defaults.elements?.arc) {
       Chart.defaults.elements.arc.borderColor = donutBorder;
+      Chart.defaults.elements.arc.borderWidth = donutBorderWidth;
     }
 
     Chart.defaults.plugins.tooltip.backgroundColor   = tooltipBg;
@@ -1758,7 +1760,7 @@
 
     return {
       isDark, textColor, titleColor, gridColor,
-      tooltipBg, tooltipBorder, tooltipText, donutBorder,
+      tooltipBg, tooltipBorder, tooltipText, donutBorder, donutBorderWidth,
       palette: CHART_PALETTE,
       getPaletteColors,
       makeGradient,
@@ -4087,7 +4089,7 @@
   }
 
   function renderExecutiveCharts(data) {
-    const { textColor, gridColor, makeGradient, donutBorder } = getChartTheme();
+    const { textColor, gridColor, makeGradient, donutBorder, donutBorderWidth } = getChartTheme();
 
     // ── Update Badges & Titles according to filtered period
     const ef = state?.execFilter || { period: 'ALL' };
@@ -4195,7 +4197,7 @@
             data: [fCnt, oCnt, hCnt, cCnt],
             backgroundColor: ['#0E6073', '#05C7F2', '#F2E205', '#F21D2F'],
             hoverBackgroundColor: ['#14829c', '#38d7f7', '#fff04d', '#ff5b6a'],
-            borderWidth: 3,
+            borderWidth: donutBorderWidth,
             borderColor: donutBorder,
             hoverBorderColor: donutBorder,
             hoverOffset: 6,
@@ -4237,7 +4239,7 @@
             data: jd.map(j => j.cnt),
             backgroundColor: bgColors.slice(0, jd.length),
             hoverBackgroundColor: hoverColors.slice(0, jd.length),
-            borderWidth: 3,
+            borderWidth: donutBorderWidth,
             borderColor: donutBorder,
             hoverBorderColor: donutBorder,
             hoverOffset: 6,
@@ -4278,7 +4280,7 @@
             data: ed.map(e => e.cnt),
             backgroundColor: ed.map(e => cMap[e.alert_category] || '#64748B'),
             hoverBackgroundColor: ed.map(e => hMap[e.alert_category] || '#94A3B8'),
-            borderWidth: 3,
+            borderWidth: donutBorderWidth,
             borderColor: donutBorder,
             hoverBorderColor: donutBorder,
             hoverOffset: 8,
@@ -4458,7 +4460,7 @@
 
   function renderColloCharts() {
     if (!state.execData) return;
-    const { textColor, gridColor, donutBorder } = getChartTheme();
+    const { textColor, gridColor, donutBorder, donutBorderWidth } = getChartTheme();
 
     // Chart Collo 1: Status Dist (Active, Non-Active, Deaktivasi)
     const ctxStat = document.getElementById('chartColloStatusDist')?.getContext('2d');
@@ -4476,7 +4478,7 @@
             backgroundColor: dist.map(d => colorMap[d.status] || '#10B981'),
             borderColor: donutBorder,
             hoverBorderColor: donutBorder,
-            borderWidth: 3,
+            borderWidth: donutBorderWidth,
             hoverOffset: 6
           }]
         },
@@ -4854,7 +4856,7 @@
   }
 
   function renderRevShareCharts(json) {
-    const { textColor, gridColor, donutBorder } = getChartTheme();
+    const { textColor, gridColor, donutBorder, donutBorderWidth } = getChartTheme();
     const top7 = (json.top_pengelola || []).slice(0, 7);
 
     // Chart RevShare 1: Top Mitra Portfolio Donut
@@ -4871,7 +4873,7 @@
             hoverBackgroundColor: ['#14829c', '#38d7f7', '#fff04d', '#ff5b6a', '#22c5c9', '#70e2fa', '#94a3b8'],
             borderColor: donutBorder,
             hoverBorderColor: donutBorder,
-            borderWidth: 2,
+            borderWidth: donutBorderWidth,
             hoverOffset: 8
           }]
         },
@@ -5071,7 +5073,7 @@
   }
 
   function renderAlertsCharts(json) {
-    const { textColor, gridColor, donutBorder } = getChartTheme();
+    const { textColor, gridColor, donutBorder, donutBorderWidth } = getChartTheme();
     const cnt = json.counts || {};
 
     // Chart Alerts 1: Category Donut
@@ -5088,7 +5090,7 @@
             hoverBackgroundColor: ['#ff5b6a', '#fff04d', '#14829c', '#94A3B8'],
             borderColor: donutBorder,
             hoverBorderColor: donutBorder,
-            borderWidth: 2,
+            borderWidth: donutBorderWidth,
             hoverOffset: 8
           }]
         },
@@ -5389,7 +5391,7 @@
   }
 
   function renderSitacCharts(statusCounts, agingDist) {
-    const { textColor, gridColor, donutBorder } = getChartTheme();
+    const { textColor, gridColor, donutBorder, donutBorderWidth } = getChartTheme();
     const currentStatus = state.sitac.status || 'ALL';
 
     const sc = statusCounts || state.sitacStatusCounts || (state.execData?.sitac ? {
@@ -5502,7 +5504,7 @@
             data: data,
             backgroundColor: bgColors,
             borderColor: donutBorder,
-            borderWidth: 3,
+            borderWidth: donutBorderWidth,
             hoverBorderColor: donutBorder,
             hoverOffset: 6
           }]
@@ -5949,7 +5951,7 @@
   }
 
   function renderGangguanCharts(records) {
-    const { textColor, gridColor, donutBorder } = getChartTheme();
+    const { textColor, gridColor, donutBorder, donutBorderWidth } = getChartTheme();
     if (!records || records.length === 0) {
       destroyChart('gangguanJenis');
       destroyChart('gangguanSla');
@@ -6026,7 +6028,7 @@
             data: data,
             backgroundColor: bgColors,
             borderColor: donutBorder,
-            borderWidth: 3,
+            borderWidth: donutBorderWidth,
             hoverBorderColor: donutBorder,
             hoverOffset: 6
           }]
