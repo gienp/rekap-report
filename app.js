@@ -4001,7 +4001,20 @@
       if (elPrimaryVal) elPrimaryVal.textContent = activeCount.toLocaleString('id-ID');
       document.getElementById('execHistCollo').textContent = Number(totalRec - activeCount).toLocaleString('id-ID');
       document.getElementById('execDeactCollo').textContent = Number(c.deactivasi_count || 285).toLocaleString('id-ID');
-      document.getElementById('execMarginRp').textContent = formatRupiah(c.active_margin);
+      const marginEl = document.getElementById('execMarginRp');
+      if (marginEl) {
+        const formatted = formatRupiah(c.active_margin);
+        marginEl.textContent = formatted;
+        marginEl.title = formatted;
+        // Smart auto-scaling font size to ensure nominal NEVER overflows card border
+        if (formatted.length > 20) {
+          marginEl.style.fontSize = 'clamp(1.15rem, 1.45vw, 1.55rem)';
+        } else if (formatted.length > 17) {
+          marginEl.style.fontSize = 'clamp(1.25rem, 1.6vw, 1.7rem)';
+        } else {
+          marginEl.style.fontSize = '';
+        }
+      }
       document.getElementById('execRevRp').textContent = formatRupiah(c.active_revenue);
       document.getElementById('execMarginPct').textContent = `${c.margin_pct}%`;
 

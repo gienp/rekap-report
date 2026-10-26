@@ -934,12 +934,16 @@ html[data-target-view="view-webgis"] #groupSitac.collapsed .section-chevron {
 }
 
 .bento-currency-value {
-  font-size: clamp(1.4rem, 1.8vw, 1.95rem);
+  font-size: clamp(1.35rem, 1.7vw, 1.85rem);
   font-weight: 800;
   line-height: 1.15;
   letter-spacing: -0.025em;
   font-family: 'Outfit', sans-serif !important;
   white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
 }
 
 /* Bento Dual Metric Box (Option 1) */
