@@ -1262,8 +1262,9 @@
       const endDate = params.get('endDate') || params.get('end_date') || '';
       const dateField = params.get('dateField') || params.get('date_field') || 'date_dispos';
 
+      const allowAllTeam = params.get('all_team') === '1' || params.get('scope') === 'all';
       let scopedSitac = sitacList;
-      if (isPicLapangan) {
+      if (isPicLapangan && !allowAllTeam) {
         scopedSitac = scopedSitac.filter(s => isUserAssignedToTask(s, authUser));
       }
 
@@ -1320,26 +1321,25 @@
         regionStats[k].efisiensi_persen = aw > 0 ? Number((ef / aw * 100).toFixed(2)) : 0;
       });
 
-      let filtered = scopedSitac;
+      let preStatusFiltered = scopedSitac;
       if (region !== 'ALL') {
-        filtered = filtered.filter(s => (typeof classifySitacRegion === 'function' ? classifySitacRegion(s) : 'LAINNYA') === region);
+        preStatusFiltered = preStatusFiltered.filter(s => (typeof classifySitacRegion === 'function' ? classifySitacRegion(s) : 'LAINNYA') === region);
       }
-      if (status !== 'ALL') filtered = filtered.filter(s => s.progress === status);
-      if (pic !== 'ALL' && !isPicLapangan) {
+      if (pic !== 'ALL' && (!isPicLapangan || allowAllTeam)) {
         const pLower = pic.toLowerCase();
-        filtered = filtered.filter(s => {
+        preStatusFiltered = preStatusFiltered.filter(s => {
           const sPic = formatPicName(s.pic_perijinan || '').toLowerCase();
           return sPic === pLower || (s.pic_perijinan && s.pic_perijinan.toLowerCase() === pLower);
         });
       }
-      if (year !== 'ALL') filtered = filtered.filter(s => String(s.tahun) === String(year));
+      if (year !== 'ALL') preStatusFiltered = preStatusFiltered.filter(s => String(s.tahun) === String(year));
       if (aging !== 'ALL') {
-        if (aging === 'green') filtered = filtered.filter(s => s.durasi_hari <= 7);
-        else if (aging === 'yellow') filtered = filtered.filter(s => s.durasi_hari > 7 && s.durasi_hari <= 14);
-        else if (aging === 'red') filtered = filtered.filter(s => s.durasi_hari > 14);
+        if (aging === 'green') preStatusFiltered = preStatusFiltered.filter(s => s.durasi_hari <= 7);
+        else if (aging === 'yellow') preStatusFiltered = preStatusFiltered.filter(s => s.durasi_hari > 7 && s.durasi_hari <= 14);
+        else if (aging === 'red') preStatusFiltered = preStatusFiltered.filter(s => s.durasi_hari > 14);
       }
       if (search) {
-        filtered = filtered.filter(s =>
+        preStatusFiltered = preStatusFiltered.filter(s =>
           (s.no_pa || '').toLowerCase().includes(search) ||
           (s.pelanggan || '').toLowerCase().includes(search) ||
           (s.terminating || '').toLowerCase().includes(search) ||
@@ -1347,12 +1347,15 @@
         );
       }
 
+      const counts = { ALL: preStatusFiltered.length, Finish: 0, Ongoing: 0, Hold: 0, Cancel: 0 };
+      preStatusFiltered.forEach(s => { if (counts[s.progress] !== undefined) counts[s.progress]++; });
+
+      let filtered = preStatusFiltered;
+      if (status !== 'ALL') filtered = filtered.filter(s => s.progress === status);
+
       const total = filtered.length;
       const totalPages = Math.ceil(total / pageSize) || 1;
       const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
-
-      const counts = { ALL: filtered.length, Finish: 0, Ongoing: 0, Hold: 0, Cancel: 0 };
-      filtered.forEach(s => { if (counts[s.progress] !== undefined) counts[s.progress]++; });
 
       let green = 0, yellow = 0, red = 0;
       filtered.forEach(s => {
@@ -1616,6 +1619,23 @@
 
     // View 5: SITAC Projects
     sitac: {
+      status: 'ALL',
+      pic: 'ALL',
+      year: 'ALL',
+      aging: 'ALL',
+      region: 'ALL',
+      search: '',
+      startDate: '',
+      endDate: '',
+      dateField: 'date_dispos',
+      datePreset: 'ALL',
+      page: 1,
+      pageSize: 25,
+      data: []
+    },
+
+    // View 5.5: Monitoring Tim SITAC (Read-Only)
+    colleagues: {
       status: 'ALL',
       pic: 'ALL',
       year: 'ALL',
@@ -5618,295 +5638,599 @@
   }
 
   // =========================================================================
-  // VIEW 6: MONITORING TIM SITAC (RUANG KOORDINASI PIC SITAC LAPANGAN)
+  // VIEW 5.5: MONITORING TIM SITAC (RUANG KOORDINASI PIC SITAC LAPANGAN - READ ONLY)
   // =========================================================================
-  let colleaguesInitialized = false;
-  let colleaguesAllRecords = [];
-  const colleaguesState = {
-    selectedPic: '',
-    search: '',
-    status: 'ALL',
-    page: 1,
-    pageSize: 15
-  };
+  let colleaguesEventsBound = false;
 
-  async function initColleaguesView() {
-    window.initColleaguesView = initColleaguesView;
-    try {
-      // 1. Fetch full SITAC records if not already loaded
-      if (!colleaguesAllRecords || colleaguesAllRecords.length === 0) {
-        if (window.SITAC_COLLO_DATA?.sitac_records?.length > 0) {
-          colleaguesAllRecords = window.SITAC_COLLO_DATA.sitac_records;
-        } else {
-          try {
-            const res = await fetch('/api/sitac?pageSize=1000');
-            if (res.ok) {
-              const json = await res.json();
-              colleaguesAllRecords = json.data || [];
-            }
-          } catch (e) {
-            console.warn('[ColleaguesView] Fetch fallback to static dataset:', e);
-          }
-        }
+  function populateColleaguesPicDropdown() {
+    const picSelect = document.getElementById('colleaguesFilterPic');
+    if (!picSelect || picSelect.options.length > 1) return;
+    const records = window.SITAC_COLLO_DATA?.sitac_records || [];
+    const picSet = new Set();
+    records.forEach(r => {
+      const p = (r.pic_perijinan || '').trim();
+      if (p && !p.toLowerCase().includes('all') && !p.toLowerCase().includes('null') && !p.toLowerCase().includes('none')) {
+        picSet.add(formatPicName(p));
       }
+    });
+    const sortedPics = Array.from(picSet).sort((a, b) => a.localeCompare(b));
+    sortedPics.forEach(pic => {
+      const opt = document.createElement('option');
+      opt.value = pic;
+      opt.textContent = pic;
+      picSelect.appendChild(opt);
+    });
+  }
 
-      // 2. Populate PIC Selector Dropdown
-      const picSelect = document.getElementById('selectColleaguesPic');
-      if (picSelect && picSelect.options.length <= 1) {
-        const picSet = new Set();
-        (colleaguesAllRecords || []).forEach(r => {
-          const p = (r.pic_perijinan || '').trim();
-          if (p && !p.toLowerCase().includes('all') && !p.toLowerCase().includes('null') && !p.toLowerCase().includes('none')) {
-            picSet.add(formatPicName(p));
-          }
-        });
-        const sortedPics = Array.from(picSet).sort((a, b) => a.localeCompare(b));
-        sortedPics.forEach(pic => {
-          const opt = document.createElement('option');
-          opt.value = pic;
-          opt.textContent = pic;
-          picSelect.appendChild(opt);
-        });
-      }
-
-      // 3. Bind Event Listeners once
-      if (!colleaguesInitialized) {
-        colleaguesInitialized = true;
-
-        // PIC select change
-        picSelect?.addEventListener('change', (e) => {
-          colleaguesState.selectedPic = e.target.value.trim();
-          colleaguesState.page = 1;
-          renderColleaguesView();
-        });
-
-        // Search input with debounce
-        const searchInput = document.getElementById('searchColleaguesSitac');
-        let searchTimer;
-        searchInput?.addEventListener('input', (e) => {
-          clearTimeout(searchTimer);
-          searchTimer = setTimeout(() => {
-            colleaguesState.search = e.target.value.trim().toLowerCase();
-            colleaguesState.page = 1;
-            renderColleaguesView();
-          }, 250);
-        });
-
-        // Status Tabs click
-        document.querySelectorAll('.colleagues-tab-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            document.querySelectorAll('.colleagues-tab-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            colleaguesState.status = btn.getAttribute('data-colleagues-tab') || 'ALL';
-            colleaguesState.page = 1;
-            renderColleaguesView();
-          });
-        });
-
-        // Pagination buttons
-        document.getElementById('btnColleaguesPrevPage')?.addEventListener('click', () => {
-          if (colleaguesState.page > 1) {
-            colleaguesState.page--;
-            renderColleaguesView();
-          }
-        });
-
-        document.getElementById('btnColleaguesNextPage')?.addEventListener('click', () => {
-          const maxPage = Math.ceil((window._colleaguesFilteredCount || 1) / colleaguesState.pageSize);
-          if (colleaguesState.page < maxPage) {
-            colleaguesState.page++;
-            renderColleaguesView();
-          }
-        });
-      }
-
-      renderColleaguesView();
-    } catch (err) {
-      console.warn('Error in initColleaguesView:', err);
+  function scrollColleaguesTableToTop() {
+    const card = document.querySelector('#view-sitac-colleagues .table-container-card');
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }
 
-  function renderColleaguesView() {
-    const records = colleaguesAllRecords || [];
-    const { selectedPic, search, status, page, pageSize } = colleaguesState;
+  function applyColleaguesDatePreset(preset) {
+    const today = new Date();
+    const curYear = today.getFullYear();
+    const curMonth = today.getMonth();
 
-    // Filter by PIC first for KPIs & Tab Counts
-    const picFiltered = selectedPic
-      ? records.filter(r => formatPicName(r.pic_perijinan || '').toLowerCase() === selectedPic.toLowerCase())
-      : records;
+    let start = '';
+    let end = '';
 
-    // Compute status counts for the selected PIC
-    let countAll = picFiltered.length;
-    let countOngoing = 0;
-    let countFinish = 0;
-    let countHold = 0;
-    let countCancel = 0;
+    if (preset === 'THIS_MONTH') {
+      const firstDay = new Date(curYear, curMonth, 1);
+      const lastDay = new Date(curYear, curMonth + 1, 0);
+      start = firstDay.toISOString().slice(0, 10);
+      end = lastDay.toISOString().slice(0, 10);
+    } else if (preset === 'LAST_MONTH') {
+      const firstDay = new Date(curYear, curMonth - 1, 1);
+      const lastDay = new Date(curYear, curMonth, 0);
+      start = firstDay.toISOString().slice(0, 10);
+      end = lastDay.toISOString().slice(0, 10);
+    } else if (preset === '2026') {
+      start = '2026-01-01';
+      end = '2026-12-31';
+    } else if (preset === '2025') {
+      start = '2025-01-01';
+      end = '2025-12-31';
+    } else if (preset === '2024') {
+      start = '2024-01-01';
+      end = '2024-12-31';
+    } else if (preset === 'ALL') {
+      start = '';
+      end = '';
+    }
 
-    picFiltered.forEach(r => {
-      const prog = (r.progress || '').toLowerCase();
-      if (prog.includes('finish') || prog.includes('done') || prog.includes('selesai')) {
-        countFinish++;
-      } else if (prog.includes('ongoing') || prog.includes('proses') || prog.includes('open') || prog.includes('jalan')) {
-        countOngoing++;
-      } else if (prog.includes('hold') || prog.includes('kendala') || prog.includes('pending')) {
-        countHold++;
-      } else if (prog.includes('cancel') || prog.includes('batal')) {
-        countCancel++;
+    state.colleagues.datePreset = preset;
+    state.colleagues.startDate = start;
+    state.colleagues.endDate = end;
+
+    const inpStart = document.getElementById('colleaguesStartDate');
+    const inpEnd = document.getElementById('colleaguesEndDate');
+    if (inpStart) inpStart.value = start;
+    if (inpEnd) inpEnd.value = end;
+
+    document.querySelectorAll('#colleaguesDatePresets .sitac-date-preset-btn').forEach(btn => {
+      if (btn.getAttribute('data-preset') === preset) {
+        btn.classList.add('active');
       } else {
-        countOngoing++;
+        btn.classList.remove('active');
       }
     });
 
-    // Update Tab Badges
-    const elAll = document.getElementById('countColleaguesAll');
-    const elOngoing = document.getElementById('countColleaguesOngoing');
-    const elFinish = document.getElementById('countColleaguesFinish');
-    const elHold = document.getElementById('countColleaguesHold');
-    const elCancel = document.getElementById('countColleaguesCancel');
-    if (elAll) elAll.textContent = countAll;
-    if (elOngoing) elOngoing.textContent = countOngoing;
-    if (elFinish) elFinish.textContent = countFinish;
-    if (elHold) elHold.textContent = countHold;
-    if (elCancel) elCancel.textContent = countCancel;
-
-    // Update Mini KPI Cards
-    const kpiTotal = document.getElementById('kpiColleaguesTotal');
-    const kpiOngoing = document.getElementById('kpiColleaguesOngoing');
-    const kpiFinish = document.getElementById('kpiColleaguesFinish');
-    const kpiRate = document.getElementById('kpiColleaguesRate');
-    if (kpiTotal) kpiTotal.textContent = countAll;
-    if (kpiOngoing) kpiOngoing.textContent = countOngoing;
-    if (kpiFinish) kpiFinish.textContent = countFinish;
-    if (kpiRate) {
-      const rateVal = countAll > 0 ? Math.round((countFinish / countAll) * 100) : 0;
-      kpiRate.textContent = `${rateVal}%`;
+    const yrSelect = document.getElementById('colleaguesFilterYear');
+    if (yrSelect) {
+      if (['2024', '2025', '2026', 'ALL'].includes(preset)) {
+        yrSelect.value = preset;
+        state.colleagues.year = preset;
+      } else {
+        yrSelect.value = 'ALL';
+        state.colleagues.year = 'ALL';
+      }
     }
 
-    // Now filter by Status tab & Search keyword
-    let tableRecords = picFiltered.filter(r => {
-      // Status filter
-      if (status !== 'ALL') {
-        const prog = (r.progress || '').toLowerCase();
-        if (status === 'FINISH' && !(prog.includes('finish') || prog.includes('done') || prog.includes('selesai'))) return false;
-        if (status === 'ONGOING' && !(prog.includes('ongoing') || prog.includes('proses') || prog.includes('open') || prog.includes('jalan'))) return false;
-        if (status === 'HOLD' && !(prog.includes('hold') || prog.includes('kendala') || prog.includes('pending'))) return false;
-        if (status === 'CANCEL' && !(prog.includes('cancel') || prog.includes('batal'))) return false;
-      }
+    state.colleagues.page = 1;
+    scrollColleaguesTableToTop();
+    loadColleaguesData();
+  }
 
-      // Search keyword
-      if (search) {
-        const q = search;
-        const textToSearch = [
-          r.no_pa,
-          r.pelanggan,
-          r.terminating,
-          r.pic_perijinan,
-          r.ptl,
-          r.update_pekerjaan
-        ].filter(Boolean).join(' ').toLowerCase();
-        if (!textToSearch.includes(q)) return false;
-      }
-
-      return true;
+  async function loadColleaguesData() {
+    if (!state.colleagues) return;
+    const { status, pic, year, aging, region, search, startDate, endDate, dateField, page, pageSize } = state.colleagues;
+    const finalRegion = region || 'ALL';
+    const params = new URLSearchParams({
+      all_team: '1',
+      status: status || 'ALL',
+      pic: pic || 'ALL',
+      year: year || 'ALL',
+      aging: aging || 'ALL',
+      region: finalRegion,
+      search: search || '',
+      page: page || 1,
+      pageSize: pageSize || 25,
+      startDate: startDate || '',
+      endDate: endDate || '',
+      dateField: dateField || 'date_dispos'
     });
 
-    window._colleaguesFilteredCount = tableRecords.length;
+    try {
+      populateColleaguesPicDropdown();
 
-    // Update Table Badge & Title
-    const countBadge = document.getElementById('colleaguesCountBadge');
-    if (countBadge) countBadge.textContent = tableRecords.length;
-    const tableTitle = document.getElementById('colleaguesTableTitle');
-    if (tableTitle) {
-      tableTitle.textContent = selectedPic ? `Daftar Perizinan: ${selectedPic}` : 'Daftar Perizinan Seluruh Tim SITAC';
-    }
+      const res = await fetch(`/api/sitac?${params.toString()}`);
+      if (!res.ok) throw new Error('Failed to load Colleagues SITAC data');
+      const json = await res.json();
+      state.colleagues.data = json.data || [];
 
-    // Paginate
-    const totalItems = tableRecords.length;
-    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-    const safePage = Math.min(page, totalPages);
-    const startIdx = (safePage - 1) * pageSize;
-    const pagedRecords = tableRecords.slice(startIdx, startIdx + pageSize);
+      // Update Date Range summary text & active badge
+      const activeBadge = document.getElementById('colleaguesDateActiveBadge');
+      const activeText = document.getElementById('colleaguesDateActiveText');
+      const summaryText = document.getElementById('colleaguesDateSummaryText');
 
-    // Update pagination controls
-    const pagInfo = document.getElementById('colleaguesPaginationInfo');
-    const prevBtn = document.getElementById('btnColleaguesPrevPage');
-    const nextBtn = document.getElementById('btnColleaguesNextPage');
-    const pageNum = document.getElementById('colleaguesPageNumber');
-
-    if (pagInfo) {
-      pagInfo.textContent = totalItems === 0
-        ? 'Menampilkan 0 - 0 dari 0 data'
-        : `Menampilkan ${startIdx + 1} - ${Math.min(startIdx + pageSize, totalItems)} dari ${totalItems} data`;
-    }
-    if (pageNum) pageNum.textContent = `${safePage} / ${totalPages}`;
-    if (prevBtn) prevBtn.disabled = safePage <= 1;
-    if (nextBtn) nextBtn.disabled = safePage >= totalPages;
-
-    // Render table rows
-    const tbody = document.getElementById('colleaguesTableBody');
-    if (tbody) {
-      if (pagedRecords.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="8" class="text-center py-10 text-slate-400">
-              <i class="fa-solid fa-folder-open text-2xl mb-2 text-slate-500"></i>
-              <p>Tidak ada data penugasan perizinan yang sesuai dengan filter.</p>
-            </td>
-          </tr>
-        `;
+      if (startDate || endDate) {
+        if (activeBadge) activeBadge.classList.remove('hidden');
+        const sFmt = startDate ? formatDisplayDate(startDate) : 'Awal';
+        const eFmt = endDate ? formatDisplayDate(endDate) : 'Sekarang';
+        const fieldLabel = dateField === 'date_close' ? 'Tgl Selesai' : 'Tgl Disposisi';
+        if (activeText) activeText.textContent = `${fieldLabel}: ${sFmt} s/d ${eFmt}`;
+        if (summaryText) {
+          const stats = (json.region_stats && json.region_stats[finalRegion]) || (json.region_stats && json.region_stats.ALL) || {};
+          const bAwal = Number(stats.biaya_awal) || 0;
+          const bFinal = Number(stats.biaya_final) || 0;
+          const bHemat = Math.max(0, bAwal - bFinal);
+          const bPct = bAwal > 0 ? (bHemat / bAwal * 100).toFixed(1) : '0';
+          summaryText.innerHTML = `Periode: <b class="text-cyan-300">${sFmt} &ndash; ${eFmt}</b> &bull; Total Biaya: <b class="text-amber-300">${formatRupiah(bFinal)}</b> &bull; Efisiensi: <b class="text-emerald-300">${formatRupiah(bHemat)} (${bPct}%)</b>`;
+        }
       } else {
-        let html = '';
-        pagedRecords.forEach((r, idx) => {
-          const rowNum = startIdx + idx + 1;
-          const picFormatted = formatPicName(r.pic_perijinan || '-');
-          const siteName = r.terminating || '-';
-          const tgl = r.date_dispos || r.date_pa || '-';
-          const biayaAwal = Number(r.biaya_permintaan_awal) || 0;
-          const biayaFinal = Number(r.biaya_final) || 0;
-          const efisiensi = Number(r.efisiensi_rupiah) || Math.max(0, biayaAwal - biayaFinal);
+        if (activeBadge) activeBadge.classList.add('hidden');
+        if (summaryText) summaryText.textContent = '';
+      }
 
-          html += `
-            <tr class="hover:bg-slate-800/40 transition-colors">
-              <td class="font-mono text-xs text-slate-500 py-2.5 px-3">${rowNum}</td>
-              <td class="py-2.5 px-3">
-                <div class="font-mono font-bold text-cyan-400 text-xs">${escapeHtml(r.no_pa || '-')}</div>
-                <div class="text-[10px] text-slate-400 mt-0.5"><i class="fa-regular fa-calendar mr-1"></i>${tgl}</div>
-              </td>
-              <td class="py-2.5 px-3 whitespace-nowrap">
-                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-semibold text-[11px]">
-                  <i class="fa-solid fa-user text-[9px]"></i>
-                  <span>${escapeHtml(picFormatted)}</span>
-                </span>
-              </td>
-              <td class="py-2.5 px-3 max-w-[200px] truncate" title="${escapeHtml(siteName)}">
-                <div class="font-medium text-slate-200 truncate">${escapeHtml(siteName)}</div>
-                <div class="text-[10px] text-slate-400 truncate">${escapeHtml(r.pelanggan || '')}</div>
-              </td>
-              <td class="py-2.5 px-3 max-w-[150px] truncate text-slate-300">
-                ${escapeHtml(r.ptl || r.tiering || '-')}
-              </td>
-              <td class="py-2.5 px-3 text-right font-mono whitespace-nowrap">
-                <div class="text-slate-400 text-[11px]">${formatRupiah(biayaAwal)}</div>
-                <div class="font-bold text-amber-300 text-xs">${formatRupiah(biayaFinal)}</div>
-                ${efisiensi > 0 ? `<div class="text-[10px] text-emerald-400 font-semibold">+${formatRupiah(efisiensi)}</div>` : ''}
-              </td>
-              <td class="py-2.5 px-3 text-center whitespace-nowrap">
-                <div>${getStatusBadge(r.progress)}</div>
-                ${r.durasi_hari ? `<div class="mt-1">${getAgingBadge(r.durasi_hari)}</div>` : ''}
-              </td>
-              <td class="py-2.5 px-3 text-center whitespace-nowrap">
-                <button type="button" class="btn btn-secondary text-[11px] py-1 px-2.5 rounded-lg border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 inline-flex items-center gap-1.5 transition active:scale-95"
-                  onclick="openDetailModal('sitac', ${r.id})">
-                  <i class="fa-solid fa-eye text-cyan-400"></i>
-                  <span>Detail</span>
-                </button>
+      // Update Regional Filter Badges & KPI Stat Cards
+      if (json.region_stats) {
+        state.colleaguesRegionStats = json.region_stats;
+        const rs = json.region_stats;
+        const bAll = document.getElementById('badgeColleaguesRegionAll');
+        const bJakpusel = document.getElementById('badgeColleaguesRegionJakpusel');
+        const bJakutim = document.getElementById('badgeColleaguesRegionJakutim');
+        const bBodebek = document.getElementById('badgeColleaguesRegionBodebek');
+        const bJakbar = document.getElementById('badgeColleaguesRegionJakbar');
+        const bBanten = document.getElementById('badgeColleaguesRegionBanten');
+        const bTangerang = document.getElementById('badgeColleaguesRegionTangerang');
+
+        if (bAll) bAll.textContent = rs.ALL ? rs.ALL.count : 0;
+        if (bJakpusel) bJakpusel.textContent = rs.JAKPUSEL ? rs.JAKPUSEL.count : 0;
+        if (bJakutim) bJakutim.textContent = rs.JAKUTIM ? rs.JAKUTIM.count : 0;
+        if (bBodebek) bBodebek.textContent = rs.BODEBEK ? rs.BODEBEK.count : 0;
+        if (bJakbar) bJakbar.textContent = rs.JAKBAR ? rs.JAKBAR.count : 0;
+        if (bBanten) bBanten.textContent = rs.BANTEN ? rs.BANTEN.count : 0;
+        if (bTangerang) bTangerang.textContent = rs.TANGERANG ? rs.TANGERANG.count : 0;
+
+        const curRegion = finalRegion;
+        const stats = rs[curRegion] || rs.ALL || { count: 0, berbiaya: 0, zerocost: 0, biaya_awal: 0, biaya_final: 0, efisiensi_rupiah: 0, efisiensi_persen: 0 };
+
+        const elTotal = document.getElementById('regColleaguesTotalPa');
+        const elBerbiaya = document.getElementById('regColleaguesBerbiaya');
+        const elZeroCost = document.getElementById('regColleaguesZeroCost');
+        const elBiayaAwal = document.getElementById('regColleaguesBiayaAwal');
+        const elBiayaFinal = document.getElementById('regColleaguesBiayaFinal');
+        const elHematRupiah = document.getElementById('regColleaguesHematRupiah');
+        const elHematPersen = document.getElementById('regColleaguesHematPersen');
+
+        const bAwal = Number(stats.biaya_awal) || 0;
+        const bFinal = Number(stats.biaya_final) || 0;
+        const bHemat = Math.max(0, bAwal - bFinal);
+        const hematPct = bAwal > 0 ? Number((bHemat / bAwal * 100).toFixed(1)) : 0;
+
+        if (elTotal) elTotal.textContent = stats.count;
+        if (elBerbiaya) elBerbiaya.textContent = stats.berbiaya;
+        if (elZeroCost) elZeroCost.textContent = stats.zerocost;
+        if (elBiayaAwal) elBiayaAwal.textContent = formatRupiah(bAwal);
+        if (elBiayaFinal) elBiayaFinal.textContent = formatRupiah(bFinal);
+        if (elHematRupiah) elHematRupiah.textContent = formatRupiah(bHemat);
+        if (elHematPersen) elHematPersen.textContent = `${hematPct}%`;
+      }
+
+      // Update Status Tab Badges
+      if (json.status_counts) {
+        state.colleaguesStatusCounts = json.status_counts;
+        const totalBadge = document.getElementById('colleaguesTotalBadge');
+        const finishBadge = document.getElementById('colleaguesFinishBadge');
+        const ongoingBadge = document.getElementById('colleaguesOngoingBadge');
+        const holdBadge = document.getElementById('colleaguesHoldBadge');
+        const cancelBadge = document.getElementById('colleaguesCancelBadge');
+
+        if (totalBadge) totalBadge.textContent = json.status_counts.ALL ?? 0;
+        if (finishBadge) finishBadge.textContent = json.status_counts.Finish ?? 0;
+        if (ongoingBadge) ongoingBadge.textContent = json.status_counts.Ongoing ?? 0;
+        if (holdBadge) holdBadge.textContent = json.status_counts.Hold ?? 0;
+        if (cancelBadge) cancelBadge.textContent = json.status_counts.Cancel ?? 0;
+      }
+
+      if (json.aging_dist) {
+        state.colleaguesAgingDist = json.aging_dist;
+      }
+
+      // Update Main Table (Exact 13 Columns, View-Only)
+      const tbody = document.getElementById('colleaguesTableBody');
+      if (tbody) {
+        if (!json.data || json.data.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="13" class="text-center py-10 text-slate-400">
+                <i class="fa-solid fa-folder-open text-2xl mb-2 text-slate-500"></i>
+                <p>Tidak ada data penugasan tim SITAC yang sesuai dengan kriteria filter.</p>
               </td>
             </tr>
           `;
-        });
-        tbody.innerHTML = html;
+        } else {
+          let html = '';
+          (json.data || []).forEach((s, idx) => {
+            const rowIdx = (json.page - 1) * json.pageSize + idx + 1;
+            html += `
+              <tr class="hover:bg-slate-800/40 transition-colors">
+                <td class="font-mono text-xs text-slate-500">${rowIdx}</td>
+                <td class="font-mono font-bold text-cyan-400 text-xs">${escapeHtml(s.no_pa || '-')}</td>
+                <td>${formatPelangganCell(s.pelanggan)}</td>
+                <td>
+                  <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-semibold text-[11px]">
+                    <i class="fa-solid fa-user text-[9px]"></i>
+                    <span>${escapeHtml(formatPicName(s.pic_perijinan || '-'))}</span>
+                  </span>
+                </td>
+                <td class="max-w-[200px] truncate" title="${escapeHtml(s.terminating)}">${escapeHtml(s.terminating || '-')}</td>
+                <td class="text-right font-mono col-sitac-financial">${formatRupiah(s.biaya_permintaan_awal)}</td>
+                <td class="text-right font-mono font-bold text-amber-400 col-sitac-financial">${formatRupiah(s.biaya_final)}</td>
+                <td class="text-right font-mono font-bold text-emerald-400 col-sitac-financial">${formatRupiah(s.efisiensi_rupiah)}</td>
+                <td class="text-center">${getStatusBadge(s.progress)}</td>
+                <td class="text-center">${getAgingBadge(s.durasi_hari)}</td>
+                <td class="text-xs text-slate-300 font-mono whitespace-nowrap">${s.date_dispos || '-'}</td>
+                <td class="text-xs text-slate-300 font-mono whitespace-nowrap">${s.date_close || '-'}</td>
+                <td class="text-center">
+                  <div class="flex items-center justify-center gap-1.5">
+                    <button class="btn-action btn-wa-dispatch text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-500/40" data-type="sitac" data-id="${s.id}" title="Koordinasi WhatsApp"><i class="fa-brands fa-whatsapp text-sm"></i></button>
+                    <button class="btn-action btn-view-detail" data-type="sitac" data-id="${s.id}" title="Lihat Detail (Read-Only)"><i class="fa-solid fa-eye text-cyan-400"></i></button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          });
+          tbody.innerHTML = html;
+        }
+
+        if (typeof updateAllTableScrollState === 'function') {
+          setTimeout(updateAllTableScrollState, 50);
+        }
       }
+
+      // Pagination Controls
+      const pagInfo = document.getElementById('colleaguesPaginationInfo');
+      const prevBtn = document.getElementById('colleaguesPrevPageBtn');
+      const nextBtn = document.getElementById('colleaguesNextPageBtn');
+      if (pagInfo) pagInfo.textContent = `Halaman ${json.page} dari ${json.totalPages} (${json.total} data)`;
+      if (prevBtn) prevBtn.disabled = json.page <= 1;
+      if (nextBtn) nextBtn.disabled = json.page >= json.totalPages;
+
+      // Render Charts
+      renderColleaguesCharts(json.status_counts, json.aging_dist);
+
+    } catch (e) {
+      console.error('[ColleaguesView] loadColleaguesData error:', e);
     }
+  }
+
+  function renderColleaguesCharts(statusCounts, agingDist) {
+    const { textColor, gridColor, donutBorder, donutBorderWidth } = getChartTheme();
+    const currentStatus = state.colleagues?.status || 'ALL';
+
+    const sc = statusCounts || state.colleaguesStatusCounts || { Finish: 534, Ongoing: 35, Hold: 9, Cancel: 108, ALL: 686 };
+    const ag = agingDist || state.colleaguesAgingDist || { green: 173, yellow: 82, red: 179 };
+
+    // Chart 1: SLA Aging Bar Chart
+    const ctxAging = document.getElementById('chartColleaguesAging')?.getContext('2d');
+    const agingBadge = document.getElementById('colleaguesAgingChartBadge');
+    if (ctxAging) {
+      destroyChart('colleaguesAging');
+      if (agingBadge) {
+        agingBadge.textContent = currentStatus === 'ALL' ? 'Durasi Hari' : `Durasi (${currentStatus})`;
+      }
+      charts.colleaguesAging = new Chart(ctxAging, {
+        type: 'bar',
+        data: {
+          labels: ['Aman (<= 7 Hari)', 'Perhatian (8 - 14 Hari)', 'Kritis (> 14 Hari)'],
+          datasets: [{
+            label: `Penugasan PA ${currentStatus !== 'ALL' ? '(' + currentStatus + ')' : ''}`,
+            data: [ag.green || 0, ag.yellow || 0, ag.red || 0],
+            backgroundColor: ['#0E6073', '#F2E205', '#F21D2F'],
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => ` ${ctx.dataset.label || 'Jumlah'}: ${ctx.raw} PA`
+              }
+            }
+          },
+          scales: {
+            x: { grid: { color: gridColor, drawBorder: false }, border: { display: false }, ticks: { color: textColor } },
+            y: { grid: { color: gridColor, drawBorder: false }, border: { display: false }, ticks: { color: textColor, precision: 0 } }
+          }
+        }
+      });
+    }
+
+    // Chart 2: Status Breakdown Donut Chart
+    const ctxStatDetail = document.getElementById('chartColleaguesStatusDetail')?.getContext('2d');
+    const statusBadge = document.getElementById('colleaguesChartTotalBadge');
+    if (ctxStatDetail) {
+      destroyChart('colleaguesStatusDetail');
+
+      let labels = [];
+      let data = [];
+      let bgColors = [];
+
+      if (currentStatus === 'ALL') {
+        labels = ['Finish', 'Ongoing', 'Hold', 'Cancel'];
+        data = [sc.Finish || 0, sc.Ongoing || 0, sc.Hold || 0, sc.Cancel || 0];
+        bgColors = ['#0E6073', '#05C7F2', '#F2E205', '#F21D2F'];
+        if (statusBadge) {
+          statusBadge.textContent = `Total ${sc.ALL || 686} PA`;
+          statusBadge.className = 'pbi-visual-badge';
+        }
+      } else if (currentStatus === 'Finish') {
+        labels = ['Finish'];
+        data = [sc.Finish || 0];
+        bgColors = ['#0E6073'];
+        if (statusBadge) {
+          statusBadge.textContent = `Finish: ${sc.Finish || 0} PA`;
+          statusBadge.className = 'pbi-visual-badge bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+        }
+      } else if (currentStatus === 'Ongoing') {
+        labels = ['Ongoing'];
+        data = [sc.Ongoing || 0];
+        bgColors = ['#05C7F2'];
+        if (statusBadge) {
+          statusBadge.textContent = `Ongoing: ${sc.Ongoing || 0} PA`;
+          statusBadge.className = 'pbi-visual-badge bg-cyan-500/20 text-cyan-400 border border-cyan-500/30';
+        }
+      } else if (currentStatus === 'Hold') {
+        labels = ['Hold'];
+        data = [sc.Hold || 0];
+        bgColors = ['#F2E205'];
+        if (statusBadge) {
+          statusBadge.textContent = `Hold: ${sc.Hold || 0} PA`;
+          statusBadge.className = 'pbi-visual-badge bg-amber-500/20 text-amber-400 border border-amber-500/30';
+        }
+      } else if (currentStatus === 'Cancel') {
+        labels = ['Cancel'];
+        data = [sc.Cancel || 0];
+        bgColors = ['#F21D2F'];
+        if (statusBadge) {
+          statusBadge.textContent = `Cancel: ${sc.Cancel || 0} PA`;
+          statusBadge.className = 'pbi-visual-badge bg-rose-500/20 text-rose-400 border border-rose-500/30';
+        }
+      }
+
+      charts.colleaguesStatusDetail = new Chart(ctxStatDetail, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{
+            data,
+            backgroundColor: bgColors,
+            borderColor: donutBorder,
+            borderWidth: donutBorderWidth,
+            hoverOffset: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '68%',
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: textColor, boxWidth: 12, padding: 12, font: { size: 11 } }
+            },
+            tooltip: {
+              callbacks: {
+                label: ctx => ` ${ctx.label}: ${ctx.raw} PA (${((ctx.raw / (sc.ALL || 1)) * 100).toFixed(1)}%)`
+              }
+            }
+          }
+        }
+      });
+    }
+  }
+
+  function initColleaguesView() {
+    window.initColleaguesView = initColleaguesView;
+    window.loadColleaguesData = loadColleaguesData;
+
+    if (!colleaguesEventsBound) {
+      colleaguesEventsBound = true;
+
+      // Status Tabs
+      document.querySelectorAll('#colleaguesStatusTabs .sitac-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#colleaguesStatusTabs .sitac-tab-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          state.colleagues.status = btn.getAttribute('data-status') || 'ALL';
+          state.colleagues.page = 1;
+          scrollColleaguesTableToTop();
+          loadColleaguesData();
+        });
+      });
+
+      // Search input with debounce
+      const colleaguesSearch = document.getElementById('colleaguesSearchInput');
+      let searchTimer = null;
+      colleaguesSearch?.addEventListener('input', (e) => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+          state.colleagues.search = e.target.value.trim().toLowerCase();
+          state.colleagues.page = 1;
+          loadColleaguesData();
+        }, 300);
+      });
+
+      // Filter PIC
+      document.getElementById('colleaguesFilterPic')?.addEventListener('change', (e) => {
+        state.colleagues.pic = e.target.value;
+        state.colleagues.page = 1;
+        scrollColleaguesTableToTop();
+        loadColleaguesData();
+      });
+
+      // Filter Aging SLA
+      document.getElementById('colleaguesFilterAging')?.addEventListener('change', (e) => {
+        state.colleagues.aging = e.target.value;
+        state.colleagues.page = 1;
+        scrollColleaguesTableToTop();
+        loadColleaguesData();
+      });
+
+      // Filter Year
+      document.getElementById('colleaguesFilterYear')?.addEventListener('change', (e) => {
+        const val = e.target.value;
+        state.colleagues.year = val;
+        if (val === 'ALL') {
+          applyColleaguesDatePreset('ALL');
+        } else if (['2024', '2025', '2026'].includes(val)) {
+          applyColleaguesDatePreset(val);
+        } else {
+          state.colleagues.page = 1;
+          scrollColleaguesTableToTop();
+          loadColleaguesData();
+        }
+      });
+
+      // Regional Tabs
+      document.querySelectorAll('#colleaguesRegionTabs .sitac-region-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#colleaguesRegionTabs .sitac-region-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          state.colleagues.region = btn.getAttribute('data-region') || 'ALL';
+          state.colleagues.page = 1;
+          scrollColleaguesTableToTop();
+          loadColleaguesData();
+        });
+      });
+
+      // Date Presets
+      document.querySelectorAll('#colleaguesDatePresets .sitac-date-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const preset = btn.getAttribute('data-preset') || 'ALL';
+          applyColleaguesDatePreset(preset);
+        });
+      });
+
+      // Apply Custom Date Range
+      document.getElementById('btnApplyColleaguesDate')?.addEventListener('click', () => {
+        const start = document.getElementById('colleaguesStartDate')?.value || '';
+        const end = document.getElementById('colleaguesEndDate')?.value || '';
+        const field = document.getElementById('colleaguesDateField')?.value || 'date_dispos';
+
+        if (start && end && start > end) {
+          showToast('Tanggal mulai tidak boleh lebih besar dari tanggal akhir!', 'warning');
+          return;
+        }
+
+        state.colleagues.startDate = start;
+        state.colleagues.endDate = end;
+        state.colleagues.dateField = field;
+        state.colleagues.datePreset = (start || end) ? 'CUSTOM' : 'ALL';
+
+        document.querySelectorAll('#colleaguesDatePresets .sitac-date-preset-btn').forEach(btn => {
+          btn.classList.remove('active');
+        });
+
+        state.colleagues.page = 1;
+        scrollColleaguesTableToTop();
+        loadColleaguesData();
+      });
+
+      // Reset Custom Date Range
+      document.getElementById('btnResetColleaguesDate')?.addEventListener('click', () => {
+        applyColleaguesDatePreset('ALL');
+      });
+
+      // Quick Clear Date Badge Button
+      document.getElementById('btnColleaguesQuickClearDate')?.addEventListener('click', () => {
+        applyColleaguesDatePreset('ALL');
+      });
+
+      // Date Field select change
+      document.getElementById('colleaguesDateField')?.addEventListener('change', (e) => {
+        state.colleagues.dateField = e.target.value;
+        if (state.colleagues.startDate || state.colleagues.endDate) {
+          state.colleagues.page = 1;
+          loadColleaguesData();
+        }
+      });
+
+      // Pagination buttons
+      document.getElementById('colleaguesPrevPageBtn')?.addEventListener('click', () => {
+        if (state.colleagues.page > 1) {
+          state.colleagues.page--;
+          scrollColleaguesTableToTop();
+          loadColleaguesData();
+        }
+      });
+
+      document.getElementById('colleaguesNextPageBtn')?.addEventListener('click', () => {
+        state.colleagues.page++;
+        scrollColleaguesTableToTop();
+        loadColleaguesData();
+      });
+
+      // Excel export button
+      document.getElementById('btnExportColleaguesExcel')?.addEventListener('click', () => {
+        exportCurrentViewExcel('colleagues');
+      });
+
+      // Mobile Charts accordion toggle
+      const btnToggleCharts = document.getElementById('btnToggleColleaguesCharts');
+      const containerCharts = document.getElementById('colleaguesChartsContainer');
+      const labelToggle = document.getElementById('colleaguesChartsToggleLabel');
+      const chevronToggle = document.getElementById('colleaguesChartsChevron');
+      btnToggleCharts?.addEventListener('click', () => {
+        const isHidden = containerCharts?.classList.contains('hidden');
+        if (isHidden) {
+          containerCharts?.classList.remove('hidden');
+          containerCharts?.classList.add('grid');
+          if (labelToggle) labelToggle.textContent = 'Tutup Grafik';
+          if (chevronToggle) chevronToggle.style.transform = 'rotate(180deg)';
+        } else {
+          containerCharts?.classList.add('hidden');
+          containerCharts?.classList.remove('grid');
+          if (labelToggle) labelToggle.textContent = 'Buka Grafik';
+          if (chevronToggle) chevronToggle.style.transform = 'rotate(0deg)';
+        }
+      });
+
+      // Floating Horizontal Scroll Arrows
+      const scrollWrapper = document.getElementById('colleaguesTableScrollWrapper');
+      const arrowLeft = document.getElementById('colleaguesScrollArrowLeft');
+      const arrowRight = document.getElementById('colleaguesScrollArrowRight');
+
+      arrowLeft?.addEventListener('click', () => {
+        if (scrollWrapper) scrollWrapper.scrollBy({ left: -280, behavior: 'smooth' });
+      });
+      arrowRight?.addEventListener('click', () => {
+        if (scrollWrapper) scrollWrapper.scrollBy({ left: 280, behavior: 'smooth' });
+      });
+
+      scrollWrapper?.addEventListener('scroll', () => {
+        if (typeof updateAllTableScrollState === 'function') updateAllTableScrollState();
+      });
+    }
+
+    loadColleaguesData();
   }
 
   window.initColleaguesView = initColleaguesView;
@@ -6969,6 +7293,11 @@
     const sub = document.getElementById('quickEditModalSub');
     const isLapangan = state.currentUser?.role === 'lapangan';
 
+    if (state.activeView === 'view-sitac-colleagues') {
+      showToast('Mode Lihat Saja: Monitoring Tim SITAC bersifat Read-Only untuk koordinasi tim.', 'warning');
+      return;
+    }
+
     if (isLapangan && type === 'collo') {
       showToast('Akses ditolak: Hanya Administrator yang berhak mengedit data Colocation', 'error');
       return;
@@ -7882,12 +8211,13 @@
               <a href="${url}" target="_blank" rel="noopener noreferrer" class="text-[11px] text-cyan-300 hover:text-cyan-200 underline flex items-center gap-1 font-semibold">
                 <i class="fa-solid fa-arrow-up-right-from-square"></i> Buka File Penuh
               </a>
+              ${state.activeView !== 'view-sitac-colleagues' ? `
               <button type="button" class="text-[10px] text-slate-300 hover:text-white px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 cursor-pointer" onclick="document.getElementById('detailDirectFileInput').click()" title="Ganti dengan foto lain">
                 <i class="fa-solid fa-arrows-rotate mr-1"></i> Ganti
               </button>
               <button type="button" class="btn-delete-photo text-[10px] px-2 py-0.5 rounded border cursor-pointer flex items-center gap-1" onclick="window.deleteBuktiDirect('${type}', ${id})" title="Batalkan atau hapus foto bukti">
                 <i class="fa-solid fa-trash-can text-rose-400"></i> Hapus Foto
-              </button>
+              </button>` : ''}
             </div>
           </div>
           ${isImage ? `
@@ -7919,10 +8249,25 @@
               <a href="${url}" target="_blank" class="btn btn-secondary text-xs py-1 px-3">Buka File</a>
             </div>
           `}
-          <input type="file" id="detailDirectFileInput" accept="image/*,application/pdf" style="display:none;" onchange="window.uploadBuktiDirect('${type}', ${id}, this)">
+          ${state.activeView !== 'view-sitac-colleagues' ? `<input type="file" id="detailDirectFileInput" accept="image/*,application/pdf" style="display:none;" onchange="window.uploadBuktiDirect('${type}', ${id}, this)">` : ''}
         </div>
       `;
     } else {
+      if (state.activeView === 'view-sitac-colleagues') {
+        return `
+          <div class="col-span-2 mt-2">
+            <div class="flex items-center gap-3 p-3 rounded-xl border border-white/10 bg-slate-900/60">
+              <div class="w-9 h-9 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center shrink-0 border border-white/5">
+                <i class="fa-solid fa-camera text-sm"></i>
+              </div>
+              <div class="text-left">
+                <div class="text-xs font-semibold text-slate-300">Belum Ada Foto Bukti Lapangan</div>
+                <div class="text-[10px] text-slate-500">Dokumen atau foto fisik belum diunggah untuk penugasan ini.</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
       return `
         <div class="col-span-2 mt-2">
           <div class="upload-dropzone flex items-center justify-between p-3.5 cursor-pointer hover:border-cyan-500/50 transition rounded-xl border border-dashed border-white/10 bg-slate-900/60" onclick="document.getElementById('detailDirectFileInput').click()">
@@ -8262,9 +8607,10 @@
         </div>` : `
         <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2 flex items-center justify-between text-slate-400 text-xs">
           <span class="text-[11px]"><i class="fa-solid fa-map-pin mr-1.5 text-slate-500"></i> Belum ada titik GPS terverifikasi</span>
+          ${state.activeView !== 'view-sitac-colleagues' ? `
           <button type="button" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-semibold px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20" onclick="document.getElementById('modalDetail').style.display='none'; openQuickEditModal('sitac', ${rec.id})">
             + Tambahkan Koordinat
-          </button>
+          </button>` : ''}
         </div>`;
 
       content.innerHTML = `
@@ -8327,7 +8673,7 @@
       let targetRec = null;
       if (type === 'sitac') targetRec = (state.sitac.data || []).find(s => s.id == id);
       else if (type === 'gangguan') targetRec = (state.gangguan.data || []).find(g => g.id == id);
-      const isAllowedEdit = !isLapangan || (targetRec && isUserAssignedToTask(targetRec, state.currentUser));
+      const isAllowedEdit = state.activeView !== 'view-sitac-colleagues' && (!isLapangan || (targetRec && isUserAssignedToTask(targetRec, state.currentUser)));
       btnEditAction.style.display = isAllowedEdit ? '' : 'none';
     }
 
@@ -8560,6 +8906,37 @@
         ];
       });
       downloadExcelFile(filename, 'Proyek SITAC', headers, rows);
+
+    } else if (view === 'view-sitac-colleagues' || view === 'colleagues') {
+      const records = state.colleagues?.data;
+      if (!records || records.length === 0) return alert('Tidak ada data Tim SITAC untuk diekspor!');
+      const filename = `Monitoring_Tim_SITAC_${today}.xlsx`;
+      const headers = isLapangan ? [
+        'No', 'Nomor PA', 'Pelanggan', 'PTL', 'PIC SITAC', 'Rute Terminating',
+        'Progress Status', 'Durasi SLA (Hari)', 'Tgl Disposisi', 'Tgl Close', 'Catatan Lapangan'
+      ] : [
+        'No', 'Nomor PA', 'Pelanggan', 'PTL', 'PIC SITAC', 'Rute Terminating',
+        'Biaya Pengajuan (Rp)', 'Biaya Realisasi (Rp)', 'Efisiensi (Rp)', 'Efisiensi (%)',
+        'Progress Status', 'Durasi SLA (Hari)', 'Tgl Disposisi', 'Tgl Close', 'Catatan Lapangan'
+      ];
+      const rows = records.map((s, idx) => {
+        if (isLapangan) {
+          return [
+            idx + 1, s.no_pa || '', s.pelanggan || '', s.ptl || '', formatPicName(s.pic_perijinan || ''),
+            s.terminating || '', s.progress || '',
+            s.durasi_hari !== null && s.durasi_hari !== undefined ? s.durasi_hari : '',
+            s.date_dispos || '', s.date_close || '', s.update_pekerjaan || ''
+          ];
+        }
+        return [
+          idx + 1, s.no_pa || '', s.pelanggan || '', s.ptl || '', formatPicName(s.pic_perijinan || ''),
+          s.terminating || '', s.biaya_permintaan_awal || 0, s.biaya_final || 0,
+          s.efisiensi_rupiah || 0, s.efisiensi_persen || 0, s.progress || '',
+          s.durasi_hari !== null && s.durasi_hari !== undefined ? s.durasi_hari : '',
+          s.date_dispos || '', s.date_close || '', s.update_pekerjaan || ''
+        ];
+      });
+      downloadExcelFile(filename, 'Tim SITAC', headers, rows);
 
     } else if (view === 'view-collo-list' || view === 'view-collo-alerts' || view === 'view-collo-rev-sharing' || view === 'collo') {
       const records = view === 'view-collo-list' ? state.collo.data : (view === 'view-collo-rev-sharing' ? state.revSharing.data : state.alerts.data);

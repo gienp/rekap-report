@@ -152,11 +152,13 @@
         </div>
         <!-- Quick Actions inside Sidebar: Theme & Logout -->
         <div class="flex items-center gap-1 shrink-0">
-          <button type="button" id="themeToggleBtn" class="btn btn-secondary h-8 w-8 !p-0 rounded-lg flex items-center justify-center text-xs text-slate-300 hover:text-amber-300 transition"
+          <button type="button" id="themeToggleBtn"
+            class="btn btn-secondary h-8 w-8 !p-0 rounded-lg flex items-center justify-center text-xs text-slate-300 hover:text-amber-300 transition"
             title="Ganti Mode Terang / Gelap">
             <i class="fa-solid fa-moon text-xs"></i>
           </button>
-          <button type="button" id="btnLogout" class="btn btn-secondary h-8 w-8 !p-0 rounded-lg flex items-center justify-center text-xs text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/40 transition"
+          <button type="button" id="btnLogout"
+            class="btn btn-secondary h-8 w-8 !p-0 rounded-lg flex items-center justify-center text-xs text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/40 transition"
             title="Keluar / Logout">
             <i class="fa-solid fa-arrow-right-from-bracket text-xs"></i>
           </button>
@@ -1842,157 +1844,384 @@
       <!-- =====================================================================
            VIEW: MONITORING PROGRES PERIZINAN TIM SITAC (VIEW ONLY)
            ===================================================================== -->
+      <!-- =====================================================================
+           VIEW: MONITORING PROGRES PERIZINAN TIM SITAC (READ-ONLY)
+           Persis seperti Monitoring Perizinan, khusus untuk tim lapangan memonitor
+           seluruh penugasan rekan tim tanpa izin mengedit/menghapus.
+           ===================================================================== -->
       <section id="view-sitac-colleagues" class="portal-view space-y-4">
-        <!-- Notice Banner -->
-        <div class="colleagues-banner flex flex-wrap items-center justify-between gap-3">
+        <!-- Notice Banner: Mode Lihat Saja (Read-Only) -->
+        <div
+          class="p-3.5 bg-slate-900/90 border border-amber-500/30 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-xl">
           <div class="flex items-center gap-3">
             <div
-              class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 text-lg shrink-0">
+              class="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 text-lg shrink-0 shadow-sm shadow-amber-500/10">
               <i class="fa-solid fa-users-viewfinder"></i>
             </div>
             <div>
               <div class="flex items-center gap-2">
-                <h3 class="text-sm font-bold text-amber-200 uppercase tracking-wider">Monitoring Progres Perizinan Tim
-                  SITAC</h3>
-                <span class="read-only-badge"><i class="fa-solid fa-lock"></i> View Only</span>
+                <h3 class="text-xs sm:text-sm font-bold text-slate-100 uppercase tracking-wider">Monitoring Tim SITAC
+                </h3>
+                <span
+                  class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                  <i class="fa-solid fa-lock text-[9px]"></i> Mode Lihat Saja (Read-Only)
+                </span>
               </div>
-              <p class="text-xs text-slate-300 mt-0.5">
-                Ruang koordinasi dan visibilitas progres perizinan seluruh PIC SITAC untuk kelancaran operasional tim.
+              <p class="text-[11px] text-slate-300 mt-0.5">
+                Visibilitas progres penugasan perizinan seluruh rekan tim SITAC di lapangan untuk koordinasi kerja.
               </p>
             </div>
           </div>
           <div class="flex items-center gap-2">
             <button type="button" id="btnBackToMySitac"
-              class="btn btn-secondary text-xs py-1.5 px-3 rounded-xl border border-white/10 hover:border-cyan-500/50 flex items-center gap-2"
+              class="btn btn-secondary text-xs py-1.5 px-3 rounded-xl border border-white/10 hover:border-cyan-500/50 flex items-center gap-2 transition"
               data-view="view-sitac-pa">
               <i class="fa-solid fa-arrow-left text-cyan-400"></i>
-              <span>Kembali ke Pekerjaan Saya</span>
+              <span>Kembali ke Penugasan Saya</span>
             </button>
           </div>
         </div>
 
-        <!-- Filter & Selector Card -->
-        <div class="panel-card bg-slate-900/90 border border-amber-500/20 p-4 rounded-2xl shadow-xl space-y-3.5">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <!-- PIC Selector -->
-            <div class="flex items-center gap-2.5 flex-1 min-w-[260px]">
-              <label for="selectColleaguesPic"
-                class="text-xs font-semibold text-slate-300 shrink-0">
-                <span>Pilih PIC SITAC:</span>
-              </label>
-              <select id="selectColleaguesPic"
-                class="filter-select text-xs py-1.5 px-3 flex-1 bg-slate-950 border border-amber-500/30 rounded-xl text-slate-200 focus:outline-none focus:border-amber-400">
-                <option value="">Semua PIC SITAC</option>
+        <!-- Mobile Charts Accordion Toggle (< lg) -->
+        <div class="lg:hidden">
+          <button type="button" id="btnToggleColleaguesCharts"
+            class="btn btn-secondary text-xs w-full justify-between py-2.5 px-3 rounded-xl border border-white/10 flex items-center bg-slate-900/80 hover:bg-slate-800">
+            <span class="flex items-center gap-2 font-semibold text-slate-200">
+              <i class="fa-solid fa-chart-simple text-cyan-400"></i>
+              <span>Grafik & Analitik SLA Tim SITAC</span>
+            </span>
+            <span class="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
+              <span id="colleaguesChartsToggleLabel">Buka Grafik</span>
+              <i class="fa-solid fa-chevron-down text-[10px] transition-transform duration-200"
+                id="colleaguesChartsChevron"></i>
+            </span>
+          </button>
+        </div>
+
+        <!-- Power BI Visual Analytics Grid: Colleagues SITAC Operations -->
+        <div id="colleaguesChartsContainer" class="hidden lg:grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <!-- Chart 1: SLA Aging -->
+          <div class="pbi-visual-card">
+            <div class="pbi-visual-header">
+              <div class="pbi-visual-title">
+                <i class="fa-solid fa-stopwatch text-cyan-400"></i>
+                <span>Distribusi SLA Aging Pengerjaan Lapangan</span>
+              </div>
+              <span class="pbi-visual-badge" id="colleaguesAgingChartBadge">Durasi Hari</span>
+            </div>
+            <div class="p-4 h-[250px]">
+              <canvas id="chartColleaguesAging"></canvas>
+            </div>
+          </div>
+
+          <!-- Chart 2: Status Breakdown -->
+          <div class="pbi-visual-card">
+            <div class="pbi-visual-header">
+              <div class="pbi-visual-title">
+                <i class="fa-solid fa-chart-pie text-emerald-400"></i>
+                <span>Proporsi Status Hasil Penugasan (PA) Tim</span>
+              </div>
+              <span class="pbi-visual-badge" id="colleaguesChartTotalBadge">Total 686 PA</span>
+            </div>
+            <div class="p-4 h-[250px] flex items-center justify-center">
+              <canvas id="chartColleaguesStatusDetail"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Regional SITAC Filter & KPI Calculations Card -->
+        <div class="panel-card bg-slate-900/90 border border-cyan-500/20 p-4 rounded-2xl shadow-xl space-y-3.5"
+          id="colleaguesRegionalFilterCard">
+          <div class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-white/10">
+            <div class="flex items-center gap-2.5">
+              <div
+                class="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-sm shadow-sm shadow-cyan-500/10">
+                <i class="fa-solid fa-map-location-dot"></i>
+              </div>
+              <div>
+                <h4 class="text-xs font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
+                  <span>Filter & Perhitungan Wilayah Penugasan Seluruh Tim SITAC</span>
+                </h4>
+                <p class="text-[11px] text-slate-400">Pilih rentang tanggal dan wilayah untuk melihat rincian biaya
+                  awal, realisasi final, serta penghematan tim.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Date Range & Cost Filter Section -->
+          <div class="p-3 bg-slate-950/60 rounded-xl border border-cyan-500/20 space-y-2.5" id="colleaguesDateRangeBox">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
+                <div class="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs">
+                  <i class="fa-regular fa-calendar-days"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-200">Rentang Tanggal & Analisis Biaya:</span>
+                <span id="colleaguesDateActiveBadge"
+                  class="hidden px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center gap-1">
+                  <i class="fa-solid fa-clock-rotate-left text-[9px]"></i>
+                  <span id="colleaguesDateActiveText">Periode Aktif</span>
+                  <button type="button" id="btnColleaguesQuickClearDate" class="ml-1 text-cyan-300 hover:text-white"
+                    title="Hapus filter tanggal">&times;</button>
+                </span>
+              </div>
+              <div class="text-[11px] text-slate-400" id="colleaguesDateSummaryText"></div>
+            </div>
+
+            <!-- Date Range Inputs & Presets Container -->
+            <div class="flex flex-wrap items-center justify-between gap-2.5 pt-1 border-t border-white/5">
+              <div class="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5" id="colleaguesDatePresets">
+                <button type="button" class="sitac-date-preset-btn active" data-preset="ALL">
+                  <span>Semua Waktu</span>
+                </button>
+                <button type="button" class="sitac-date-preset-btn" data-preset="THIS_MONTH">
+                  <span>Bulan Ini</span>
+                </button>
+                <button type="button" class="sitac-date-preset-btn" data-preset="LAST_MONTH">
+                  <span>Bulan Lalu</span>
+                </button>
+                <button type="button" class="sitac-date-preset-btn" data-preset="2026">
+                  <span>2026</span>
+                </button>
+                <button type="button" class="sitac-date-preset-btn" data-preset="2025">
+                  <span>2025</span>
+                </button>
+                <button type="button" class="sitac-date-preset-btn" data-preset="2024">
+                  <span>2024</span>
+                </button>
+              </div>
+
+              <!-- Date Pickers & Actions -->
+              <div class="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+                <div class="flex items-center gap-1 bg-slate-900/90 px-2 py-1 rounded-lg border border-white/10">
+                  <span class="text-[10px] font-medium text-slate-400">Dari:</span>
+                  <input type="date" id="colleaguesStartDate"
+                    class="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer"
+                    title="Tanggal Mulai">
+                </div>
+                <div class="flex items-center gap-1 bg-slate-900/90 px-2 py-1 rounded-lg border border-white/10">
+                  <span class="text-[10px] font-medium text-slate-400">s/d:</span>
+                  <input type="date" id="colleaguesEndDate"
+                    class="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer"
+                    title="Tanggal Akhir">
+                </div>
+                <select id="colleaguesDateField" class="filter-select text-xs py-1 px-2 h-auto"
+                  title="Pilih acuan tanggal">
+                  <option value="date_dispos">Tgl Disposisi</option>
+                  <option value="date_close">Tgl Selesai</option>
+                </select>
+                <button type="button" id="btnApplyColleaguesDate"
+                  class="btn btn-primary text-xs py-1 px-2.5 flex items-center gap-1 shadow-sm"
+                  title="Terapkan filter rentang tanggal">
+                  <i class="fa-solid fa-filter text-[10px]"></i>
+                  <span>Filter</span>
+                </button>
+                <button type="button" id="btnResetColleaguesDate"
+                  class="btn btn-secondary text-xs py-1 px-2 text-slate-400 hover:text-white"
+                  title="Reset filter tanggal">
+                  <i class="fa-solid fa-rotate-left text-[10px]"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Regional Selection Pills -->
+          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1" id="colleaguesRegionTabs">
+            <button type="button" class="sitac-region-btn active" data-region="ALL">
+              <span>Semua (<span id="badgeColleaguesRegionAll">0</span>)</span>
+            </button>
+            <button type="button" class="sitac-region-btn" data-region="JAKPUSEL">
+              <span>JAKPUSEL (<span id="badgeColleaguesRegionJakpusel">0</span>)</span>
+            </button>
+            <button type="button" class="sitac-region-btn" data-region="JAKUTIM">
+              <span>JAKUTIM (<span id="badgeColleaguesRegionJakutim">0</span>)</span>
+            </button>
+            <button type="button" class="sitac-region-btn" data-region="BODEBEK">
+              <span>BODEBEK (<span id="badgeColleaguesRegionBodebek">0</span>)</span>
+            </button>
+            <button type="button" class="sitac-region-btn" data-region="JAKBAR">
+              <span>Jakbar (<span id="badgeColleaguesRegionJakbar">0</span>)</span>
+            </button>
+            <button type="button" class="sitac-region-btn" data-region="BANTEN">
+              <span>Banten (<span id="badgeColleaguesRegionBanten">0</span>)</span>
+            </button>
+            <button type="button" class="sitac-region-btn" data-region="TANGERANG">
+              <span>Tangerang (<span id="badgeColleaguesRegionTangerang">0</span>)</span>
+            </button>
+          </div>
+
+          <!-- Regional Calculation Stat Cards (4-card summary) -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-1" id="colleaguesRegionalKpiGrid">
+            <!-- Card 1: Total PA -->
+            <div
+              class="p-2.5 sm:p-3 rounded-xl bg-slate-950/60 border border-white/10 flex flex-col justify-between overflow-hidden">
+              <div class="flex items-center justify-between text-[11px] sm:text-xs text-slate-400">
+                <span class="font-medium truncate">Total Penugasan Tim</span>
+              </div>
+              <div class="mt-1.5 sm:mt-2 flex items-baseline gap-1.5 flex-wrap">
+                <span class="text-lg sm:text-xl font-bold font-mono text-cyan-300" id="regColleaguesTotalPa">0</span>
+                <span class="text-[10px] sm:text-[11px] text-slate-400 font-medium">Penugasan</span>
+              </div>
+              <div
+                class="text-[9px] sm:text-[10px] text-slate-400 mt-1 flex items-center justify-between border-t border-white/5 pt-1">
+                <span>Berbiaya: <b class="text-amber-300 font-mono" id="regColleaguesBerbiaya">0</b></span>
+                <span>Zero Cost: <b class="text-emerald-300 font-mono" id="regColleaguesZeroCost">0</b></span>
+              </div>
+            </div>
+
+            <!-- Card 2: Pengajuan Awal -->
+            <div
+              class="p-2.5 sm:p-3 rounded-xl bg-slate-950/60 border border-white/10 flex flex-col justify-between overflow-hidden">
+              <div class="flex items-center justify-between text-[11px] sm:text-xs text-slate-400">
+                <span class="font-medium truncate">Biaya Pengajuan Awal</span>
+              </div>
+              <div class="mt-1.5 sm:mt-2">
+                <span
+                  class="text-xs xs:text-sm sm:text-lg font-bold font-mono text-rose-300 tracking-tight block truncate"
+                  id="regColleaguesBiayaAwal">Rp 0</span>
+              </div>
+              <div class="text-[9px] sm:text-[10px] text-slate-400 mt-1 border-t border-white/5 pt-1 truncate">
+                Seluruh wilayah operasional
+              </div>
+            </div>
+
+            <!-- Card 3: Realisasi Final -->
+            <div
+              class="p-2.5 sm:p-3 rounded-xl bg-slate-950/60 border border-white/10 flex flex-col justify-between overflow-hidden">
+              <div class="flex items-center justify-between text-[11px] sm:text-xs text-slate-400">
+                <span class="font-medium truncate">Realisasi Biaya Final</span>
+              </div>
+              <div class="mt-1.5 sm:mt-2">
+                <span
+                  class="text-xs xs:text-sm sm:text-lg font-bold font-mono text-amber-300 tracking-tight block truncate"
+                  id="regColleaguesBiayaFinal">Rp 0</span>
+              </div>
+              <div class="text-[9px] sm:text-[10px] text-slate-400 mt-1 border-t border-white/5 pt-1 truncate">
+                Nilai disepakati & dibayarkan
+              </div>
+            </div>
+
+            <!-- Card 4: Penghematan Efisiensi -->
+            <div
+              class="p-2.5 sm:p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/30 flex flex-col justify-between overflow-hidden">
+              <div class="flex items-center justify-between text-[11px] sm:text-xs text-emerald-400 font-semibold">
+                <span class="truncate">Penghematan (Efisiensi)</span>
+              </div>
+              <div class="mt-1.5 sm:mt-2 flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
+                <span
+                  class="text-xs xs:text-sm sm:text-lg font-bold font-mono text-emerald-300 tracking-tight block truncate"
+                  id="regColleaguesHematRupiah">Rp 0</span>
+                <span
+                  class="px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-bold bg-emerald-500/20 text-emerald-300 font-mono w-fit"
+                  id="regColleaguesHematPersen">0.0%</span>
+              </div>
+              <div
+                class="text-[9px] sm:text-[10px] text-emerald-400/80 mt-1 border-t border-emerald-500/20 pt-1 truncate">
+                Hasil negosiasi tim perizinan
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter Toolbar Card -->
+        <div class="filter-toolbar-card">
+          <div class="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+            <!-- Status Pills -->
+            <div
+              class="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-xl border border-white/10 overflow-x-auto max-w-full no-scrollbar shrink-0"
+              id="colleaguesStatusTabs">
+              <button class="sitac-tab-btn active" data-status="ALL"><span>Semua (<span
+                    id="colleaguesTotalBadge">0</span>)</span></button>
+              <button class="sitac-tab-btn" data-status="Finish"><span>Finish (<span
+                    id="colleaguesFinishBadge">0</span>)</span></button>
+              <button class="sitac-tab-btn" data-status="Ongoing"><span>Ongoing (<span
+                    id="colleaguesOngoingBadge">0</span>)</span></button>
+              <button class="sitac-tab-btn" data-status="Hold"><span>Hold (<span
+                    id="colleaguesHoldBadge">0</span>)</span></button>
+              <button class="sitac-tab-btn" data-status="Cancel"><span>Cancel (<span
+                    id="colleaguesCancelBadge">0</span>)</span></button>
+            </div>
+
+            <!-- Search Input -->
+            <div class="relative w-full sm:flex-1 sm:max-w-xs">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
+              <input type="text" id="colleaguesSearchInput" class="filter-input pl-9 w-full text-xs"
+                placeholder="Cari No PA, Pelanggan, PIC, Lokasi...">
+            </div>
+
+            <!-- Filters -->
+            <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <select id="colleaguesFilterPic" class="filter-select text-xs flex-1 sm:flex-initial">
+                <option value="ALL">Semua PIC SITAC</option>
               </select>
-            </div>
-
-            <!-- Search Field -->
-            <div class="relative w-full sm:w-64">
-              <i
-                class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-              <input type="text" id="searchColleaguesSitac" placeholder="Cari No PA, Site, Wilayah..."
-                class="w-full bg-slate-950 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-400">
-            </div>
-          </div>
-
-          <!-- Status Pill Tabs -->
-          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 border-t border-white/5 pt-2"
-            id="colleaguesStatusTabs">
-            <button type="button" class="colleagues-tab-btn active" data-colleagues-tab="ALL">
-              <span>Semua</span>
-              <span class="count" id="countColleaguesAll">0</span>
-            </button>
-            <button type="button" class="colleagues-tab-btn" data-colleagues-tab="ONGOING">
-              <span>Ongoing</span>
-              <span class="count" id="countColleaguesOngoing">0</span>
-            </button>
-            <button type="button" class="colleagues-tab-btn" data-colleagues-tab="FINISH">
-              <span>Finish</span>
-              <span class="count" id="countColleaguesFinish">0</span>
-            </button>
-            <button type="button" class="colleagues-tab-btn" data-colleagues-tab="HOLD">
-              <span>Hold</span>
-              <span class="count" id="countColleaguesHold">0</span>
-            </button>
-            <button type="button" class="colleagues-tab-btn" data-colleagues-tab="CANCEL">
-              <span>Cancel</span>
-              <span class="count" id="countColleaguesCancel">0</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- PIC Mini KPI Summary Cards -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="colleaguesKpiGrid">
-          <div class="bg-slate-900/80 border border-white/10 rounded-xl p-3 flex items-center justify-between">
-            <div>
-              <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Penugasan</p>
-              <h4 class="text-base sm:text-lg font-black text-slate-100 mt-0.5" id="kpiColleaguesTotal">0</h4>
-            </div>
-            <div class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center text-xs">
-              <i class="fa-solid fa-list-check"></i>
-            </div>
-          </div>
-          <div class="bg-slate-900/80 border border-cyan-500/20 rounded-xl p-3 flex items-center justify-between">
-            <div>
-              <p class="text-[10px] uppercase font-bold text-cyan-400 tracking-wider">Sedang Dikerjakan</p>
-              <h4 class="text-base sm:text-lg font-black text-cyan-300 mt-0.5" id="kpiColleaguesOngoing">0</h4>
-            </div>
-            <div class="w-8 h-8 rounded-lg bg-cyan-500/15 text-cyan-400 flex items-center justify-center text-xs">
-              <i class="fa-solid fa-spinner"></i>
-            </div>
-          </div>
-          <div class="bg-slate-900/80 border border-emerald-500/20 rounded-xl p-3 flex items-center justify-between">
-            <div>
-              <p class="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">Selesai (Finish)</p>
-              <h4 class="text-base sm:text-lg font-black text-emerald-300 mt-0.5" id="kpiColleaguesFinish">0</h4>
-            </div>
-            <div class="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center text-xs">
-              <i class="fa-solid fa-check-double"></i>
-            </div>
-          </div>
-          <div class="bg-slate-900/80 border border-amber-500/20 rounded-xl p-3 flex items-center justify-between">
-            <div>
-              <p class="text-[10px] uppercase font-bold text-amber-400 tracking-wider">Penyelesaian (Rate)</p>
-              <h4 class="text-base sm:text-lg font-black text-amber-300 mt-0.5" id="kpiColleaguesRate">0%</h4>
-            </div>
-            <div class="w-8 h-8 rounded-lg bg-amber-500/15 text-amber-400 flex items-center justify-center text-xs">
-              <i class="fa-solid fa-percent"></i>
+              <select id="colleaguesFilterAging" class="filter-select text-xs flex-1 sm:flex-initial">
+                <option value="ALL">Semua Aging SLA</option>
+                <option value="green">Hijau (&le; 7 Hari)</option>
+                <option value="yellow">Kuning (8 - 14 Hari)</option>
+                <option value="red">Merah (> 14 Hari)</option>
+              </select>
+              <select id="colleaguesFilterYear" class="filter-select text-xs flex-1 sm:flex-initial">
+                <option value="ALL">Semua Tahun</option>
+                <option value="2026">2026</option>
+                <option value="2025">2025</option>
+                <option value="2024">2024</option>
+              </select>
+              <button type="button" class="btn btn-secondary text-xs flex items-center gap-1.5"
+                id="btnExportColleaguesExcel" title="Ekspor Data Tim SITAC ke Excel (.xlsx)">
+                <i class="fa-solid fa-file-excel text-emerald-400"></i>
+                <span class="hidden sm:inline">Excel</span>
+              </button>
             </div>
           </div>
         </div>
 
-        <!-- Table Card -->
-        <div class="panel-card bg-slate-900/90 border border-white/10 rounded-2xl shadow-xl overflow-hidden">
-          <div class="p-3.5 bg-slate-950/60 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
-            <div class="flex items-center gap-2">
-              <span class="text-xs font-bold text-slate-200" id="colleaguesTableTitle">Daftar Perizinan Tim SITAC</span>
-              <span class="read-only-badge"><i class="fa-solid fa-eye"></i> View Only</span>
-            </div>
-            <div class="text-xs text-slate-400">
-              Total: <span id="colleaguesCountBadge" class="font-bold text-amber-400">0</span> item
-            </div>
+        <!-- SITAC Colleagues Main Table (Exact 13 Columns, View-Only) -->
+        <div class="table-container-card relative" id="colleaguesTableCard">
+          <div class="mobile-table-hint sm:hidden">
+            <i class="fa-solid fa-arrows-left-right text-[10px]"></i>
+            <span>Geser ke samping untuk melihat kolom lengkap</span>
           </div>
 
-          <div class="table-container max-h-[560px] overflow-x-auto">
-            <table class="table-modern w-full text-xs text-left">
+          <!-- Floating Side Navigation Arrows -->
+          <button type="button" class="table-floating-arrow left" id="colleaguesScrollArrowLeft"
+            aria-label="Geser tabel ke kiri" title="Geser tabel ke kiri">
+            <i class="fa-solid fa-chevron-left"></i>
+          </button>
+          <button type="button" class="table-floating-arrow right attention" id="colleaguesScrollArrowRight"
+            aria-label="Geser tabel ke kanan" title="Geser tabel ke kanan">
+            <i class="fa-solid fa-chevron-right"></i>
+          </button>
+
+          <!-- Edge Gradient Fades -->
+          <div class="table-scroll-fade left"></div>
+          <div class="table-scroll-fade right"></div>
+
+          <div class="overflow-x-auto" id="colleaguesTableScrollWrapper">
+            <table class="portal-table">
               <thead>
-                <tr
-                  class="bg-slate-950/80 border-b border-white/10 text-[11px] uppercase tracking-wider text-slate-400">
-                  <th class="py-2.5 px-3">No</th>
-                  <th class="py-2.5 px-3">No PA & Tanggal</th>
-                  <th class="py-2.5 px-3">PIC SITAC</th>
-                  <th class="py-2.5 px-3">Nama Site & Wilayah</th>
-                  <th class="py-2.5 px-3">Instansi / Izin</th>
-                  <th class="py-2.5 px-3">Biaya Negosiasi</th>
-                  <th class="py-2.5 px-3">Status & Kendala</th>
-                  <th class="py-2.5 px-3 text-center">Aksi</th>
+                <tr>
+                  <th class="w-12">#</th>
+                  <th>Nomor PA</th>
+                  <th>Pelanggan</th>
+                  <th>PIC SITAC</th>
+                  <th>Terminating / Rute</th>
+                  <th class="text-right col-sitac-financial">Biaya Awal</th>
+                  <th class="text-right col-sitac-financial">Biaya Final</th>
+                  <th class="text-right col-sitac-financial">Penghematan</th>
+                  <th class="text-center">Status</th>
+                  <th class="text-center">Aging SLA</th>
+                  <th class="whitespace-nowrap">Tgl Dispos</th>
+                  <th class="whitespace-nowrap">Tgl Selesai</th>
+                  <th class="text-center w-28">Aksi</th>
                 </tr>
               </thead>
-              <tbody id="colleaguesTableBody" class="divide-y divide-white/5">
-                <tr>
-                  <td colspan="8" class="text-center py-10 text-slate-400">
-                    <i class="fa-solid fa-spinner fa-spin text-lg mb-2 text-amber-400"></i>
-                    <p>Memuat data perizinan tim SITAC...</p>
+              <tbody id="colleaguesTableBody">
+                <tr id="colleaguesTableLoadingSkeleton">
+                  <td colspan="13" class="p-8 text-center text-xs text-slate-400">
+                    <div
+                      class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-cyan-400 font-semibold shadow-lg">
+                      <i class="fa-solid fa-circle-notch fa-spin"></i>
+                      <span>Memuat data perizinan tim SITAC...</span>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -2000,19 +2229,14 @@
           </div>
 
           <!-- Pagination -->
-          <div
-            class="p-3 bg-slate-950/70 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div class="text-slate-400" id="colleaguesPaginationInfo">
-              Menampilkan 0 - 0 dari 0 data
-            </div>
-            <div class="flex items-center gap-1.5">
-              <button type="button" id="btnColleaguesPrevPage" class="btn btn-secondary text-xs py-1 px-2.5 rounded-lg">
-                <i class="fa-solid fa-chevron-left mr-1"></i> Prev
-              </button>
-              <span id="colleaguesPageNumber" class="text-xs font-bold text-slate-200 px-2">1 / 1</span>
-              <button type="button" id="btnColleaguesNextPage" class="btn btn-secondary text-xs py-1 px-2.5 rounded-lg">
-                Next <i class="fa-solid fa-chevron-right ml-1"></i>
-              </button>
+          <div class="table-pagination">
+            <div class="text-xs text-slate-400" id="colleaguesPaginationInfo">Halaman 1 dari 1</div>
+            <div class="flex items-center gap-2">
+              <button id="colleaguesPrevPageBtn" class="btn btn-secondary btn-sm"><i
+                  class="fa-solid fa-chevron-left"></i>
+                Prev</button>
+              <button id="colleaguesNextPageBtn" class="btn btn-secondary btn-sm">Next <i
+                  class="fa-solid fa-chevron-right"></i></button>
             </div>
           </div>
         </div>
@@ -4278,7 +4502,7 @@
   <script src="sitac_collo_data.js?v=12.23"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=12.34"></script>
+  <script src="app.js?v=12.35"></script>
 
   <!-- 3. Firebase Cloud Synchronization SDK (Non-Blocking Deferred) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js" defer></script>
