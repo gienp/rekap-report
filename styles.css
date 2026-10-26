@@ -2840,22 +2840,35 @@ select:focus {
   font-weight: 700 !important;
 }
 
-[data-theme="light"] .bento-amber span.text-amber-300 {
+[data-theme="light"] .bento-amber span.rounded-full.text-amber-300,
+[data-theme="light"] .bento-amber .bento-card-inner > div:first-child span.text-amber-300 {
   color: #927600 !important;
   background: rgba(242, 226, 5, 0.15) !important;
   border: 1px solid rgba(242, 226, 5, 0.50) !important;
   font-weight: 700 !important;
 }
 
-[data-theme="light"] .bento-emerald span.text-emerald-300 {
+[data-theme="light"] .bento-emerald span.rounded-full.text-emerald-300,
+[data-theme="light"] .bento-emerald .bento-card-inner > div:first-child span.text-emerald-300 {
   color: #0E6073 !important;
   background: rgba(14, 96, 115, 0.10) !important;
   border: 1px solid rgba(14, 96, 115, 0.35) !important;
   font-weight: 700 !important;
 }
 
+#radialSitacPercent {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
 [data-theme="light"] #radialSitacPercent {
   color: #927600 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
 }
 
 [data-theme="light"] #execGangguanSelesai {
