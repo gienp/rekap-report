@@ -443,9 +443,14 @@ window.DEFAULT_FIREBASE_CONFIG = {
         if (resolvedUser === 'admin') {
           const storedAdminPw = localStorage.getItem('telecom_admin_pw');
           const storedAdminHash = localStorage.getItem('telecom_admin_pw_hash');
-          if (storedAdminPw && password === storedAdminPw) passwordMatches = true;
-          else if (storedAdminHash && pwHash === storedAdminHash) passwordMatches = true;
-          else if (password === 'admin123') passwordMatches = true;
+          if (storedAdminHash) {
+            passwordMatches = (pwHash === storedAdminHash);
+          } else if (storedAdminPw) {
+            passwordMatches = (password === storedAdminPw);
+          } else {
+            // Sinkronisasi otomatis dengan hash password PostgreSQL yang baru diubah
+            passwordMatches = (pwHash === '921443c5e72aac9f10321d52f095edd5ed04ab8deeca8cd0eb425ad46c135c14');
+          }
         } else if (resolvedUser === 'sales') {
           passwordMatches = (password === 'sales123');
         } else if (defAcc.role === 'lapangan') {

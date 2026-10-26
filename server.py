@@ -29,8 +29,66 @@ if sys.platform == 'win32':
 PORT = 8888
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "telecom_portal.db")
+CONFIG_PATH = os.path.join(BASE_DIR, "db_config.json")
+
+def load_db_config():
+    if os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+DB_CONFIG = load_db_config()
+
+try:
+    import psycopg2
+    import psycopg2.extras
+    HAS_POSTGRES = True
+except ImportError:
+    HAS_POSTGRES = False
+
+class PgCursorWrapper:
+    def __init__(self, cur):
+        self.cur = cur
+    def execute(self, query, params=None):
+        if params is not None:
+            query = query.replace('?', '%s')
+            return self.cur.execute(query, params)
+        return self.cur.execute(query)
+    def fetchone(self):
+        return self.cur.fetchone()
+    def fetchall(self):
+        return self.cur.fetchall()
+    def close(self):
+        return self.cur.close()
+
+class PgConnWrapper:
+    def __init__(self, conn):
+        self.conn = conn
+    def cursor(self):
+        return PgCursorWrapper(self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor))
+    def commit(self):
+        return self.conn.commit()
+    def rollback(self):
+        return self.conn.rollback()
+    def close(self):
+        return self.conn.close()
 
 def get_db():
+    if HAS_POSTGRES and DB_CONFIG.get("DB_TYPE") == "postgresql":
+        try:
+            pg_conn = psycopg2.connect(
+                host=DB_CONFIG.get("PG_HOST", "127.0.0.1"),
+                port=DB_CONFIG.get("PG_PORT", 5432),
+                user=DB_CONFIG.get("PG_USER", "postgres"),
+                password=DB_CONFIG.get("PG_PASSWORD", ""),
+                database=DB_CONFIG.get("PG_DATABASE", "telecom_portal")
+            )
+            return PgConnWrapper(pg_conn)
+        except Exception as e:
+            print("[-] Gagal konek PostgreSQL, fallback ke SQLite:", e)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
@@ -64,6 +122,8 @@ def format_pic_name(name: str) -> str:
     return s
 
 def init_users_table():
+    if HAS_POSTGRES and DB_CONFIG.get("DB_TYPE") == "postgresql":
+        return
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""

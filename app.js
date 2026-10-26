@@ -3623,13 +3623,43 @@
     }
 
     try {
-      if (!window.FirebaseManager || !window.FirebaseManager.isConfigured()) {
-        throw new Error('Koneksi Google Firebase belum aktif.');
+      let userObj = null;
+      let token = null;
+
+      // 1. Prioritas Utama: Autentikasi langsung ke PostgreSQL Backend jika server lokal aktif
+      try {
+        const pgRes = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: usernameOrEmail, password: password })
+        });
+        if (pgRes.ok) {
+          const pgData = await pgRes.json();
+          if (pgData && pgData.success && pgData.user) {
+            userObj = pgData.user;
+            token = pgData.token || `pg_auth_${userObj.role}_${Date.now()}`;
+            if (userObj.password_hash) {
+              localStorage.setItem('telecom_admin_pw_hash', userObj.password_hash);
+            }
+          }
+        } else if (pgRes.status === 401 || pgRes.status === 403) {
+          const errData = await pgRes.json().catch(() => ({}));
+          throw new Error(errData.error || 'Password yang Anda masukkan salah. Pastikan sandi akun Anda benar.');
+        }
+      } catch (backendErr) {
+        if (backendErr.message && !backendErr.message.includes('Failed to fetch') && !backendErr.message.includes('NetworkError') && !backendErr.message.includes('Load failed')) {
+          throw backendErr;
+        }
       }
 
-      // PURE FIREBASE AUTHENTICATION (Cloud Firestore)
-      const userObj = await window.FirebaseManager.loginUser(usernameOrEmail, password);
-      const token = `fb_auth_${userObj.role}_${Date.now()}`;
+      // 2. Jika server backend lokal tidak aktif, gunakan Firebase Cloud
+      if (!userObj) {
+        if (!window.FirebaseManager || !window.FirebaseManager.isConfigured()) {
+          throw new Error('Koneksi autentikasi belum aktif.');
+        }
+        userObj = await window.FirebaseManager.loginUser(usernameOrEmail, password);
+        token = `fb_auth_${userObj.role}_${Date.now()}`;
+      }
 
       state.currentUser = userObj;
       state.token = token;
