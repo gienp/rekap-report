@@ -517,17 +517,17 @@ h4,
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #0E6073 0%, #05C7F2 100%) !important;
+  background: #0E6073 !important;
   color: #ffffff !important;
-  border: 1px solid rgba(5, 199, 242, 0.45) !important;
-  box-shadow: 0 4px 16px rgba(14, 96, 115, 0.35) !important;
+  border: 1px solid #0E6073 !important;
+  box-shadow: 0 4px 14px rgba(14, 96, 115, 0.35) !important;
   border-radius: 12px;
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #12748b 0%, #08d4ff 100%) !important;
-  box-shadow: 0 6px 24px rgba(5, 199, 242, 0.4) !important;
-  border-color: #05C7F2 !important;
+  background: #0b4e5d !important;
+  border-color: #0b4e5d !important;
+  box-shadow: 0 6px 20px rgba(14, 96, 115, 0.45) !important;
   transform: translateY(-1px);
 }
 
@@ -4997,13 +4997,13 @@ body.role-lapangan .sales-only {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #2A9D8F 0%, #1A7A6E 100%);
+  background: #0E6073;
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.15rem;
-  box-shadow: 0 4px 14px rgba(42, 157, 143, 0.45), 0 0 0 3px var(--bg-app);
+  box-shadow: 0 4px 14px rgba(14, 96, 115, 0.45), 0 0 0 3px var(--bg-app);
   transition: transform 0.2s ease;
 }
 
