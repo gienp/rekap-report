@@ -2856,6 +2856,28 @@ select:focus {
   font-weight: 700 !important;
 }
 
+/* Bento Card 1 ACTIVE Badge & Solid Green Indicator Lamp in Light Mode */
+[data-theme="light"] .bento-cyan span.rounded-full:has(.animate-ping),
+[data-theme="light"] .bento-cyan span.rounded-full.border-emerald-500\/25,
+[data-theme="light"] .bento-cyan span.border-emerald-500\/25 {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  color: #065f46 !important;
+}
+
+[data-theme="light"] .bento-kpi-card .bg-emerald-500,
+[data-theme="light"] span.rounded-full .bg-emerald-500,
+[data-theme="light"] span.h-2.w-2.bg-emerald-500 {
+  background-color: #10b981 !important;
+  background: #10b981 !important;
+}
+
+[data-theme="light"] .bento-kpi-card .animate-ping.bg-emerald-400,
+[data-theme="light"] span.rounded-full .animate-ping {
+  background-color: #10b981 !important;
+  background: #10b981 !important;
+}
+
 #radialSitacPercent {
   background: transparent !important;
   border: none !important;
