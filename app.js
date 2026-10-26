@@ -1678,18 +1678,18 @@
   // ── PREMIUM CHART THEME ────────────────────────────────────────────────────
   // Custom palette aligned with the portal's color system
   const CHART_PALETTE = {
-    cyan:    '#2A9D8F', // Clearwave Mint Teal
-    mint:    '#10b981', // Clearwave Emerald
-    amber:   '#e9c46a', // Clearwave Ochre / Sand
-    rose:    '#e76f51', // Clearwave Terracotta / Coral
-    indigo:  '#1A7A6E', // Clearwave Forest Teal
-    violet:  '#5BBFB5', // Clearwave Light Seafoam
-    orange:  '#d4a373', // Clearwave Desert Gold
-    sky:     '#48d5c1', // Clearwave Bright Mint
-    lime:    '#84cc16',
-    pink:    '#e07a5f',
+    cyan:    '#05C7F2', // Vibrant Cyan (User Palette)
+    emerald: '#0E6073', // Deep Ocean Teal (User Palette)
+    amber:   '#F2E205', // Radiant Yellow (User Palette)
+    rose:    '#F21D2F', // Crimson Red (User Palette)
+    mint:    '#0ea5a8', // Clearwave Aqua-Teal
+    indigo:  '#093d4a', // Clearwave Dark Teal Noir
+    violet:  '#38d7f7', // Clearwave Electric Cyan
+    orange:  '#d68a00', // Clearwave Deep Gold
+    sky:     '#70e2fa', // Clearwave Soft Sky
+    lime:    '#c8db04', // Clearwave Lime Gold
   };
-  const PALETTE_ORDER = ['cyan','amber','violet','rose','indigo','mint','orange','sky','lime','pink'];
+  const PALETTE_ORDER = ['cyan','emerald','amber','rose','violet','mint','orange','indigo','sky','lime'];
   const getPaletteColors = (n) => PALETTE_ORDER.slice(0, n).map(k => CHART_PALETTE[k]);
 
   // Build a canvas gradient for line/area charts
@@ -1707,19 +1707,19 @@
 
   const getChartTheme = () => {
     const isDark = state.theme === 'dark';
-    const textColor      = isDark ? '#8baaa5' : '#3A5C58';
-    const titleColor     = isDark ? '#f4fafa' : '#0D1E1C';
-    const gridColor      = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(13,30,28,0.06)';
-    const tooltipBg      = isDark ? 'rgba(14,30,27,0.96)' : 'rgba(255,255,255,0.98)';
-    const tooltipBorder  = isDark ? 'rgba(42,157,143,0.4)' : 'rgba(26,122,110,0.2)';
-    const tooltipText    = isDark ? '#f4fafa' : '#0D1E1C';
-    const donutBorder    = isDark ? '#0c221e' : '#ffffff';
+    const textColor      = isDark ? '#8ba8b0' : '#49636a';
+    const titleColor     = isDark ? '#F2F2F2' : '#0a1f24';
+    const gridColor      = isDark ? 'rgba(5, 199, 242, 0.08)' : 'rgba(14, 96, 115, 0.08)';
+    const tooltipBg      = isDark ? 'rgba(6, 21, 26, 0.96)' : 'rgba(255, 255, 255, 0.98)';
+    const tooltipBorder  = isDark ? 'rgba(5, 199, 242, 0.35)' : 'rgba(14, 96, 115, 0.25)';
+    const tooltipText    = isDark ? '#F2F2F2' : '#0a1f24';
+    const donutBorder    = isDark ? '#06151a' : '#ffffff';
 
     // Global Chart.js defaults — set once per theme switch
     Chart.defaults.font.family = "'DM Sans', sans-serif";
     Chart.defaults.font.size   = 11;
     Chart.defaults.color       = textColor;
-    Chart.defaults.borderColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(13,30,28,0.08)';
+    Chart.defaults.borderColor = isDark ? 'rgba(5, 199, 242, 0.10)' : 'rgba(14, 96, 115, 0.10)';
 
     // Scale border & grid defaults — eliminates harsh black axis lines in light mode
     if (Chart.defaults.scale) {
@@ -4193,8 +4193,8 @@
           labels: ['Finish', 'Ongoing', 'Hold', 'Cancel'],
           datasets: [{
             data: [fCnt, oCnt, hCnt, cCnt],
-            backgroundColor: ['#10B981', '#0EA5E9', '#F59E0B', '#F43F5E'],
-            hoverBackgroundColor: ['#34D399', '#38BDF8', '#FBBF24', '#FB7185'],
+            backgroundColor: ['#0E6073', '#05C7F2', '#F2E205', '#F21D2F'],
+            hoverBackgroundColor: ['#14829c', '#38d7f7', '#fff04d', '#ff5b6a'],
             borderWidth: 3,
             borderColor: donutBorder,
             hoverBorderColor: donutBorder,
@@ -4227,8 +4227,8 @@
       destroyChart('jenisSewa');
       const jd = data.jenis_sewa_dist || [];
       const totalCnt = jd.reduce((a, c) => a + c.cnt, 0);
-      const bgColors = ['#10B981', '#0EA5E9', '#F59E0B', '#8B5CF6', '#F43F5E', '#14B8A6'];
-      const hoverColors = ['#34D399', '#38BDF8', '#FBBF24', '#A78BFA', '#FB7185', '#2DD4BF'];
+      const bgColors = ['#0E6073', '#05C7F2', '#F2E205', '#F21D2F', '#0ea5a8', '#64748b'];
+      const hoverColors = ['#14829c', '#38d7f7', '#fff04d', '#ff5b6a', '#22c5c9', '#94a3b8'];
       charts.jenisSewa = new Chart(ctxJenis, {
         type: 'doughnut',
         data: {
@@ -4268,8 +4268,8 @@
     if (ctxExp) {
       destroyChart('expirationDonut');
       const ed = data.expiration_dist || [];
-      const cMap = { CRITICAL: '#F43F5E', WARNING: '#F59E0B', SAFE: '#10B981', EXPIRED: '#8B5CF6' };
-      const hMap = { CRITICAL: '#FB7185', WARNING: '#FBBF24', SAFE: '#34D399', EXPIRED: '#A78BFA' };
+      const cMap = { CRITICAL: '#F21D2F', WARNING: '#F2E205', SAFE: '#0E6073', EXPIRED: '#05C7F2' };
+      const hMap = { CRITICAL: '#ff5b6a', WARNING: '#fff04d', SAFE: '#14829c', EXPIRED: '#38d7f7' };
       charts.expirationDonut = new Chart(ctxExp, {
         type: 'doughnut',
         data: {
@@ -4466,7 +4466,7 @@
       destroyChart('colloStatusDist');
       const dist = state.execData.collo_status_dist || [];
       const total = dist.reduce((acc, curr) => acc + curr.cnt, 0);
-      const colorMap = { 'ACTIVE': '#10B981', 'NON ACTIVE': '#64748B', 'DEACTIVASI': '#F43F5E' };
+      const colorMap = { 'ACTIVE': '#05C7F2', 'NON ACTIVE': '#64748B', 'DEACTIVASI': '#F21D2F' };
       charts.colloStatusDist = new Chart(ctxStat, {
         type: 'doughnut',
         data: {
@@ -4867,8 +4867,8 @@
           labels: top7.map(m => m.pengelola.length > 18 ? m.pengelola.slice(0, 18) + '...' : m.pengelola),
           datasets: [{
             data: top7.map(m => m.total_rev),
-            backgroundColor: ['#10B981', '#0EA5E9', '#F59E0B', '#8B5CF6', '#F43F5E', '#14B8A6', '#EC4899'],
-            hoverBackgroundColor: ['#34D399', '#38BDF8', '#FBBF24', '#A78BFA', '#FB7185', '#2DD4BF', '#F472B6'],
+            backgroundColor: ['#0E6073', '#05C7F2', '#F2E205', '#F21D2F', '#0ea5a8', '#38d7f7', '#64748b'],
+            hoverBackgroundColor: ['#14829c', '#38d7f7', '#fff04d', '#ff5b6a', '#22c5c9', '#70e2fa', '#94a3b8'],
             borderColor: donutBorder,
             hoverBorderColor: donutBorder,
             borderWidth: 2,
@@ -4917,16 +4917,16 @@
             {
               label: 'Revenue Pelanggan',
               data: top7.map(m => m.total_rev),
-              backgroundColor: 'rgba(14, 165, 233, 0.85)',
-              borderColor: '#38BDF8',
+              backgroundColor: 'rgba(5, 199, 242, 0.85)',
+              borderColor: '#05C7F2',
               borderWidth: 1.5,
               borderRadius: 6
             },
             {
               label: 'Biaya Bagi Hasil Mitra',
               data: top7.map(m => m.total_sharing),
-              backgroundColor: 'rgba(245, 158, 11, 0.95)',
-              borderColor: '#FBBF24',
+              backgroundColor: 'rgba(242, 226, 5, 0.90)',
+              borderColor: '#F2E205',
               borderWidth: 1.5,
               borderRadius: 6
             }
@@ -5084,8 +5084,8 @@
           labels: ['CRITICAL (<30 Hari)', 'WARNING (30-60 Hari)', 'SAFE (>60 Hari)', 'EXPIRED / Overdue'],
           datasets: [{
             data: [cnt.critical || 0, cnt.warning || 0, cnt.safe || 0, cnt.expired || 0],
-            backgroundColor: ['#F43F5E', '#F59E0B', '#10B981', '#64748B'],
-            hoverBackgroundColor: ['#FB7185', '#FBBF24', '#34D399', '#94A3B8'],
+            backgroundColor: ['#F21D2F', '#F2E205', '#0E6073', '#64748B'],
+            hoverBackgroundColor: ['#ff5b6a', '#fff04d', '#14829c', '#94A3B8'],
             borderColor: donutBorder,
             hoverBorderColor: donutBorder,
             borderWidth: 2,
@@ -5146,8 +5146,8 @@
           datasets: [{
             label: 'Jumlah Sirkuit',
             data: [dist.overdue, dist.d0_30, dist.d31_60, dist.d61_90, dist.d90plus],
-            backgroundColor: ['#64748B', '#F43F5E', '#F59E0B', '#0EA5E9', '#10B981'],
-            borderColor: ['#94A3B8', '#FB7185', '#FBBF24', '#38BDF8', '#34D399'],
+            backgroundColor: ['#64748B', '#F21D2F', '#F2E205', '#05C7F2', '#0E6073'],
+            borderColor: ['#94A3B8', '#ff5b6a', '#fff04d', '#38d7f7', '#14829c'],
             borderWidth: 1.5,
             borderRadius: 6
           }]
@@ -5417,7 +5417,7 @@
           datasets: [{
             label: `Penugasan PA ${currentStatus !== 'ALL' ? '(' + currentStatus + ')' : ''}`,
             data: [ag.green || 0, ag.yellow || 0, ag.red || 0],
-            backgroundColor: ['#10B981', '#F59E0B', '#F43F5E'],
+            backgroundColor: ['#0E6073', '#F2E205', '#F21D2F'],
             borderRadius: 6
           }]
         },
@@ -5453,7 +5453,7 @@
       if (currentStatus === 'ALL') {
         labels = ['Finish', 'Ongoing', 'Hold', 'Cancel'];
         data = [sc.Finish || 0, sc.Ongoing || 0, sc.Hold || 0, sc.Cancel || 0];
-        bgColors = ['#10B981', '#0EA5E9', '#F59E0B', '#F43F5E'];
+        bgColors = ['#0E6073', '#05C7F2', '#F2E205', '#F21D2F'];
         if (statusBadge) {
           statusBadge.textContent = `Total ${sc.ALL || 686} PA`;
           statusBadge.className = 'pbi-visual-badge';
@@ -5461,7 +5461,7 @@
       } else if (currentStatus === 'Finish') {
         labels = ['Finish'];
         data = [sc.Finish || 0];
-        bgColors = ['#10B981'];
+        bgColors = ['#0E6073'];
         if (statusBadge) {
           statusBadge.textContent = `Finish: ${sc.Finish || 0} PA`;
           statusBadge.className = 'pbi-visual-badge bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
@@ -5469,7 +5469,7 @@
       } else if (currentStatus === 'Ongoing') {
         labels = ['Ongoing'];
         data = [sc.Ongoing || 0];
-        bgColors = ['#0EA5E9'];
+        bgColors = ['#05C7F2'];
         if (statusBadge) {
           statusBadge.textContent = `Ongoing: ${sc.Ongoing || 0} PA`;
           statusBadge.className = 'pbi-visual-badge bg-cyan-500/20 text-cyan-400 border border-cyan-500/30';
@@ -5477,7 +5477,7 @@
       } else if (currentStatus === 'Hold') {
         labels = ['Hold'];
         data = [sc.Hold || 0];
-        bgColors = ['#F59E0B'];
+        bgColors = ['#F2E205'];
         if (statusBadge) {
           statusBadge.textContent = `Hold: ${sc.Hold || 0} PA`;
           statusBadge.className = 'pbi-visual-badge bg-amber-500/20 text-amber-400 border border-amber-500/30';
@@ -5485,7 +5485,7 @@
       } else if (currentStatus === 'Cancel') {
         labels = ['Cancel'];
         data = [sc.Cancel || 0];
-        bgColors = ['#F43F5E'];
+        bgColors = ['#F21D2F'];
         if (statusBadge) {
           statusBadge.textContent = `Cancel: ${sc.Cancel || 0} PA`;
           statusBadge.className = 'pbi-visual-badge bg-rose-500/20 text-rose-400 border border-rose-500/30';
@@ -6004,16 +6004,16 @@
       });
       let labels = ['Selesai (Resolved)', 'Open / Dalam Penanganan'];
       let data = [selesai, open];
-      let bgColors = ['#10B981', '#F43F5E'];
+      let bgColors = ['#0E6073', '#F21D2F'];
 
       if (state.gangguan.status === '0') {
         labels = ['Open / Dalam Penanganan'];
         data = [open];
-        bgColors = ['#F43F5E'];
+        bgColors = ['#F21D2F'];
       } else if (state.gangguan.status === '1') {
         labels = ['Selesai (Resolved)'];
         data = [selesai];
-        bgColors = ['#10B981'];
+        bgColors = ['#0E6073'];
       }
 
       const totalFiltered = data.reduce((a, b) => a + b, 0);
@@ -11199,6 +11199,7 @@
         initWebgisMap();
       }
     };
+    window.applyThemeChange = applyThemeChange;
 
     const themeBtn = document.getElementById('themeToggleBtn');
     themeBtn?.addEventListener('click', () => {
