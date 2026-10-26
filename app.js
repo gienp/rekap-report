@@ -1710,7 +1710,7 @@
     const textColor      = isDark ? '#8ba8b0' : '#49636a';
     const titleColor     = isDark ? '#F2F2F2' : '#0a1f24';
     const gridColor      = isDark ? 'rgba(5, 199, 242, 0.08)' : 'rgba(14, 96, 115, 0.08)';
-    const tooltipBg      = isDark ? 'rgba(6, 21, 26, 0.96)' : 'rgba(255, 255, 255, 0.98)';
+    const tooltipBg      = isDark ? 'rgba(11, 33, 41, 0.96)' : 'rgba(255, 255, 255, 0.98)';
     const tooltipBorder  = isDark ? 'rgba(5, 199, 242, 0.35)' : 'rgba(14, 96, 115, 0.25)';
     const tooltipText    = isDark ? '#F2F2F2' : '#0a1f24';
     const donutBorder    = isDark ? 'transparent' : '#ffffff';
