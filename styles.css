@@ -1662,13 +1662,19 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
     left: 0;
     bottom: 0;
     height: 100vh;
-    z-index: 50;
+    z-index: 100;
     transform: translateX(-100%);
-    box-shadow: 0 0 35px rgba(0, 0, 0, 0.7);
+    box-shadow: 0 0 45px rgba(0, 0, 0, 0.85);
   }
 
   .portal-sidebar.mobile-open {
     transform: translateX(0);
+  }
+
+  .portal-sidebar .portal-brand {
+    padding-top: max(1.2rem, env(safe-area-inset-top, 1.2rem)) !important;
+    padding-bottom: 1.15rem !important;
+    background: rgba(11, 33, 41, 0.98);
   }
 }
 
@@ -4885,7 +4891,7 @@ body.role-lapangan .sales-only {
   background: rgba(3, 7, 18, 0.75);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  z-index: 45;
+  z-index: 90;
   transition: opacity 0.25s ease;
   opacity: 0;
   pointer-events: none;
@@ -4903,10 +4909,10 @@ body.role-lapangan .sales-only {
   left: 0;
   right: 0;
   height: 64px;
-  background: rgba(9, 23, 21, 0.95);
+  background: rgba(11, 33, 41, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-around;
