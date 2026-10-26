@@ -1679,17 +1679,17 @@
   // Custom palette aligned with the portal's color system
   const CHART_PALETTE = {
     cyan:    '#05C7F2', // Vibrant Cyan (User Palette)
-    emerald: '#0E6073', // Deep Ocean Teal (User Palette)
+    purple:  '#8B5CF6', // Royal Purple / Violet (High Contrast)
     amber:   '#F2E205', // Radiant Yellow (User Palette)
     rose:    '#F21D2F', // Crimson Red (User Palette)
-    mint:    '#0ea5a8', // Clearwave Aqua-Teal
-    indigo:  '#093d4a', // Clearwave Dark Teal Noir
-    violet:  '#38d7f7', // Clearwave Electric Cyan
-    orange:  '#d68a00', // Clearwave Deep Gold
-    sky:     '#70e2fa', // Clearwave Soft Sky
-    lime:    '#c8db04', // Clearwave Lime Gold
+    emerald: '#0E6073', // Deep Ocean Teal (User Palette)
+    orange:  '#F97316', // Vibrant Orange
+    green:   '#10B981', // Emerald Green
+    slate:   '#94A3B8', // Clean Slate Gray
+    pink:    '#EC4899', // Hot Pink
+    sky:     '#38BDF8', // Sky Blue
   };
-  const PALETTE_ORDER = ['cyan','emerald','amber','rose','violet','mint','orange','indigo','sky','lime'];
+  const PALETTE_ORDER = ['cyan', 'purple', 'amber', 'rose', 'emerald', 'orange', 'green', 'slate', 'pink', 'sky'];
   const getPaletteColors = (n) => PALETTE_ORDER.slice(0, n).map(k => CHART_PALETTE[k]);
 
   // Build a canvas gradient for line/area charts
@@ -4229,16 +4229,32 @@
       destroyChart('jenisSewa');
       const jd = data.jenis_sewa_dist || [];
       const totalCnt = jd.reduce((a, c) => a + c.cnt, 0);
-      const bgColors = ['#0E6073', '#05C7F2', '#F2E205', '#F21D2F', '#0ea5a8', '#64748b'];
-      const hoverColors = ['#14829c', '#38d7f7', '#fff04d', '#ff5b6a', '#22c5c9', '#94a3b8'];
+      const jenisColorMap = {
+        'Colocation': { bg: '#05C7F2', hover: '#38d7f7' },      // Vibrant Cyan (User Brand)
+        'Cross Connect': { bg: '#8B5CF6', hover: '#a78bfa' },   // Royal Purple / Violet (Distinct from Cyan & Red)
+        'Interkoneksi': { bg: '#F2E205', hover: '#fff04d' },    // Radiant Yellow (User Brand)
+        'Revenue Sharing': { bg: '#F21D2F', hover: '#ff5b6a' }, // Crimson Red (User Brand)
+        'Space Tower': { bg: '#F97316', hover: '#fb923c' },     // Vibrant Orange (Distinct from Yellow & Red)
+        'Lainnya': { bg: '#94A3B8', hover: '#cbd5e1' }          // Slate Silver (Neutral)
+      };
+      const fallbackPalette = [
+        { bg: '#05C7F2', hover: '#38d7f7' },
+        { bg: '#8B5CF6', hover: '#a78bfa' },
+        { bg: '#F2E205', hover: '#fff04d' },
+        { bg: '#F21D2F', hover: '#ff5b6a' },
+        { bg: '#F97316', hover: '#fb923c' },
+        { bg: '#94A3B8', hover: '#cbd5e1' }
+      ];
+      const bgColors = jd.map((j, idx) => (jenisColorMap[j.jenis]?.bg || fallbackPalette[idx % fallbackPalette.length].bg));
+      const hoverColors = jd.map((j, idx) => (jenisColorMap[j.jenis]?.hover || fallbackPalette[idx % fallbackPalette.length].hover));
       charts.jenisSewa = new Chart(ctxJenis, {
         type: 'doughnut',
         data: {
           labels: jd.map(j => j.jenis),
           datasets: [{
             data: jd.map(j => j.cnt),
-            backgroundColor: bgColors.slice(0, jd.length),
-            hoverBackgroundColor: hoverColors.slice(0, jd.length),
+            backgroundColor: bgColors,
+            hoverBackgroundColor: hoverColors,
             borderWidth: donutBorderWidth,
             borderColor: donutBorder,
             hoverBorderColor: donutBorder,
@@ -4270,8 +4286,8 @@
     if (ctxExp) {
       destroyChart('expirationDonut');
       const ed = data.expiration_dist || [];
-      const cMap = { CRITICAL: '#F21D2F', WARNING: '#F2E205', SAFE: '#0E6073', EXPIRED: '#05C7F2' };
-      const hMap = { CRITICAL: '#ff5b6a', WARNING: '#fff04d', SAFE: '#14829c', EXPIRED: '#38d7f7' };
+      const cMap = { CRITICAL: '#F21D2F', WARNING: '#F2E205', SAFE: '#0E6073', EXPIRED: '#8B5CF6' };
+      const hMap = { CRITICAL: '#ff5b6a', WARNING: '#fff04d', SAFE: '#14829c', EXPIRED: '#a78bfa' };
       charts.expirationDonut = new Chart(ctxExp, {
         type: 'doughnut',
         data: {
@@ -4869,8 +4885,8 @@
           labels: top7.map(m => m.pengelola.length > 18 ? m.pengelola.slice(0, 18) + '...' : m.pengelola),
           datasets: [{
             data: top7.map(m => m.total_rev),
-            backgroundColor: ['#0E6073', '#05C7F2', '#F2E205', '#F21D2F', '#0ea5a8', '#38d7f7', '#64748b'],
-            hoverBackgroundColor: ['#14829c', '#38d7f7', '#fff04d', '#ff5b6a', '#22c5c9', '#70e2fa', '#94a3b8'],
+            backgroundColor: ['#05C7F2', '#8B5CF6', '#F2E205', '#F21D2F', '#F97316', '#10B981', '#94A3B8'],
+            hoverBackgroundColor: ['#38d7f7', '#a78bfa', '#fff04d', '#ff5b6a', '#fb923c', '#34d399', '#cbd5e1'],
             borderColor: donutBorder,
             hoverBorderColor: donutBorder,
             borderWidth: donutBorderWidth,
