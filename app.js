@@ -6080,16 +6080,30 @@
         });
       });
 
-      // Search input with debounce
+      // Search input with debounce & clear button
       const colleaguesSearch = document.getElementById('colleaguesSearchInput');
+      const btnClearColleagues = document.getElementById('btnClearColleaguesSearch');
       let searchTimer = null;
       colleaguesSearch?.addEventListener('input', (e) => {
+        if (btnClearColleagues) {
+          btnClearColleagues.classList.toggle('hidden', !e.target.value);
+        }
         clearTimeout(searchTimer);
         searchTimer = setTimeout(() => {
           state.colleagues.search = e.target.value.trim().toLowerCase();
           state.colleagues.page = 1;
           loadColleaguesData();
         }, 300);
+      });
+      btnClearColleagues?.addEventListener('click', () => {
+        if (colleaguesSearch) {
+          colleaguesSearch.value = '';
+          btnClearColleagues.classList.add('hidden');
+          colleaguesSearch.focus();
+          state.colleagues.search = '';
+          state.colleagues.page = 1;
+          loadColleaguesData();
+        }
       });
 
       // Filter PIC
@@ -11978,14 +11992,28 @@
     });
 
     const sitacSearch = document.getElementById('sitacSearchInput');
+    const btnClearSitac = document.getElementById('btnClearSitacSearch');
     let sitacTimer = null;
     sitacSearch?.addEventListener('input', (e) => {
+      if (btnClearSitac) {
+        btnClearSitac.classList.toggle('hidden', !e.target.value);
+      }
       clearTimeout(sitacTimer);
       sitacTimer = setTimeout(() => {
         state.sitac.search = e.target.value;
         state.sitac.page = 1;
         loadSitacData();
       }, 300);
+    });
+    btnClearSitac?.addEventListener('click', () => {
+      if (sitacSearch) {
+        sitacSearch.value = '';
+        btnClearSitac.classList.add('hidden');
+        sitacSearch.focus();
+        state.sitac.search = '';
+        state.sitac.page = 1;
+        loadSitacData();
+      }
     });
 
     document.getElementById('sitacFilterPic')?.addEventListener('change', (e) => {

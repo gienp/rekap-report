@@ -72,7 +72,7 @@
   <link rel="preload" href="app.js?v=12.34" as="script">
 
   <!-- Custom Portal Stylesheet -->
-  <link rel="stylesheet" href="styles.css?v=12.21">
+  <link rel="stylesheet" href="styles.css?v=12.22">
 
   <!-- ZERO-FLICKER VIEW PERSISTENCE SYNC (ELIMINATES PAGE REFRESH FLASH) -->
   <script>
@@ -1711,8 +1711,9 @@
           </div>
         </div>
 
-        <div class="filter-toolbar-card">
-          <div class="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+        <div class="filter-toolbar-card space-y-3">
+          <!-- Top Row: Status Tabs & Dedicated Search Input -->
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <!-- Status Pills -->
             <div
               class="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-xl border border-white/10 overflow-x-auto max-w-full no-scrollbar shrink-0"
@@ -1729,15 +1730,20 @@
                     id="sitacCancelBadge">63</span>)</span></button>
             </div>
 
-            <!-- Search Input -->
-            <div class="relative w-full sm:flex-1 sm:max-w-xs">
-              <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
-              <input type="text" id="sitacSearchInput" class="filter-input pl-9 w-full text-xs"
-                placeholder="Cari No PA, Pelanggan, PIC">
+            <!-- Search Input with Guaranteed Width & Clear Button -->
+            <div class="filter-search-wrap w-full md:w-80 lg:w-96 shrink-0">
+              <i class="fa-solid fa-magnifying-glass search-icon"></i>
+              <input type="text" id="sitacSearchInput" class="filter-input"
+                placeholder="Cari No PA, Pelanggan, PIC, Lokasi...">
+              <button type="button" id="btnClearSitacSearch" class="btn-clear-search hidden" title="Hapus pencarian">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
             </div>
+          </div>
 
-            <!-- Filters -->
-            <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <!-- Bottom Row: Refinement Filters & Action Buttons -->
+          <div class="flex flex-wrap items-center justify-between gap-2.5 pt-2.5 border-t border-white/5">
+            <div class="flex flex-wrap items-center gap-2 flex-1">
               <select id="sitacFilterPic" class="filter-select text-xs flex-1 sm:flex-initial">
                 <option value="ALL">Semua PIC SITAC</option>
               </select>
@@ -1753,6 +1759,9 @@
                 <option value="2025">2025</option>
                 <option value="2024">2024</option>
               </select>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2 shrink-0">
               <!-- Quick Filter: Penugasan Saya -->
               <button type="button" class="btn btn-secondary text-xs flex items-center gap-1.5 btn-my-tasks"
                 id="btnSitacMyTasks" title="Filter hanya penugasan PA untuk teknisi aktif">
@@ -2123,8 +2132,9 @@
         </div>
 
         <!-- Filter Toolbar Card -->
-        <div class="filter-toolbar-card">
-          <div class="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+        <div class="filter-toolbar-card space-y-3">
+          <!-- Top Row: Status Tabs & Dedicated Search Input -->
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <!-- Status Pills -->
             <div
               class="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-xl border border-white/10 overflow-x-auto max-w-full no-scrollbar shrink-0"
@@ -2141,15 +2151,20 @@
                     id="colleaguesCancelBadge">0</span>)</span></button>
             </div>
 
-            <!-- Search Input -->
-            <div class="relative w-full sm:flex-1 sm:max-w-xs">
-              <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
-              <input type="text" id="colleaguesSearchInput" class="filter-input pl-9 w-full text-xs"
+            <!-- Search Input with Guaranteed Width & Clear Button -->
+            <div class="filter-search-wrap w-full md:w-80 lg:w-96 shrink-0">
+              <i class="fa-solid fa-magnifying-glass search-icon"></i>
+              <input type="text" id="colleaguesSearchInput" class="filter-input"
                 placeholder="Cari No PA, Pelanggan, PIC, Lokasi...">
+              <button type="button" id="btnClearColleaguesSearch" class="btn-clear-search hidden" title="Hapus pencarian">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
             </div>
+          </div>
 
-            <!-- Filters -->
-            <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <!-- Bottom Row: Refinement Filters & Actions -->
+          <div class="flex flex-wrap items-center justify-between gap-2.5 pt-2.5 border-t border-white/5">
+            <div class="flex flex-wrap items-center gap-2 flex-1">
               <select id="colleaguesFilterPic" class="filter-select text-xs flex-1 sm:flex-initial">
                 <option value="ALL">Semua PIC SITAC</option>
               </select>
@@ -2165,6 +2180,9 @@
                 <option value="2025">2025</option>
                 <option value="2024">2024</option>
               </select>
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0">
               <button type="button" class="btn btn-secondary text-xs flex items-center gap-1.5"
                 id="btnExportColleaguesExcel" title="Ekspor Data Tim SITAC ke Excel (.xlsx)">
                 <i class="fa-solid fa-file-excel text-emerald-400"></i>
@@ -4502,7 +4520,7 @@
   <script src="sitac_collo_data.js?v=12.23"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=12.36"></script>
+  <script src="app.js?v=12.37"></script>
 
   <!-- 3. Firebase Cloud Synchronization SDK (Non-Blocking Deferred) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js" defer></script>
