@@ -9654,8 +9654,8 @@
     const body = records.map(c => [
       c.pengelola || '-',
       c.pelanggan || '-',
-      (c.no_so || '-').substring(0, 20),
-      (c.terminating || '-').substring(0, 35),
+      c.no_so || '-',
+      c.terminating || '-',
       c.jenis_sewa || '-',
       fmtRp(c.rev_sewa_tahun),
       fmtRp(c.biaya_otc),
@@ -9730,7 +9730,7 @@
     const body = records.map(c => [
       c.pengelola || '-',
       c.pelanggan || '-',
-      (c.sid || '-').substring(0, 25),
+      c.sid || '-',
       c.rev_sharing_raw || '-',
       fmtRp(c.rev_sewa_tahun),
       fmtRp(c.biaya_rev_sharing),
@@ -9890,11 +9890,11 @@
     });
 
     const body = records.map(s => [
-      (s.no_pa || '-').substring(0, 18),
-      (s.pelanggan || '-').substring(0, 30),
+      s.no_pa || '-',
+      s.pelanggan || '-',
       s.pic_perijinan || '-',
       s.ptl || '-',
-      (s.terminating || '-').substring(0, 35),
+      s.terminating || '-',
       fmtRp(s.biaya_permintaan_awal),
       fmtRp(s.biaya_final),
       fmtRp(s.efisiensi_rupiah),
@@ -9918,17 +9918,23 @@
 
     doc.autoTable({
       startY: startY + 4,
-      head: [['No PA', 'Pelanggan', 'PIC SITAC', 'PTL', 'Terminating', 'Biaya Awal', 'Biaya Final', 'Penghematan', 'Status', 'SLA']],
+      head: [['No PA', 'Pelanggan', 'PIC SITAC', 'PTL', 'Terminating (Rute / Lokasi)', 'Biaya Awal', 'Biaya Final', 'Penghematan', 'Status', 'SLA']],
       body: body,
       theme: 'grid',
-      styles: { fontSize: 7, cellPadding: 2.5, textColor: [30, 41, 59], overflow: 'linebreak' },
-      headStyles: { fillColor: [245, 158, 11], textColor: [30, 41, 59], fontStyle: 'bold', fontSize: 7.5 },
+      styles: { fontSize: 6.8, cellPadding: 2, textColor: [30, 41, 59], overflow: 'linebreak' },
+      headStyles: { fillColor: [245, 158, 11], textColor: [30, 41, 59], fontStyle: 'bold', fontSize: 7.2 },
       alternateRowStyles: { fillColor: [254, 249, 235] },
       columnStyles: {
-        5: { halign: 'right' },
-        6: { halign: 'right' },
-        7: { halign: 'right' },
-        9: { halign: 'right' }
+        0: { cellWidth: 26 },
+        1: { cellWidth: 35 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 24 },
+        4: { cellWidth: 70, overflow: 'linebreak' },
+        5: { halign: 'right', cellWidth: 20 },
+        6: { halign: 'right', cellWidth: 20 },
+        7: { halign: 'right', cellWidth: 20 },
+        8: { cellWidth: 14 },
+        9: { halign: 'right', cellWidth: 12 }
       },
       didParseCell: function(data) {
         if (data.row.index === body.length - 1) {
@@ -9970,7 +9976,7 @@
       g.no_tiket || '-',
       g.tgl_dispos || '-',
       g.tgl_selesai || '-',
-      (g.terminating || '-').substring(0, 40),
+      g.terminating || '-',
       g.jenis_gangguan || '-',
       g.pic_perijinan || '-',
       fmtRp(g.biaya_gangguan),
@@ -9998,6 +10004,7 @@
       headStyles: { fillColor: [239, 68, 68], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
       alternateRowStyles: { fillColor: [254, 242, 242] },
       columnStyles: {
+        3: { cellWidth: 65, overflow: 'linebreak' },
         6: { halign: 'right' }
       },
       didParseCell: function(data) {
