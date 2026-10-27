@@ -296,7 +296,7 @@ window.DEFAULT_FIREBASE_CONFIG = {
       if (!snap.empty) return; // Already has users
 
       const defaultUsers = [
-        { username: 'admin', email: 'admin@telecom.ops', password_hash: await hashPwClient('admin123'), full_name: 'Administrator (Manajemen)', role: 'admin', avatar_icon: 'fa-shield-halved', badge_color: 'cyan', pic_code: '' },
+        { username: 'admin', email: 'admin@telecom.ops', password_hash: '921443c5e72aac9f10321d52f095edd5ed04ab8deeca8cd0eb425ad46c135c14', full_name: 'Administrator (Manajemen)', role: 'admin', avatar_icon: 'fa-shield-halved', badge_color: 'cyan', pic_code: '' },
         { username: 'harlan', email: 'harlan@telecom.ops', password_hash: await hashPwClient('pic123'), full_name: 'Harlan', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'emerald', pic_code: 'Harlan' },
         { username: 'budi', email: 'budi@telecom.ops', password_hash: await hashPwClient('pic123'), full_name: 'Budi Rodiyah', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'cyan', pic_code: 'Budi' },
         { username: 'edi', email: 'edi@telecom.ops', password_hash: await hashPwClient('pic123'), full_name: 'Edi Swargaloka', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'amber', pic_code: 'Edi' },
@@ -1010,6 +1010,10 @@ window.DEFAULT_FIREBASE_CONFIG = {
       try {
         await window.SupabaseManager.changePassword(uLower, newPw);
       } catch (sbErr) {}
+    }
+
+    if (uLower === 'admin') {
+      try { localStorage.setItem('telecom_admin_pw_hash', newHash); } catch (e) {}
     }
 
     await logActivity('CHANGE_PASSWORD', `User ${uLower} berhasil mengubah kata sandi di Firebase`, uLower);

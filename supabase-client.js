@@ -175,7 +175,7 @@
 
       const isMatch = (uData.password_hash === pwHash) ||
         (uData.password_hash === password) || // Jika admin mengetik teks biasa di tabel Supabase
-        (uData.role === 'admin' && (password === 'admin123' || pwHash === uData.password_hash)) ||
+        (uData.role === 'admin' && pwHash === uData.password_hash) ||
         (uData.role === 'sales' && (password === 'sales123' || pwHash === uData.password_hash)) ||
         (uData.role === 'lapangan' && (password === 'pic123' || password === `${uData.username}123` || pwHash === uData.password_hash));
 

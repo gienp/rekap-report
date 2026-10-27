@@ -165,7 +165,7 @@ def init_users_table():
     conn.commit()
 
     default_users = [
-        ('admin', hash_pw('admin123'), 'Administrator (Manajemen)', 'admin', 'fa-shield-halved', 'cyan', '', 'admin@telecom.ops'),
+        ('admin', '921443c5e72aac9f10321d52f095edd5ed04ab8deeca8cd0eb425ad46c135c14', 'Administrator (Manajemen)', 'admin', 'fa-shield-halved', 'cyan', '', 'admin@telecom.ops'),
         ('lapangan', hash_pw('lapangan123'), 'Tim SITAC & Lapangan (Umum)', 'lapangan', 'fa-helmet-safety', 'emerald', 'Harlan', 'lapangan@telecom.ops'),
         ('harlan', hash_pw('pic123'), 'Harlan', 'lapangan', 'fa-helmet-safety', 'emerald', 'Harlan', 'harlan@telecom.ops'),
         ('budi', hash_pw('pic123'), 'Budi Rodiyah', 'lapangan', 'fa-helmet-safety', 'cyan', 'Budi', 'budi@telecom.ops'),
