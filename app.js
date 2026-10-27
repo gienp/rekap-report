@@ -3926,7 +3926,20 @@
         s2.onerror = reject;
         document.head.appendChild(s2);
       };
-      s2.onerror = reject;
+      s.onerror = (err) => {
+        // Fallback to jsdelivr if cdnjs fails
+        const fb1 = document.createElement('script');
+        fb1.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
+        fb1.onload = () => {
+          const fb2 = document.createElement('script');
+          fb2.src = 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js';
+          fb2.onload = () => resolve(window.jspdf);
+          fb2.onerror = reject;
+          document.head.appendChild(fb2);
+        };
+        fb1.onerror = reject;
+        document.head.appendChild(fb1);
+      };
       document.head.appendChild(s);
     });
   }
