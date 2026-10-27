@@ -9303,6 +9303,7 @@
       'view-collo-rev-sharing': 'Laporan Revenue Sharing',
       'view-collo-alerts': 'Laporan Alert Kontrak',
       'view-sitac-pa': 'Laporan SITAC Project Assignment',
+      'view-sitac-colleagues': 'Laporan Monitoring Tim SITAC',
       'view-gangguan': 'Laporan Gangguan Darurat',
       'view-efisiensi': 'Laporan Efisiensi Biaya',
       'view-pic-matrix': 'Laporan Beban Kerja PIC'
@@ -9335,7 +9336,7 @@
     // Company info right
     doc.setFontSize(9);
     doc.setTextColor(6, 182, 212);
-    doc.text('PT Telkom Indonesia', pageW - 14, 12, { align: 'right' });
+    doc.text('ANALYTICS PORTAL', pageW - 14, 12, { align: 'right' });
     doc.setTextColor(148, 163, 184);
     doc.setFontSize(7);
     doc.text('Infrastructure & Lease Ops', pageW - 14, 18, { align: 'right' });
@@ -9391,7 +9392,7 @@
       await exportColloPdf(doc, startY, view);
     } else if (view === 'view-collo-rev-sharing') {
       exportRevSharingPdf(doc, startY);
-    } else if (view === 'view-sitac-pa') {
+    } else if (view === 'view-sitac-pa' || view === 'view-sitac-colleagues') {
       await exportSitacPdf(doc, startY);
     } else if (view === 'view-gangguan') {
       exportGangguanPdf(doc, startY);
@@ -9496,34 +9497,88 @@
     }
   }
 
-  // --- COLOCATION PDF ---
+  // --- COLOCATION PDF (RESPECTS ALL ACTIVE FILTERS) ---
   async function exportColloPdf(doc, startY, view) {
-    let records = view === 'view-collo-alerts' ? state.alerts.data : state.collo.data;
-    if (view === 'view-collo-list') {
+    let records = [];
+    const isAlerts = view === 'view-collo-alerts';
+
+    if (isAlerts) {
+      records = state.alerts?.data || [];
+    } else {
+      const { status, jenisSewa, pengelola, search, sort } = state.collo;
       try {
-        const { status, jenisSewa, pengelola, search, sort } = state.collo;
         const params = new URLSearchParams({
-          status, jenis_sewa: jenisSewa, pengelola, search, sort, page: 1, pageSize: 500
+          status: status || 'ALL',
+          jenis_sewa: jenisSewa || 'ALL',
+          pengelola: pengelola || 'ALL',
+          search: search || '',
+          sort: sort || 'margin_desc',
+          page: 1,
+          pageSize: 5000
         });
-        const res = await fetch(`/api/collo?${params}`);
+        const res = await fetch(`/api/collo?${params.toString()}`);
         if (res.ok) {
           const json = await res.json();
-          if (json.data && json.data.length > 0) records = json.data;
+          if (json.data && Array.isArray(json.data)) records = json.data;
         }
       } catch (e) {
         console.warn('Fallback to loaded page data', e);
       }
+
+      // Direct fallback filter to ensure 100% adherence to active screen filters
+      if (!records || records.length === 0) {
+        const allCollo = (window.SITAC_COLLO_DATA && window.SITAC_COLLO_DATA.collo_records) || state.collo?.data || [];
+        records = allCollo.filter(c => {
+          if (status && status !== 'ALL' && c.status !== status) return false;
+          if (jenisSewa && jenisSewa !== 'ALL' && (c.jenis_sewa || '').toLowerCase() !== jenisSewa.toLowerCase()) return false;
+          if (pengelola && pengelola !== 'ALL') {
+            const targetNorm = (typeof normalizePengelolaName === 'function' ? normalizePengelolaName(pengelola) : pengelola).toLowerCase();
+            const raw = (c.pengelola || '').toLowerCase();
+            const norm = (typeof normalizePengelolaName === 'function' ? normalizePengelolaName(c.pengelola) : raw).toLowerCase();
+            if (raw !== targetNorm && norm !== targetNorm) return false;
+          }
+          if (search) {
+            const q = search.toLowerCase();
+            const match = (c.no_so || '').toLowerCase().includes(q) ||
+              (c.pelanggan || '').toLowerCase().includes(q) ||
+              (c.sid || '').toLowerCase().includes(q) ||
+              (c.pengelola || '').toLowerCase().includes(q) ||
+              (c.originating || '').toLowerCase().includes(q) ||
+              (c.terminating || '').toLowerCase().includes(q);
+            if (!match) return false;
+          }
+          return true;
+        });
+      }
     }
+
     if (!records || records.length === 0) {
       doc.setFontSize(11); doc.setTextColor(239, 68, 68);
-      doc.text('Tidak ada data Colocation untuk diekspor.', 14, startY + 10);
+      doc.text('Tidak ada data Colocation yang sesuai dengan filter aktif.', 14, startY + 10);
       return;
     }
 
-    // Summary info
-    doc.setFontSize(9);
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Total Record: ${records.length} | Filter: ${state.collo.status} | Jenis Sewa: ${state.collo.jenisSewa}`, 14, startY);
+    const { status, jenisSewa, pengelola, search } = state.collo;
+    const filterInfo = isAlerts
+      ? `Alert Kedaluwarsa (${state.alerts.category || 'CRITICAL'}) | Total: ${records.length} Sirkuit`
+      : [
+          `Status: ${status || 'ALL'}`,
+          pengelola && pengelola !== 'ALL' ? `Pengelola: ${pengelola}` : null,
+          jenisSewa && jenisSewa !== 'ALL' ? `Jenis Sewa: ${jenisSewa}` : null,
+          search ? `Pencarian: "${search}"` : null
+        ].filter(Boolean).join(' | ');
+
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Total Hasil Filter: ${records.length} Sirkuit (${filterInfo})`, 14, startY);
+
+    let sumRev = 0, sumOtc = 0, sumBiaya = 0, sumMargin = 0;
+    records.forEach(c => {
+      sumRev += Number(c.rev_sewa_tahun) || 0;
+      sumOtc += Number(c.biaya_otc) || 0;
+      sumBiaya += Number(c.biaya_sewa_tahun) || 0;
+      sumMargin += Number(c.margin_rupiah) || 0;
+    });
 
     const body = records.map(c => [
       c.pengelola || '-',
@@ -9538,6 +9593,22 @@
       `${c.margin_persen || 0}%`,
       c.status || '-',
       c.sisa_hari != null ? `${c.sisa_hari} hr` : '-'
+    ]);
+
+    // Summary row
+    body.push([
+      'TOTAL FILTERED',
+      `${records.length} Sirkuit`,
+      '-',
+      '-',
+      '-',
+      fmtRp(sumRev),
+      fmtRp(sumOtc),
+      fmtRp(sumBiaya),
+      fmtRp(sumMargin),
+      sumRev > 0 ? `${((sumMargin / sumRev) * 100).toFixed(1)}%` : '-',
+      '-',
+      '-'
     ]);
 
     doc.autoTable({
@@ -9563,7 +9634,11 @@
         11: { halign: 'right', cellWidth: 14 }
       },
       didParseCell: function(data) {
-        if (data.section === 'body' && data.column.index === 10) {
+        if (data.row.index === body.length - 1) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = [224, 242, 254];
+          data.cell.styles.textColor = [12, 74, 96];
+        } else if (data.section === 'body' && data.column.index === 10) {
           const clr = getStatusColor(data.cell.raw);
           data.cell.styles.textColor = clr;
           data.cell.styles.fontStyle = 'bold';
@@ -9614,31 +9689,134 @@
     });
   }
 
-  // --- SITAC PDF ---
+  // --- SITAC PDF (100% RESPECTS ACTIVE REGIONAL & ALL FILTERS) ---
   async function exportSitacPdf(doc, startY) {
-    let records = state.sitac.data;
+    const isColleagues = state.activeView === 'view-sitac-colleagues';
+    const sitacState = isColleagues ? state.colleagues : state.sitac;
+    let records = [];
+
+    const { status, pic, year, aging, region, search, startDate, endDate, dateField } = sitacState;
+    const isLapangan = state.currentUser?.role === 'lapangan';
+    const finalPic = (isLapangan || state.myTasksOnlySitac) && state.activeTechnician && state.activeTechnician !== 'Admin' && !isColleagues
+      ? state.activeTechnician
+      : (pic || 'ALL');
+    const finalRegion = region || 'ALL';
+
     try {
-      const { status, pic, year, aging, search } = state.sitac;
       const params = new URLSearchParams({
-        status, pic, year, aging, search, page: 1, pageSize: 500
+        status: status || 'ALL',
+        pic: finalPic,
+        year: year || 'ALL',
+        aging: aging || 'ALL',
+        region: finalRegion,
+        search: search || '',
+        page: 1,
+        pageSize: 5000,
+        startDate: startDate || '',
+        endDate: endDate || '',
+        dateField: dateField || 'date_dispos',
+        all_team: isColleagues ? '1' : '0'
       });
-      const res = await fetch(`/api/sitac?${params}`);
+      const res = await fetch(`/api/sitac?${params.toString()}`);
       if (res.ok) {
         const json = await res.json();
-        if (json.data && json.data.length > 0) records = json.data;
+        if (json.data && Array.isArray(json.data)) records = json.data;
       }
     } catch (e) {
-      console.warn('Fallback to loaded sitac data', e);
+      console.warn('Fallback to loaded sitac data for PDF', e);
     }
+
+    // Rock-solid fallback: if records is empty, filter directly from dataset
+    if (!records || records.length === 0) {
+      const allSitac = (window.SITAC_COLLO_DATA && window.SITAC_COLLO_DATA.sitac_records) || state.sitac?.data || [];
+      records = allSitac.filter(s => {
+        // Field technician restriction
+        if (isLapangan && !isColleagues && !isUserAssignedToTask(s, state.currentUser)) return false;
+        if (finalPic !== 'ALL' && !isUserAssignedToTask(s, { pic_code: finalPic, username: finalPic })) return false;
+
+        // Status
+        if (status && status !== 'ALL' && (s.progress || '').toLowerCase() !== status.toLowerCase()) return false;
+
+        // Region
+        if (finalRegion && finalRegion !== 'ALL') {
+          const reg = typeof classifySitacRegion === 'function' ? classifySitacRegion(s) : 'LAINNYA';
+          if (reg !== finalRegion) return false;
+        }
+
+        // Year
+        if (year && year !== 'ALL') {
+          const y = (s.date_dispos || '').substring(0, 4);
+          if (y !== String(year)) return false;
+        }
+
+        // Aging
+        if (aging && aging !== 'ALL') {
+          const dur = Number(s.durasi_hari) || 0;
+          if (aging === 'green' && !(dur <= 30)) return false;
+          if (aging === 'yellow' && !(dur > 30 && dur <= 60)) return false;
+          if (aging === 'red' && !(dur > 60)) return false;
+        }
+
+        // Date Range
+        if (startDate || endDate) {
+          const raw = s[dateField] || s.date_dispos || '';
+          const dStr = String(raw).trim().substring(0, 10);
+          if (!dStr) return false;
+          if (startDate && dStr < startDate) return false;
+          if (endDate && dStr > endDate) return false;
+        }
+
+        // Search
+        if (search) {
+          const q = search.toLowerCase();
+          const match = (s.no_pa || '').toLowerCase().includes(q) ||
+            (s.pelanggan || '').toLowerCase().includes(q) ||
+            (s.terminating || '').toLowerCase().includes(q) ||
+            (s.pic_perijinan || '').toLowerCase().includes(q) ||
+            (s.ptl || '').toLowerCase().includes(q);
+          if (!match) return false;
+        }
+
+        return true;
+      });
+    }
+
     if (!records || records.length === 0) {
       doc.setFontSize(11); doc.setTextColor(239, 68, 68);
-      doc.text('Tidak ada data SITAC.', 14, startY + 10);
+      doc.text('Tidak ada data SITAC yang sesuai dengan filter aktif.', 14, startY + 10);
       return;
     }
 
-    doc.setFontSize(9);
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Total: ${records.length} PA | Filter Status: ${state.sitac.status} | PIC: ${state.sitac.pic}`, 14, startY);
+    const scopeLabels = {
+      ALL: 'Seluruh Wilayah (Jabodetabek, Banten, Tangerang)',
+      JAKPUSEL: 'Jakarta Pusat & Jakarta Selatan',
+      JAKUTIM: 'Jakarta Utara & Jakarta Timur',
+      BODEBEK: 'Bogor, Depok, dan Bekasi',
+      JAKBAR: 'Jakarta Barat',
+      BANTEN: 'Banten (Serang, Cilegon, Pandeglang, Lebak)',
+      TANGERANG: 'Kota Tangerang, Tangerang Selatan, Kab Tangerang'
+    };
+    const regionName = scopeLabels[finalRegion] || finalRegion;
+
+    const filterBadges = [
+      `Wilayah: ${regionName}`,
+      status !== 'ALL' ? `Status: ${status}` : null,
+      finalPic !== 'ALL' ? `PIC: ${finalPic}` : null,
+      year !== 'ALL' ? `Tahun: ${year}` : null,
+      (startDate || endDate) ? `Periode: ${startDate || 'Awal'} s/d ${endDate || 'Sekarang'}` : null,
+      search ? `Pencarian: "${search}"` : null
+    ].filter(Boolean).join(' | ');
+
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Total Hasil Filter: ${records.length} PA (${filterBadges})`, 14, startY);
+
+    let sumAwal = 0, sumFinal = 0, sumHemat = 0;
+    records.forEach(s => {
+      sumAwal += Number(s.biaya_permintaan_awal) || 0;
+      sumFinal += Number(s.biaya_final) || 0;
+      sumHemat += Number(s.efisiensi_rupiah) || 0;
+    });
 
     const body = records.map(s => [
       (s.no_pa || '-').substring(0, 18),
@@ -9651,6 +9829,20 @@
       fmtRp(s.efisiensi_rupiah),
       s.progress || '-',
       s.durasi_hari != null ? `${s.durasi_hari} hr` : '-'
+    ]);
+
+    // Financial Summary Footer Row
+    body.push([
+      'TOTAL FILTERED',
+      `${records.length} Berkas PA`,
+      '-',
+      '-',
+      '-',
+      fmtRp(sumAwal),
+      fmtRp(sumFinal),
+      fmtRp(sumHemat),
+      sumAwal > 0 ? `${((sumHemat / sumAwal) * 100).toFixed(1)}% Hemat` : '-',
+      '-'
     ]);
 
     doc.autoTable({
@@ -9668,7 +9860,11 @@
         9: { halign: 'right' }
       },
       didParseCell: function(data) {
-        if (data.section === 'body' && data.column.index === 8) {
+        if (data.row.index === body.length - 1) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = [254, 243, 199];
+          data.cell.styles.textColor = [120, 53, 15];
+        } else if (data.section === 'body' && data.column.index === 8) {
           data.cell.styles.textColor = getStatusColor(data.cell.raw);
           data.cell.styles.fontStyle = 'bold';
         }
@@ -9676,14 +9872,28 @@
     });
   }
 
-  // --- GANGGUAN PDF ---
+  // --- GANGGUAN PDF (RESPECTS ALL ACTIVE FILTERS) ---
   function exportGangguanPdf(doc, startY) {
-    const records = state.gangguan.data;
+    const records = state.gangguan?.data || [];
     if (!records || records.length === 0) {
       doc.setFontSize(11); doc.setTextColor(239, 68, 68);
-      doc.text('Tidak ada data Gangguan.', 14, startY + 10);
+      doc.text('Tidak ada data Gangguan yang sesuai dengan filter aktif.', 14, startY + 10);
       return;
     }
+
+    const { status, search, startDate, endDate, exactDate } = state.gangguan || {};
+    const statusLabel = status === '0' ? 'Open / Proses' : status === '1' ? 'Resolved / Selesai' : 'Semua Status';
+    const periodLabel = exactDate ? `Tanggal: ${exactDate}` : (startDate || endDate) ? `Periode: ${startDate || 'Awal'} s/d ${endDate || 'Sekarang'}` : 'Semua Periode';
+    const searchLabel = search ? ` | Pencarian: "${search}"` : '';
+
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Total Hasil Filter: ${records.length} Tiket (${statusLabel} | ${periodLabel}${searchLabel})`, 14, startY);
+
+    let sumBiaya = 0;
+    records.forEach(g => {
+      sumBiaya += Number(g.biaya_gangguan) || 0;
+    });
 
     const body = records.map(g => [
       g.no_tiket || '-',
@@ -9696,8 +9906,20 @@
       g.is_selesai ? 'Selesai' : 'Proses'
     ]);
 
+    // Summary row
+    body.push([
+      'TOTAL FILTERED',
+      `${records.length} Tiket`,
+      '-',
+      '-',
+      '-',
+      '-',
+      fmtRp(sumBiaya),
+      '-'
+    ]);
+
     doc.autoTable({
-      startY: startY,
+      startY: startY + 4,
       head: [['No Tiket', 'Tgl Dispos', 'Tgl Selesai', 'Lokasi', 'Jenis Gangguan', 'PIC', 'Biaya', 'Status']],
       body: body,
       theme: 'grid',
@@ -9708,7 +9930,11 @@
         6: { halign: 'right' }
       },
       didParseCell: function(data) {
-        if (data.section === 'body' && data.column.index === 7) {
+        if (data.row.index === body.length - 1) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = [254, 226, 226];
+          data.cell.styles.textColor = [153, 27, 27];
+        } else if (data.section === 'body' && data.column.index === 7) {
           data.cell.styles.textColor = data.cell.raw === 'Selesai' ? [16, 185, 129] : [245, 158, 11];
           data.cell.styles.fontStyle = 'bold';
         }
