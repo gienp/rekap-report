@@ -5589,6 +5589,45 @@
     });
   }
 
+  function updateYearDropdownSelection(dropdownId, presets) {
+    const select = document.getElementById(dropdownId);
+    if (!select) return;
+
+    // Remove any previously injected multi-option
+    const existingMulti = select.querySelector('option[data-multi="true"]');
+    if (existingMulti) existingMulti.remove();
+
+    const active = String(presets || 'ALL').split(',').map(s => s.trim()).filter(Boolean);
+    const years = active.filter(p => ['2024', '2025', '2026'].includes(p)).sort();
+
+    if (active.length === 0 || active.includes('ALL')) {
+      select.value = 'ALL';
+    } else if (years.length === 1 && active.length === 1) {
+      select.value = years[0];
+    } else if (years.length > 1 && years.length === active.length) {
+      // Multiple years selected: e.g. 2025, 2026
+      const label = years.join(', ');
+      const opt = document.createElement('option');
+      opt.value = active.join(',');
+      opt.setAttribute('data-multi', 'true');
+      opt.textContent = `Tahun: ${label}`;
+      opt.selected = true;
+      select.appendChild(opt);
+      select.value = active.join(',');
+    } else if (active.includes('THIS_MONTH') || active.includes('LAST_MONTH')) {
+      const monthLabels = active.map(p => p === 'THIS_MONTH' ? 'Bulan Ini' : p === 'LAST_MONTH' ? 'Bulan Lalu' : p);
+      const opt = document.createElement('option');
+      opt.value = active.join(',');
+      opt.setAttribute('data-multi', 'true');
+      opt.textContent = `Periode: ${monthLabels.join(', ')}`;
+      opt.selected = true;
+      select.appendChild(opt);
+      select.value = active.join(',');
+    } else {
+      select.value = 'ALL';
+    }
+  }
+
   function syncRegionalTabButtons(containerId, regionValue) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -5742,6 +5781,7 @@
         const curRegion = finalRegion;
         syncRegionalTabButtons('sitacRegionTabs', curRegion);
         syncDatePresetButtons('sitacDatePresets', finalDatePreset);
+        updateYearDropdownSelection('sitacFilterYear', finalDatePreset);
 
         const selectedList = String(curRegion).split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
         let stats = { count: 0, berbiaya: 0, zerocost: 0, biaya_awal: 0, biaya_final: 0, efisiensi_rupiah: 0, efisiensi_persen: 0 };
@@ -6096,10 +6136,10 @@
     const isAll = selected.length === 0 || selected.includes('ALL');
 
     syncDatePresetButtons('colleaguesDatePresets', preset);
+    updateYearDropdownSelection('colleaguesFilterYear', preset);
 
     const inpStart = document.getElementById('colleaguesStartDate');
     const inpEnd = document.getElementById('colleaguesEndDate');
-    const yrSelect = document.getElementById('colleaguesFilterYear');
 
     if (isAll) {
       state.colleagues.startDate = '';
@@ -6107,7 +6147,6 @@
       state.colleagues.year = 'ALL';
       if (inpStart) inpStart.value = '';
       if (inpEnd) inpEnd.value = '';
-      if (yrSelect) yrSelect.value = 'ALL';
     } else if (selected.length === 1) {
       const p = selected[0];
       const today = new Date();
@@ -6130,10 +6169,8 @@
       state.colleagues.endDate = end;
       if (['2024', '2025', '2026'].includes(p)) {
         state.colleagues.year = p;
-        if (yrSelect) yrSelect.value = p;
       } else {
         state.colleagues.year = 'ALL';
-        if (yrSelect) yrSelect.value = 'ALL';
       }
       if (inpStart) inpStart.value = start;
       if (inpEnd) inpEnd.value = end;
@@ -6144,7 +6181,6 @@
       state.colleagues.year = 'ALL';
       if (inpStart) inpStart.value = '';
       if (inpEnd) inpEnd.value = '';
-      if (yrSelect) yrSelect.value = 'ALL';
     }
 
     state.colleagues.page = 1;
@@ -6227,6 +6263,8 @@
 
         const curRegion = finalRegion;
         syncRegionalTabButtons('colleaguesRegionTabs', curRegion);
+        syncDatePresetButtons('colleaguesDatePresets', finalDatePreset);
+        updateYearDropdownSelection('colleaguesFilterYear', finalDatePreset);
 
         const selectedList = String(curRegion).split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
         let stats = { count: 0, berbiaya: 0, zerocost: 0, biaya_awal: 0, biaya_final: 0, efisiensi_rupiah: 0, efisiensi_persen: 0 };
@@ -6553,12 +6591,14 @@
       // Filter Year
       document.getElementById('colleaguesFilterYear')?.addEventListener('change', (e) => {
         const val = e.target.value;
-        state.colleagues.year = val;
         if (val === 'ALL') {
           applyColleaguesDatePreset('ALL');
         } else if (['2024', '2025', '2026'].includes(val)) {
           applyColleaguesDatePreset(val);
+        } else if (val.includes(',')) {
+          applyColleaguesDatePreset(val);
         } else {
+          state.colleagues.year = val;
           state.colleagues.page = 1;
           scrollColleaguesTableToTop();
           loadColleaguesData();
@@ -12699,10 +12739,10 @@
       const isAll = selected.length === 0 || selected.includes('ALL');
 
       syncDatePresetButtons('sitacDatePresets', preset);
+      updateYearDropdownSelection('sitacFilterYear', preset);
 
       const inpStart = document.getElementById('sitacStartDate');
       const inpEnd = document.getElementById('sitacEndDate');
-      const yrSelect = document.getElementById('sitacFilterYear');
 
       if (isAll) {
         state.sitac.startDate = '';
@@ -12710,7 +12750,6 @@
         state.sitac.year = 'ALL';
         if (inpStart) inpStart.value = '';
         if (inpEnd) inpEnd.value = '';
-        if (yrSelect) yrSelect.value = 'ALL';
       } else if (selected.length === 1) {
         const p = selected[0];
         const today = new Date();
@@ -12733,10 +12772,8 @@
         state.sitac.endDate = end;
         if (['2024', '2025', '2026'].includes(p)) {
           state.sitac.year = p;
-          if (yrSelect) yrSelect.value = p;
         } else {
           state.sitac.year = 'ALL';
-          if (yrSelect) yrSelect.value = 'ALL';
         }
         if (inpStart) inpStart.value = start;
         if (inpEnd) inpEnd.value = end;
@@ -12747,7 +12784,6 @@
         state.sitac.year = 'ALL';
         if (inpStart) inpStart.value = '';
         if (inpEnd) inpEnd.value = '';
-        if (yrSelect) yrSelect.value = 'ALL';
       }
 
       state.sitac.page = 1;
@@ -12806,12 +12842,14 @@
 
     document.getElementById('sitacFilterYear')?.addEventListener('change', (e) => {
       const val = e.target.value;
-      state.sitac.year = val;
       if (val === 'ALL') {
         applySitacDatePreset('ALL');
       } else if (['2024', '2025', '2026'].includes(val)) {
         applySitacDatePreset(val);
+      } else if (val.includes(',')) {
+        applySitacDatePreset(val);
       } else {
+        state.sitac.year = val;
         state.sitac.page = 1;
         loadSitacData();
       }
