@@ -2817,6 +2817,28 @@ select:focus {
 
 [data-theme="light"] .bento-progress-track {
   background: #e2e8f0 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+[data-theme="light"] .bento-bar-segment.bg-rose-500,
+[data-theme="light"] .bento-bar-segment[class*="bg-rose-500"],
+[data-theme="light"] #bentoColloDeactSegment {
+  background-color: #f43f5e !important;
+  background: #f43f5e !important;
+  opacity: 1 !important;
+}
+
+[data-theme="light"] .bento-bar-segment.bg-slate-600,
+[data-theme="light"] .bento-bar-segment[class*="bg-slate-600"],
+[data-theme="light"] #bentoColloOtherSegment {
+  background-color: #64748b !important;
+  background: #64748b !important;
+  opacity: 1 !important;
+}
+
+[data-theme="light"] .bento-bar-segment[class*="from-cyan"] {
+  background: linear-gradient(to right, #06b6d4, #22d3ee) !important;
+  opacity: 1 !important;
 }
 
 [data-theme="light"] .bento-footer-border {
@@ -4183,9 +4205,9 @@ select:focus {
   border-color: #86efac !important;
   color: #166534 !important;
 }
-[data-theme="light"] .modal-card [class*="bg-rose-500"],
-[data-theme="light"] .portal-view [class*="bg-rose-500"],
-[data-theme="light"] .portal-modal-card [class*="bg-rose-500"] {
+[data-theme="light"] .modal-card [class*="bg-rose-500"]:not(.bento-bar-segment):not(#bentoColloDeactSegment),
+[data-theme="light"] .portal-view [class*="bg-rose-500"]:not(.bento-bar-segment):not(#bentoColloDeactSegment),
+[data-theme="light"] .portal-modal-card [class*="bg-rose-500"]:not(.bento-bar-segment):not(#bentoColloDeactSegment) {
   background-color: #fff1f2 !important;
   background: #fff1f2 !important;
   border-color: #fca5a5 !important;
