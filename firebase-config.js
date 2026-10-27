@@ -371,6 +371,24 @@ window.DEFAULT_FIREBASE_CONFIG = {
     if (!idClean) throw new Error('Silakan masukkan username atau email akun Anda.');
     if (!password) throw new Error('Silakan masukkan kata sandi akun Anda.');
 
+    // 0. Prioritaskan Autentikasi Langsung ke Supabase Cloud PostgreSQL
+    if (window.SupabaseManager && typeof window.SupabaseManager.loginUser === 'function') {
+      try {
+        const sbUser = await window.SupabaseManager.loginUser(identifier, password);
+        if (sbUser) {
+          setCachedUser(sbUser.username, sbUser);
+          if (sbUser.email) setCachedUser(sbUser.email, sbUser);
+          logActivity('LOGIN', `User ${sbUser.username} (${sbUser.full_name}) berhasil masuk via Supabase PostgreSQL`, sbUser.username).catch(() => {});
+          return sbUser;
+        }
+      } catch (sbErr) {
+        if (sbErr.code === 'USER_PENDING_APPROVAL' || (sbErr.message && (sbErr.message.includes('Kata sandi') || sbErr.message.includes('ditolak')))) {
+          throw sbErr;
+        }
+        console.warn('[Supabase Auth fallback to Firestore]:', sbErr);
+      }
+    }
+
     const resolvedUser = EMAIL_MAP[idClean] || idClean;
     const defAcc = DEFAULT_TEAM_ACCOUNTS[resolvedUser];
 
@@ -939,6 +957,24 @@ window.DEFAULT_FIREBASE_CONFIG = {
     await db.collection('users').doc(docId).set(newUser);
     await logActivity('REGISTER_PENDING', `Permohonan akun PIC baru: ${newUser.username} (${newUser.full_name}) menunggu persetujuan admin`, newUser.username);
 
+    // Also register user into Supabase PostgreSQL
+    if (window.SupabaseManager && typeof window.SupabaseManager.registerUser === 'function') {
+      try {
+        await window.SupabaseManager.registerUser({
+          username: username,
+          password: userData.password,
+          full_name: userData.full_name,
+          email: email,
+          role: userData.role || 'lapangan',
+          pic_code: userData.pic_code,
+          avatar_icon: newUser.avatar_icon,
+          badge_color: newUser.badge_color
+        });
+      } catch (sbErr) {
+        console.warn('[Supabase register warning]:', sbErr);
+      }
+    }
+
     return { 
       success: true, 
       requiresApproval: true,
@@ -969,6 +1005,13 @@ window.DEFAULT_FIREBASE_CONFIG = {
       updated_at: firebase.firestore.FieldValue.serverTimestamp()
     });
 
+    // Also update password in Supabase PostgreSQL
+    if (window.SupabaseManager && typeof window.SupabaseManager.changePassword === 'function') {
+      try {
+        await window.SupabaseManager.changePassword(uLower, newPw);
+      } catch (sbErr) {}
+    }
+
     await logActivity('CHANGE_PASSWORD', `User ${uLower} berhasil mengubah kata sandi di Firebase`, uLower);
     return { success: true, message: 'Kata sandi berhasil diperbarui di Cloud Firebase!' };
   }
@@ -990,6 +1033,13 @@ window.DEFAULT_FIREBASE_CONFIG = {
       updated_at: firebase.firestore.FieldValue.serverTimestamp()
     });
 
+    // Also reset password in Supabase PostgreSQL
+    if (window.SupabaseManager && typeof window.SupabaseManager.adminResetPassword === 'function') {
+      try {
+        await window.SupabaseManager.adminResetPassword(uLower, newPw);
+      } catch (sbErr) {}
+    }
+
     await logActivity('ADMIN_RESET_PASSWORD', `Admin me-reset kata sandi akun ${targetUser} di Firebase`);
     return { success: true, message: `Kata sandi akun '${targetUser}' berhasil di-reset di Cloud Firebase!` };
   }
@@ -1005,11 +1055,26 @@ window.DEFAULT_FIREBASE_CONFIG = {
 
     const doc = snap.docs[0];
     await db.collection('users').doc(doc.id).delete();
+
+    // Also delete user from Supabase PostgreSQL
+    if (window.SupabaseManager && typeof window.SupabaseManager.deleteUser === 'function') {
+      try {
+        await window.SupabaseManager.deleteUser(uLower);
+      } catch (sbErr) {}
+    }
+
     await logActivity('ADMIN_DELETE_USER', `Admin menghapus akun ${targetUser} dari Firebase`);
     return { success: true, message: `Akun '${targetUser}' berhasil dihapus dari Cloud Firebase!` };
   }
 
   async function firestoreFetchPendingUsers() {
+    // Check Supabase first
+    if (window.SupabaseManager && typeof window.SupabaseManager.fetchPendingUsers === 'function') {
+      try {
+        const sbPending = await window.SupabaseManager.fetchPendingUsers();
+        if (sbPending && sbPending.length > 0) return sbPending;
+      } catch (e) {}
+    }
     const initRes = initializeFirebaseApp();
     if (!initRes.success) return [];
     const db = initRes.db;
@@ -1038,6 +1103,13 @@ window.DEFAULT_FIREBASE_CONFIG = {
       approved_at: firebase.firestore.FieldValue.serverTimestamp()
     });
 
+    // Also approve user in Supabase PostgreSQL
+    if (window.SupabaseManager && typeof window.SupabaseManager.approveUser === 'function') {
+      try {
+        await window.SupabaseManager.approveUser(uLower);
+      } catch (sbErr) {}
+    }
+
     await logActivity('ADMIN_APPROVE_USER', `Admin menyetujui akun PIC ${targetUser} (${data.full_name || ''})`);
     return { success: true, message: `Akun PIC '${data.full_name || targetUser}' (@${targetUser}) berhasil disetujui!` };
   }
@@ -1054,6 +1126,13 @@ window.DEFAULT_FIREBASE_CONFIG = {
     const doc = snap.docs[0];
     const data = doc.data();
     await db.collection('users').doc(doc.id).delete();
+
+    // Also reject user in Supabase PostgreSQL
+    if (window.SupabaseManager && typeof window.SupabaseManager.rejectUser === 'function') {
+      try {
+        await window.SupabaseManager.rejectUser(uLower);
+      } catch (sbErr) {}
+    }
 
     await logActivity('ADMIN_REJECT_USER', `Admin menolak dan menghapus pendaftaran akun PIC ${targetUser} (${data.full_name || ''})`);
     return { success: true, message: `Permohonan akun PIC '${data.full_name || targetUser}' (@${targetUser}) telah ditolak.` };
@@ -1105,6 +1184,23 @@ window.DEFAULT_FIREBASE_CONFIG = {
     };
 
     await db.collection('users').doc(docId).set(newUser);
+
+    // Also create user in Supabase PostgreSQL
+    if (window.SupabaseManager && typeof window.SupabaseManager.adminCreateUser === 'function') {
+      try {
+        await window.SupabaseManager.adminCreateUser({
+          username: username,
+          password: userData.password,
+          full_name: userData.full_name,
+          email: email,
+          role: userData.role || 'lapangan',
+          pic_code: userData.pic_code,
+          avatar_icon: newUser.avatar_icon,
+          badge_color: newUser.badge_color
+        });
+      } catch (sbErr) {}
+    }
+
     await logActivity('ADMIN_CREATE_USER', `Admin ${adminActor || 'admin'} membuat akun ${isAdmin ? 'Administrator' : 'PIC'}: ${username} (${newUser.full_name})`, adminActor || 'admin');
 
     return {
@@ -1174,6 +1270,13 @@ window.DEFAULT_FIREBASE_CONFIG = {
       });
     } catch (e) {
       console.warn('Local SQLite email update notice:', e);
+    }
+
+    // Also update in Supabase PostgreSQL
+    if (window.SupabaseManager && typeof window.SupabaseManager.updateUserEmail === 'function') {
+      try {
+        await window.SupabaseManager.updateUserEmail(uClean, eClean);
+      } catch (sbErr) {}
     }
 
     const actorUser = actor || uClean;
