@@ -8546,27 +8546,27 @@
       if (!rec) return;
 
       const picName = formatPicName(rec.pic_perijinan || 'Tim Lapangan');
-      const koordinatLink = (rec.latitude && rec.longitude) ? `\n📍 *Titik Lokasi (GPS):* https://www.google.com/maps/search/?api=1&query=${rec.latitude},${rec.longitude}` : '';
+      const koordinatLink = (rec.latitude && rec.longitude) ? `\n- *Titik Lokasi (GPS):* https://www.google.com/maps/search/?api=1&query=${rec.latitude},${rec.longitude}` : '';
 
       targetTitle = 'Dispatch Penugasan SITAC';
       targetSubtitle = `No PA: ${escapeHtml(rec.no_pa || '-')} • ${escapeHtml(picName)}`;
 
-      msg = `📋 *DISPATCH PENUGASAN SITAC & PERIZINAN*\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+      msg = `*DISPATCH PENUGASAN SITAC & PERIZINAN*\n` +
+            `-----------------------------------------\n` +
             `Halo Rekan *${picName}*,\n\n` +
             `Mohon tindak lanjut dan laporan progres berkas perizinan berikut:\n\n` +
-            `▫️ *No PA:* ${rec.no_pa || '-'}\n` +
-            `▫️ *Pelanggan:* ${rec.pelanggan || '-'}\n` +
-            `▫️ *Rute / Lokasi:* ${rec.terminating || '-'}\n` +
-            `▫️ *Status Pengerjaan:* ${rec.progress || 'Ongoing'}\n` +
-            `▫️ *Tgl Disposisi:* ${rec.date_dispos || '-'}\n` +
-            `▫️ *Aging (SLA):* ${rec.durasi_hari !== null && rec.durasi_hari !== undefined ? rec.durasi_hari + ' Hari' : '-'}\n` +
-            `▫️ *Pengajuan Biaya:* ${formatRupiah(rec.biaya_permintaan_awal)}\n` +
-            `▫️ *Target Negosiasi:* ${formatRupiah(rec.biaya_final)}${koordinatLink}\n` +
-            `▫️ *Catatan Lapangan:* ${rec.update_pekerjaan || 'Mohon segera dilaporkan'}\n\n` +
+            `- *No PA:* ${rec.no_pa || '-'}\n` +
+            `- *Pelanggan:* ${rec.pelanggan || '-'}\n` +
+            `- *Rute / Lokasi:* ${rec.terminating || '-'}\n` +
+            `- *Status Pengerjaan:* ${rec.progress || 'Ongoing'}\n` +
+            `- *Tgl Disposisi:* ${rec.date_dispos || '-'}\n` +
+            `- *Aging (SLA):* ${rec.durasi_hari !== null && rec.durasi_hari !== undefined ? rec.durasi_hari + ' Hari' : '-'}\n` +
+            `- *Pengajuan Biaya:* ${formatRupiah(rec.biaya_permintaan_awal)}\n` +
+            `- *Target Negosiasi:* ${formatRupiah(rec.biaya_final)}${koordinatLink}\n` +
+            `- *Catatan Lapangan:* ${rec.update_pekerjaan || 'Mohon segera dilaporkan'}\n\n` +
             `Mohon diupdate apabila terdapat kesepakatan nilai retribusi atau kendala perizinan.\n` +
             `Terima kasih dan tetap utamakan keselamatan kerja (K3).\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `-----------------------------------------\n` +
             `_PT PLN Icon Plus - Operasional SITAC Lapangan_`;
 
     } else if (type === 'gangguan') {
