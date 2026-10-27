@@ -13836,29 +13836,42 @@
 
     normalizedExcelRecords = rawExcelRows.map(r => normalizeExcelRow(r, targetModule));
 
-    // Calculate duplicates against current dataset
+    // Calculate duplicates against current dataset in web
     let dupCount = 0;
     if (targetModule === 'sitac_records') {
-      const existingNos = new Set((window.SITAC_COLLO_DATA?.sitac_records || []).map(s => String(s.no_pa || '').trim().toUpperCase()));
+      const sitacSrcA = Array.isArray(window.SITAC_COLLO_DATA?.sitac_records) ? window.SITAC_COLLO_DATA.sitac_records : [];
+      const sitacSrcB = Array.isArray(state?.sitac?.data) ? state.sitac.data : [];
+      const existingNos = new Set([...sitacSrcA, ...sitacSrcB].map(s => String(s.no_pa || '').trim().toUpperCase()));
       normalizedExcelRecords.forEach(r => {
         const k = String(r.no_pa || '').trim().toUpperCase();
-        if (k && k !== 'NONPA' && existingNos.has(k)) dupCount++;
+        r._isDuplicate = Boolean(k && k !== 'NONPA' && k !== '-' && existingNos.has(k));
+        if (r._isDuplicate) dupCount++;
       });
     } else if (targetModule === 'collo_records') {
-      const existingKeys = new Set((window.SITAC_COLLO_DATA?.collo_records || []).map(c => `${String(c.sid || '').trim().toUpperCase()}|${String(c.no_so || '').trim().toUpperCase()}`));
+      const colloSrcA = Array.isArray(window.SITAC_COLLO_DATA?.collo_records) ? window.SITAC_COLLO_DATA.collo_records : [];
+      const colloSrcB = Array.isArray(state?.collo?.data) ? state.collo.data : [];
+      const existingKeys = new Set([...colloSrcA, ...colloSrcB].map(c => `${String(c.sid || '').trim().toUpperCase()}|${String(c.no_so || '').trim().toUpperCase()}`));
       normalizedExcelRecords.forEach(r => {
         const k = `${String(r.sid || '').trim().toUpperCase()}|${String(r.no_so || '').trim().toUpperCase()}`;
-        if (r.sid && r.no_so && existingKeys.has(k)) dupCount++;
+        r._isDuplicate = Boolean(r.sid && r.no_so && existingKeys.has(k));
+        if (r._isDuplicate) dupCount++;
       });
     } else if (targetModule === 'gangguan_records') {
-      const existingNos = new Set((window.SITAC_COLLO_DATA?.gangguan_records || []).map(g => String(g.no_tiket || '').trim().toUpperCase()));
+      const gngSrcA = Array.isArray(window.SITAC_COLLO_DATA?.gangguan_records) ? window.SITAC_COLLO_DATA.gangguan_records : [];
+      const gngSrcB = Array.isArray(state?.gangguan?.data) ? state.gangguan.data : [];
+      const existingNos = new Set([...gngSrcA, ...gngSrcB].map(g => String(g.no_tiket || '').trim().toUpperCase()));
       normalizedExcelRecords.forEach(r => {
         const k = String(r.no_tiket || '').trim().toUpperCase();
-        if (k && existingNos.has(k)) dupCount++;
+        r._isDuplicate = Boolean(k && existingNos.has(k));
+        if (r._isDuplicate) dupCount++;
       });
     }
 
-    if (previewCount) previewCount.textContent = normalizedExcelRecords.length;
+    const totalCount = normalizedExcelRecords.length;
+    const newCount = totalCount - dupCount;
+    const dupMode = document.getElementById('importDuplicateMode')?.value || 'skip';
+
+    if (previewCount) previewCount.textContent = totalCount;
     if (dupBadge && dupCountEl) {
       if (dupCount > 0) {
         dupBadge.classList.remove('hidden');
@@ -13868,17 +13881,86 @@
       }
     }
 
+    const newBadge = document.getElementById('importPreviewNewBadge');
+    const newCountEl = document.getElementById('importPreviewNewCount');
+    if (newBadge && newCountEl) {
+      newBadge.classList.remove('hidden');
+      newCountEl.textContent = newCount;
+    }
+
+    // Prominent Notification Alert Banner for Duplicates
+    const bannerNotice = document.getElementById('importDuplicateNoticeBanner');
+    if (bannerNotice) {
+      if (dupCount === totalCount && totalCount > 0) {
+        bannerNotice.className = 'p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs flex items-start gap-2.5 shadow-lg';
+        bannerNotice.innerHTML = `
+          <i class="fa-solid fa-triangle-exclamation text-amber-400 text-lg shrink-0 mt-0.5"></i>
+          <div class="leading-relaxed flex-1">
+            <div class="flex items-center justify-between gap-2 mb-1 flex-wrap">
+              <strong class="text-amber-300 font-bold text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-bell"></i> Pemberitahuan: Seluruh Data (${dupCount} Baris) Sudah Ada di Web!
+              </strong>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/30 text-amber-200 border border-amber-500/40">100% Duplikat Terdeteksi</span>
+            </div>
+            <p class="text-slate-200 text-[11px] mb-2">
+              Semua baris dalam file Excel ini telah terdaftar di database web.
+            </p>
+            <div class="text-[11px] bg-slate-900/80 p-2.5 rounded-lg border border-amber-500/20 text-slate-300 space-y-1.5">
+              <div class="flex items-start gap-1.5">
+                <i class="fa-solid fa-circle-info text-cyan-400 shrink-0 mt-0.5"></i>
+                <span><strong>Opsi "Lewati Data Duplikat (Skip)":</strong> Sistem akan melewati semua baris ini sehingga <strong>0 data baru</strong> yang ditambahkan ke web.</span>
+              </div>
+              <div class="flex items-start gap-1.5">
+                <i class="fa-solid fa-arrows-rotate text-emerald-400 shrink-0 mt-0.5"></i>
+                <span><strong>Opsi "Perbarui / Timpa Data (Update/Merge)":</strong> Sistem akan memperbarui data yang sudah ada di web dengan nilai terbaru dari file Excel ini.</span>
+              </div>
+            </div>
+          </div>
+        `;
+        bannerNotice.classList.remove('hidden');
+        showToast(`Pemberitahuan: Seluruh ${dupCount} data dalam file Excel ini sudah ada di web!`, 'warning');
+      } else if (dupCount > 0) {
+        bannerNotice.className = 'p-3 rounded-xl bg-cyan-950/50 border border-cyan-500/30 text-cyan-200 text-xs flex items-start gap-2.5 shadow-lg';
+        bannerNotice.innerHTML = `
+          <i class="fa-solid fa-circle-info text-cyan-400 text-base shrink-0 mt-0.5"></i>
+          <div class="leading-relaxed flex-1">
+            <strong class="text-cyan-300 font-bold text-xs block mb-0.5 flex items-center gap-1.5">
+              <i class="fa-solid fa-bell"></i> Pemberitahuan: ${dupCount} Data Sudah Ada di Web, ${newCount} Data Baru
+            </strong>
+            <p class="text-slate-300 text-[11px]">
+              Ditemukan <strong>${newCount} data baru</strong> yang akan ditambahkan ke sistem, dan <strong>${dupCount} data</strong> yang sudah tercatat di web (akan ${dupMode === 'update' ? '<span class="text-emerald-400 font-bold">diperbarui</span>' : '<span class="text-amber-400 font-bold">dilewati</span>'} sesuai opsi terpilih).
+            </p>
+          </div>
+        `;
+        bannerNotice.classList.remove('hidden');
+        showToast(`Pemberitahuan: ${dupCount} data sudah ada di web, ${newCount} data baru siap diimpor.`, 'info');
+      } else {
+        bannerNotice.className = 'p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs flex items-center gap-2';
+        bannerNotice.innerHTML = `
+          <i class="fa-solid fa-circle-check text-emerald-400 text-sm shrink-0"></i>
+          <span><strong>Semua ${totalCount} data baru!</strong> Tidak ada data duplikat yang terdeteksi di database web.</span>
+        `;
+        bannerNotice.classList.remove('hidden');
+      }
+    }
+
     if (tableWrap) {
-      const sample = normalizedExcelRecords.slice(0, 5);
+      const sample = normalizedExcelRecords.slice(0, 8);
       let headers = [];
       let rowRenderer = null;
 
       if (targetModule === 'sitac_records') {
-        headers = ['#', 'No PA', 'Pelanggan', 'PTL', 'PIC SITAC', 'Biaya Awal', 'Biaya Final', 'Progress'];
+        headers = ['#', 'Status di Web', 'No PA', 'Pelanggan', 'PTL', 'PIC SITAC', 'Biaya Awal', 'Biaya Final', 'Progress'];
         rowRenderer = (r, i) => `
-          <tr class="border-b border-white/5">
+          <tr class="border-b border-white/5 ${r._isDuplicate ? 'bg-amber-500/5' : ''}">
             <td class="p-1.5 text-slate-500">${i+1}</td>
-            <td class="p-1.5 font-bold text-cyan-300">${escapeHtml(r.no_pa || '-')}</td>
+            <td class="p-1.5">
+              ${r._isDuplicate 
+                ? '<span class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-triangle-exclamation text-[9px]"></i> Sudah Ada</span>'
+                : '<span class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-circle-plus text-[9px]"></i> Data Baru</span>'
+              }
+            </td>
+            <td class="p-1.5 font-bold ${r._isDuplicate ? 'text-amber-200' : 'text-cyan-300'}">${escapeHtml(r.no_pa || '-')}</td>
             <td class="p-1.5 text-slate-200">${escapeHtml(r.pelanggan || '-')}</td>
             <td class="p-1.5 text-slate-400">${escapeHtml(r.ptl || '-')}</td>
             <td class="p-1.5 text-slate-300">${escapeHtml(r.pic_perijinan || '-')}</td>
@@ -13888,24 +13970,36 @@
           </tr>
         `;
       } else if (targetModule === 'collo_records') {
-        headers = ['#', 'Pengelola', 'Pelanggan', 'SID / SO', 'Jenis Sewa', 'Rev Sewa/Thn', 'Status'];
+        headers = ['#', 'Status di Web', 'Pengelola', 'Pelanggan', 'SID / SO', 'Jenis Sewa', 'Rev Sewa/Thn', 'Status'];
         rowRenderer = (r, i) => `
-          <tr class="border-b border-white/5">
+          <tr class="border-b border-white/5 ${r._isDuplicate ? 'bg-amber-500/5' : ''}">
             <td class="p-1.5 text-slate-500">${i+1}</td>
+            <td class="p-1.5">
+              ${r._isDuplicate 
+                ? '<span class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-triangle-exclamation text-[9px]"></i> Sudah Ada</span>'
+                : '<span class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-circle-plus text-[9px]"></i> Data Baru</span>'
+              }
+            </td>
             <td class="p-1.5 font-bold text-slate-100">${escapeHtml(r.pengelola || '-')}</td>
             <td class="p-1.5 text-slate-200">${escapeHtml(r.pelanggan || '-')}</td>
-            <td class="p-1.5 font-mono text-[10px] text-cyan-300">${escapeHtml(r.sid || '-')}<br>${escapeHtml(r.no_so || '-')}</td>
+            <td class="p-1.5 font-mono text-[10px] ${r._isDuplicate ? 'text-amber-200' : 'text-cyan-300'}">${escapeHtml(r.sid || '-')}<br>${escapeHtml(r.no_so || '-')}</td>
             <td class="p-1.5 text-slate-400">${escapeHtml(r.jenis_sewa || '-')}</td>
             <td class="p-1.5 font-mono text-emerald-400">${formatRupiah(r.rev_sewa_tahun)}</td>
             <td class="p-1.5"><span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${r.status === 'ACTIVE' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-700 text-slate-300'}">${escapeHtml(r.status || 'ACTIVE')}</span></td>
           </tr>
         `;
       } else {
-        headers = ['#', 'No Tiket', 'Tgl Dispos', 'Terminating / Rute', 'Jenis Gangguan', 'PIC Teknis', 'Biaya', 'Status'];
+        headers = ['#', 'Status di Web', 'No Tiket', 'Tgl Dispos', 'Terminating / Rute', 'Jenis Gangguan', 'PIC Teknis', 'Biaya', 'Status'];
         rowRenderer = (r, i) => `
-          <tr class="border-b border-white/5">
+          <tr class="border-b border-white/5 ${r._isDuplicate ? 'bg-amber-500/5' : ''}">
             <td class="p-1.5 text-slate-500">${i+1}</td>
-            <td class="p-1.5 font-bold text-rose-400">${escapeHtml(r.no_tiket || '-')}</td>
+            <td class="p-1.5">
+              ${r._isDuplicate 
+                ? '<span class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-triangle-exclamation text-[9px]"></i> Sudah Ada</span>'
+                : '<span class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-circle-plus text-[9px]"></i> Data Baru</span>'
+              }
+            </td>
+            <td class="p-1.5 font-bold ${r._isDuplicate ? 'text-amber-200' : 'text-rose-400'}">${escapeHtml(r.no_tiket || '-')}</td>
             <td class="p-1.5 text-slate-400">${escapeHtml(r.tgl_dispos || '-')}</td>
             <td class="p-1.5 text-slate-200">${escapeHtml(r.terminating || '-')}</td>
             <td class="p-1.5 text-slate-300">${escapeHtml(r.jenis_gangguan || '-')}</td>
@@ -13927,12 +14021,25 @@
             ${sample.map(rowRenderer).join('')}
           </tbody>
         </table>
-        ${normalizedExcelRecords.length > 5 ? `<div class="text-[10px] text-slate-500 p-1.5 text-center bg-slate-900/50">+ ${normalizedExcelRecords.length - 5} baris lainnya akan diimpor...</div>` : ''}
+        ${normalizedExcelRecords.length > sample.length ? `<div class="text-[10px] text-slate-400 p-1.5 text-center bg-slate-900/70 border-t border-white/5">+ ${normalizedExcelRecords.length - sample.length} baris lainnya (${dupCount} sudah ada di web, ${newCount} data baru)...</div>` : ''}
       `;
     }
 
     if (previewBox) previewBox.classList.remove('hidden');
-    if (submitBtn) submitBtn.disabled = normalizedExcelRecords.length === 0;
+    if (submitBtn) {
+      submitBtn.disabled = totalCount === 0;
+      if (totalCount > 0) {
+        if (dupMode === 'skip') {
+          if (newCount === 0) {
+            submitBtn.innerHTML = `<i class="fa-solid fa-ban mr-1.5 text-amber-400"></i> Proses Impor (0 Baru, ${dupCount} Sudah Ada)`;
+          } else {
+            submitBtn.innerHTML = `<i class="fa-solid fa-file-import mr-1.5"></i> Impor ${newCount} Data Baru (${dupCount} Dilewati)`;
+          }
+        } else {
+          submitBtn.innerHTML = `<i class="fa-solid fa-arrows-rotate mr-1.5"></i> Perbarui & Impor ${totalCount} Data (${dupCount} di Web Ditimpa)`;
+        }
+      }
+    }
   }
 
   window.triggerExcelImportPreview = function(rows, module) {
@@ -13959,6 +14066,16 @@
       targetSelect.addEventListener('change', () => {
         if (rawExcelRows && rawExcelRows.length > 0) {
           renderImportPreviewTable(targetSelect.value);
+        }
+      });
+    }
+
+    // Change duplicate mode handler -> refresh preview & alerts in real-time
+    const dupModeSelect = document.getElementById('importDuplicateMode');
+    if (dupModeSelect) {
+      dupModeSelect.addEventListener('change', () => {
+        if (rawExcelRows && rawExcelRows.length > 0) {
+          renderImportPreviewTable(targetSelect?.value || 'sitac_records');
         }
       });
     }
@@ -14044,6 +14161,15 @@
       const progPct = document.getElementById('importProgressPct');
       const progBar = document.getElementById('importProgressBar');
       const resultAlert = document.getElementById('importResultAlert');
+
+      // Duplicate check & user confirmation prompt
+      const dupCount = (normalizedExcelRecords || []).filter(r => r._isDuplicate).length;
+      const newCount = (normalizedExcelRecords || []).length - dupCount;
+
+      if (mode === 'skip' && dupCount === normalizedExcelRecords.length && dupCount > 0) {
+        const proceed = confirm(`PEMBERITAHUAN DATA SUDAH ADA DI WEB:\n\nSeluruh ${dupCount} baris data pada file Excel ini SUDAH ADA di dalam database web.\n\nKarena Anda memilih opsi "Lewati Data Duplikat (Skip)", maka 0 data baru yang akan ditambahkan ke web.\n\nApakah Anda ingin tetap melanjutkan (0 data baru)?\n\n(Pilih 'Cancel' jika Anda ingin mengubah opsi ke 'Perbarui / Timpa Data (Update/Merge)' agar data yang sudah ada diupdate)`);
+        if (!proceed) return;
+      }
 
       if (submitBtn) {
         submitBtn.disabled = true;
@@ -14134,7 +14260,12 @@
         if (progPct) progPct.textContent = '100%';
         if (progBar) progBar.style.width = '100%';
 
-        const summaryMsg = resData?.message || `Berhasil mengimpor ${normalizedExcelRecords.length} data ke sistem!`;
+        let summaryMsg = '';
+        if (mode === 'update') {
+          summaryMsg = resData?.message || `Pemberitahuan: Selesai memproses ${normalizedExcelRecords.length} data (${dupCount} data di web berhasil diperbarui, ${newCount} data baru ditambahkan).`;
+        } else {
+          summaryMsg = resData?.message || `Pemberitahuan: ${newCount} data baru berhasil ditambahkan ke web (${dupCount} data dilewati karena sudah ada di web).`;
+        }
         showToast(summaryMsg, 'success');
 
         if (resultAlert) {

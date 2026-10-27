@@ -4111,21 +4111,26 @@
         </div>
 
         <!-- Pratinjau Pemetaan Data & Validasi -->
-        <div id="importPreviewContainer" class="hidden space-y-2">
-          <div class="flex items-center justify-between text-xs font-semibold">
+        <div id="importPreviewContainer" class="hidden space-y-2.5">
+          <!-- Notification Alert for Duplicate Data -->
+          <div id="importDuplicateNoticeBanner" class="hidden"></div>
+
+          <div class="flex items-center justify-between text-xs font-semibold flex-wrap gap-2">
             <span class="text-slate-200 flex items-center gap-2">
               <i class="fa-solid fa-table-list text-cyan-400"></i>
               Pratinjau: <span id="importPreviewCount" class="text-emerald-400 font-bold">0</span> baris terdeteksi
             </span>
             <div class="flex items-center gap-2 text-[11px]">
               <span id="importPreviewDupBadge"
-                class="hidden px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                <i class="fa-solid fa-triangle-exclamation mr-1"></i> <span id="importPreviewDupCount">0</span> Duplikat
+                class="hidden px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
+                <i class="fa-solid fa-triangle-exclamation mr-1"></i> <span id="importPreviewDupCount">0</span> Sudah Ada di Web
               </span>
-              <span class="text-emerald-400"><i class="fa-solid fa-circle-check mr-1"></i> Siap Impor</span>
+              <span id="importPreviewNewBadge" class="hidden px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+                <i class="fa-solid fa-circle-plus mr-1"></i> <span id="importPreviewNewCount">0</span> Data Baru
+              </span>
             </div>
           </div>
-          <div class="max-h-48 overflow-x-auto overflow-y-auto border border-white/10 rounded-lg bg-slate-950/70 p-1"
+          <div class="max-h-56 overflow-x-auto overflow-y-auto border border-white/10 rounded-lg bg-slate-950/70 p-1"
             id="importPreviewTableWrap">
             <!-- Dynamic Preview Table -->
           </div>
@@ -4499,7 +4504,7 @@
   <script src="sitac_collo_data.js?v=12.23"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=12.53"></script>
+  <script src="app.js?v=12.55"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>
