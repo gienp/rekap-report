@@ -3522,7 +3522,9 @@
 
     if (isLapangan) {
       const activePic = state.currentUser?.pic_code || 'Harlan';
+      const currentPicFormatted = formatPicName(state.currentUser?.full_name || state.currentUser?.pic_code || state.currentUser?.username || activePic);
       state.activeTechnician = activePic;
+      state.sitac.pic = activePic;
       localStorage.setItem('telecom_active_technician', activePic);
       if (sel) {
         sel.value = activePic;
@@ -3530,9 +3532,11 @@
       }
       if (lockedName) lockedName.textContent = `PIC: ${activePic.toUpperCase()}`;
       if (picFilter) {
+        picFilter.innerHTML = `<option value="${escapeHtml(activePic)}">${escapeHtml(currentPicFormatted)}</option>`;
+        picFilter.value = activePic;
         picFilter.disabled = true;
         picFilter.classList.add('filter-select-locked');
-        picFilter.title = `Terkunci: Menampilkan penugasan untuk PIC ${activePic}`;
+        picFilter.title = `Terkunci: Menampilkan penugasan untuk PIC ${currentPicFormatted}`;
       }
       if (btnSMyTasks) {
         btnSMyTasks.style.display = '';
@@ -3548,6 +3552,7 @@
       state.activeTechnician = 'Sales';
       state.myTasksOnlySitac = false;
       state.myTasksOnlyGangguan = false;
+      state.sitac.pic = 'ALL';
       if (sel) {
         sel.value = 'Sales';
         sel.disabled = true;
@@ -3557,6 +3562,11 @@
         picFilter.disabled = false;
         picFilter.classList.remove('filter-select-locked');
         picFilter.title = '';
+        if (state.meta.pic && (!picFilter.options || picFilter.options.length <= 1)) {
+          picFilter.innerHTML = '<option value="ALL">Semua PIC SITAC</option>' +
+            state.meta.pic.map(pic => `<option value="${escapeHtml(formatPicName(pic))}">${escapeHtml(formatPicName(pic))}</option>`).join('');
+          picFilter.value = 'ALL';
+        }
       }
       if (btnSMyTasks) {
         btnSMyTasks.style.display = 'none';
@@ -3576,6 +3586,7 @@
       state.activeTechnician = 'Admin';
       state.myTasksOnlySitac = false;
       state.myTasksOnlyGangguan = false;
+      state.sitac.pic = 'ALL';
       if (sel) {
         sel.value = 'Admin';
         sel.disabled = false;
@@ -3585,6 +3596,11 @@
         picFilter.disabled = false;
         picFilter.classList.remove('filter-select-locked');
         picFilter.title = '';
+        if (state.meta.pic && (!picFilter.options || picFilter.options.length <= 1)) {
+          picFilter.innerHTML = '<option value="ALL">Semua PIC SITAC</option>' +
+            state.meta.pic.map(pic => `<option value="${escapeHtml(formatPicName(pic))}">${escapeHtml(formatPicName(pic))}</option>`).join('');
+          picFilter.value = 'ALL';
+        }
       }
       if (btnSMyTasks) {
         btnSMyTasks.style.display = 'none';
@@ -3880,9 +3896,22 @@
 
     // PIC SITAC
     const picSelect = document.getElementById('sitacFilterPic');
-    if (picSelect && state.meta.pic) {
-      picSelect.innerHTML = '<option value="ALL">Semua PIC SITAC</option>' +
-        state.meta.pic.map(pic => `<option value="${escapeHtml(formatPicName(pic))}">${escapeHtml(formatPicName(pic))}</option>`).join('');
+    if (picSelect) {
+      if (state.currentUser?.role === 'lapangan') {
+        const activePic = state.currentUser?.pic_code || state.activeTechnician || 'Harlan';
+        const currentPicFormatted = formatPicName(state.currentUser?.full_name || state.currentUser?.pic_code || state.currentUser?.username || activePic);
+        picSelect.innerHTML = `<option value="${escapeHtml(activePic)}">${escapeHtml(currentPicFormatted)}</option>`;
+        picSelect.value = activePic;
+        picSelect.disabled = true;
+        picSelect.classList.add('filter-select-locked');
+        picSelect.title = `Terkunci: Menampilkan penugasan untuk PIC ${currentPicFormatted}`;
+      } else if (state.meta.pic) {
+        picSelect.disabled = false;
+        picSelect.classList.remove('filter-select-locked');
+        picSelect.title = '';
+        picSelect.innerHTML = '<option value="ALL">Semua PIC SITAC</option>' +
+          state.meta.pic.map(pic => `<option value="${escapeHtml(formatPicName(pic))}">${escapeHtml(formatPicName(pic))}</option>`).join('');
+      }
     }
   }
 
