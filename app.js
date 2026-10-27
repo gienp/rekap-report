@@ -13677,6 +13677,18 @@
           }
         }
 
+        // 2b. Dual-Sync to Supabase Cloud PostgreSQL
+        if (window.SupabaseManager) {
+          try {
+            const cl = window.SupabaseManager.getClient();
+            if (cl) {
+              await cl.from(targetModule).upsert(normalizedExcelRecords);
+            }
+          } catch (sbErr) {
+            console.warn('[Supabase Batch Import Notice]:', sbErr);
+          }
+        }
+
         // 3. Update local in-memory dataset
         const colKey = targetModule === 'sitac_records' ? 'sitac_records' : (targetModule === 'collo_records' ? 'collo_records' : 'gangguan_records');
         if (window.SITAC_COLLO_DATA && window.SITAC_COLLO_DATA[colKey]) {
