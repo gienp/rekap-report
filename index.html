@@ -72,7 +72,7 @@
   <link rel="preload" href="app.js?v=12.34" as="script">
 
   <!-- Custom Portal Stylesheet -->
-  <link rel="stylesheet" href="styles.css?v=12.25">
+  <link rel="stylesheet" href="styles.css?v=12.26">
 
   <!-- ZERO-FLICKER VIEW PERSISTENCE SYNC (ELIMINATES PAGE REFRESH FLASH) -->
   <script>
@@ -656,8 +656,8 @@
                 <!-- Left: Primary Metric (Aset Fisik / Link Beroperasi) -->
                 <div class="flex-1 min-w-0 pr-2 border-r border-white/10" id="execColloColPrimary">
                   <div class="flex items-baseline gap-1.5">
-                    <span class="bento-dual-primary-val text-cyan-400" id="execActiveCollo">592</span>
-                    <span class="text-[10px] font-bold text-cyan-300/80 uppercase tracking-wider"
+                    <span class="bento-dual-primary-val text-sky-400" id="execActiveCollo">592</span>
+                    <span class="text-[10px] font-bold text-sky-400/80 uppercase tracking-wider"
                       id="execActiveColloUnit">Link</span>
                   </div>
                   <div class="text-[10px] font-bold text-slate-200 uppercase tracking-wider truncate"
@@ -668,21 +668,21 @@
                 <!-- Right: Secondary Metric (Akumulasi Layanan / Total Terdata) -->
                 <div class="flex-1 min-w-0 pl-1" id="execColloColSecondary">
                   <div class="flex items-baseline gap-1.5">
-                    <span class="bento-dual-secondary-val text-teal-300 font-mono tracking-tight"
+                    <span class="bento-dual-secondary-val text-slate-100 font-mono tracking-tight"
                       id="execColloSecondaryVal">845</span>
-                    <span class="text-[10px] font-bold text-teal-300/80 uppercase tracking-wider"
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider"
                       id="execColloSecondaryUnit">Link</span>
                   </div>
                   <div class="text-[10px] font-bold text-slate-200 uppercase tracking-wider truncate"
                     id="execColloSecondaryLabel">Akumulasi Layanan</div>
-                  <div class="text-[9px] text-teal-400/90 truncate font-medium" id="execColloSecondarySub">Total
+                  <div class="text-[9px] text-slate-400 truncate font-medium" id="execColloSecondarySub">Total
                     2024–2026</div>
                 </div>
               </div>
 
               <!-- Contextual Breakdown Pill for Multi-year vs New Contracts -->
               <div id="execColloBreakdownWrap"
-                class="mb-2.5 px-2.5 py-1 rounded-lg bg-cyan-950/40 border border-cyan-500/20 flex items-center justify-between text-[10px]">
+                class="mb-2.5 px-2.5 py-1 rounded-lg bg-slate-900/60 border border-white/10 flex items-center justify-between text-[10px]">
                 <div class="flex items-center gap-1 text-emerald-400" id="execColloNewWrap">
                   <i class="fa-solid fa-arrow-trend-up text-[9px]"></i>
                   <span class="text-slate-300">Pasang Baru:</span>
@@ -749,7 +749,7 @@
                   class="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-emerald-400 mb-1 flex items-center gap-1.5">
                   <span>Net Operating Margin</span>
                 </div>
-                <div class="bento-currency-value text-emerald-400 font-mono tracking-tight" id="execMarginRp">
+                <div class="bento-currency-value text-slate-100 font-mono tracking-tight" id="execMarginRp">
                   Rp 1.379.737.698.713
                 </div>
               </div>
@@ -796,7 +796,7 @@
               <!-- Main Value + SVG Radial Ring -->
               <div class="my-1.5 flex items-center justify-between">
                 <div>
-                  <div class="bento-big-value text-amber-400" id="execSitacFinish">
+                  <div class="bento-big-value text-slate-100" id="execSitacFinish">
                     373 <span class="text-xs text-slate-400 font-normal">/ 451 PA</span>
                   </div>
                   <span class="text-[10px] text-slate-400 font-medium block mt-0.5">Penugasan Selesai</span>
@@ -4499,7 +4499,7 @@
   <script src="sitac_collo_data.js?v=12.23"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=12.52"></script>
+  <script src="app.js?v=12.53"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>

@@ -4,60 +4,59 @@
  */
 
 :root {
-  /* Clearwave GlassDash Theme — Pilihan 1: Deep Ocean Slate */
-  --bg-app: #07151a;
-  --bg-sidebar: rgba(11, 33, 41, 0.96);
-  --bg-card: rgba(16, 45, 55, 0.82);
-  --bg-card-hover: rgba(20, 58, 71, 0.90);
-  --border-subtle: rgba(5, 199, 242, 0.18);
-  --border-focus: #05C7F2;
+  /* Corporate Enterprise PLN Icon Plus Theme */
+  --bg-app: #0b1324;
+  --bg-sidebar: #070d18;
+  --bg-card: #131d31;
+  --bg-card-hover: #18253f;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-focus: #0284c7;
 
-  --text-main: #F2F2F2;
-  --text-muted: #8ba8b0;
-  --text-dim: #5c7880;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
 
-  --color-cyan: #05C7F2;
-  --color-emerald: #0E6073;
-  --color-amber: #F2E205;
-  --color-rose: #F21D2F;
-  --color-indigo: #0E6073;
+  --color-cyan: #0284c7;
+  --color-emerald: #10b981;
+  --color-amber: #f59e0b;
+  --color-rose: #ef4444;
+  --color-indigo: #0369a1;
 
-  --radius-sm: 10px;
-  --radius-md: 16px;
-  --radius-lg: 22px;
-  --radius-xl: 26px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
   --radius-full: 9999px;
 }
 
 [data-theme="light"] {
-  /* Clearwave GlassDash Theme — Palet Resmi Pengguna (#F2F2F2, #0E6073, #05C7F2, #F2E205, #F21D2F) */
-  --bg-app: #F2F2F2;
+  /* Corporate Enterprise PLN Light Theme */
+  --bg-app: #f1f5f9;
   --bg-sidebar: #ffffff;
   --bg-card: #ffffff;
   --bg-card-hover: #ffffff;
-  --border-subtle: #dbe4e6;
-  --border-focus: #0E6073;
+  --border-subtle: #e2e8f0;
+  --border-focus: #0284c7;
 
-  --text-main: #0a1f24;
-  --text-muted: #49636a;
-  --text-dim: #6e868d;
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --text-dim: #64748b;
 
-  --color-cyan: #05C7F2;
-  --color-emerald: #0E6073;
-  --color-amber: #F2E205;
-  --color-rose: #F21D2F;
-  --color-indigo: #0E6073;
+  --color-cyan: #0284c7;
+  --color-emerald: #10b981;
+  --color-amber: #f59e0b;
+  --color-rose: #ef4444;
+  --color-indigo: #0369a1;
 }
 
-/* Typography & Clearwave Ambient Atmosphere */
+/* Typography & Corporate Enterprise Atmosphere */
 html,
 body {
   font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
   background-color: var(--bg-app);
   background-image:
-    radial-gradient(ellipse 75% 55% at 85% 12%, rgba(5, 199, 242, 0.14) 0%, transparent 65%),
-    radial-gradient(ellipse 65% 50% at 15% 85%, rgba(14, 96, 115, 0.22) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 50% at 50% 50%, rgba(5, 199, 242, 0.05) 0%, transparent 70%);
+    radial-gradient(ellipse 80% 50% at 50% -12%, rgba(2, 132, 199, 0.10) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(15, 23, 42, 0.5) 0%, transparent 50%);
   background-attachment: fixed;
   color: var(--text-main);
   transition: background-color 0.3s ease, color 0.3s ease;
@@ -143,14 +142,14 @@ h4,
   font-size: 1.05rem;
   font-weight: 800;
   letter-spacing: 0.02em;
-  background: linear-gradient(to right, #F2F2F2, #05C7F2);
+  background: linear-gradient(to right, #f8fafc, #38bdf8);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 [data-theme="light"] .brand-title {
-  background: linear-gradient(to right, #0a1f24, #0E6073);
+  background: linear-gradient(to right, #0f172a, #0284c7);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -275,22 +274,22 @@ h4,
 }
 
 .nav-item:hover {
-  background: rgba(42, 157, 143, 0.08);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text-main);
 }
 
 .nav-item.active {
-  background: rgba(42, 157, 143, 0.16);
-  color: #5BBFB5;
-  border: 1px solid rgba(42, 157, 143, 0.35);
+  background: rgba(2, 132, 199, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(2, 132, 199, 0.35);
   font-weight: 700;
-  box-shadow: 0 2px 12px rgba(42, 157, 143, 0.15);
+  box-shadow: 0 2px 10px rgba(2, 132, 199, 0.12);
 }
 
 [data-theme="light"] .nav-item.active {
-  background: rgba(42, 157, 143, 0.12);
-  color: #1A7A6E;
-  border-color: rgba(42, 157, 143, 0.25);
+  background: rgba(2, 132, 199, 0.10);
+  color: #0284c7;
+  border-color: rgba(2, 132, 199, 0.30);
 }
 
 .nav-item .nav-icon {
@@ -781,18 +780,18 @@ html[data-target-view="view-webgis"] #groupSitac.collapsed .section-chevron {
 
 .bento-kpi-card {
   position: relative;
-  border-radius: 22px;
-  background: linear-gradient(145deg, rgba(16, 45, 55, 0.85) 0%, rgba(11, 33, 41, 0.95) 100%);
-  border: 1px solid rgba(5, 199, 242, 0.18);
-  box-shadow: 0 14px 34px -8px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(5, 199, 242, 0.15);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #162238 0%, #10192b 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.35), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   overflow: visible;
   display: flex;
   flex-direction: column;
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), 
-              box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1), 
-              border-color 0.3s ease;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+              border-color 0.25s ease;
 }
 
 .bento-kpi-card::after {
@@ -800,63 +799,63 @@ html[data-target-view="view-webgis"] #groupSitac.collapsed .section-chevron {
 }
 
 .bento-kpi-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-3px);
   z-index: 35;
 }
 
 .bento-cyan:hover {
-  border-color: rgba(5, 199, 242, 0.55);
-  box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.5), 0 0 24px -4px rgba(5, 199, 242, 0.3);
+  border-color: rgba(2, 132, 199, 0.5);
+  box-shadow: 0 14px 30px -6px rgba(0, 0, 0, 0.4), 0 0 16px -2px rgba(2, 132, 199, 0.18);
 }
 
 .bento-emerald:hover {
-  border-color: rgba(14, 96, 115, 0.7);
-  box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.5), 0 0 24px -4px rgba(5, 199, 242, 0.25);
+  border-color: rgba(16, 185, 129, 0.5);
+  box-shadow: 0 14px 30px -6px rgba(0, 0, 0, 0.4), 0 0 16px -2px rgba(16, 185, 129, 0.16);
 }
 
 .bento-amber:hover {
-  border-color: rgba(242, 226, 5, 0.55);
-  box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.5), 0 0 24px -4px rgba(242, 226, 5, 0.25);
+  border-color: rgba(245, 158, 11, 0.5);
+  box-shadow: 0 14px 30px -6px rgba(0, 0, 0, 0.4), 0 0 16px -2px rgba(245, 158, 11, 0.16);
 }
 
 .bento-rose:hover {
-  border-color: rgba(242, 29, 47, 0.55);
-  box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.5), 0 0 24px -4px rgba(242, 29, 47, 0.25);
+  border-color: rgba(239, 68, 68, 0.5);
+  box-shadow: 0 14px 30px -6px rgba(0, 0, 0, 0.4), 0 0 16px -2px rgba(239, 68, 68, 0.16);
 }
 
 .bento-ambient-glow {
   position: absolute;
-  top: -30px;
-  right: -30px;
-  width: 140px;
-  height: 140px;
+  top: -20px;
+  right: -20px;
+  width: 120px;
+  height: 120px;
   border-radius: 50%;
   pointer-events: none;
-  filter: blur(40px);
-  opacity: 0.16;
-  transition: opacity 0.4s ease, transform 0.4s ease;
+  filter: blur(35px);
+  opacity: 0.08;
+  transition: opacity 0.3s ease, transform 0.3s ease;
   z-index: 0;
 }
 
 .bento-cyan .bento-ambient-glow {
-  background: radial-gradient(circle, rgba(5, 199, 242, 0.35) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(2, 132, 199, 0.35) 0%, transparent 70%);
 }
 
 .bento-emerald .bento-ambient-glow {
-  background: radial-gradient(circle, rgba(14, 96, 115, 0.45) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.30) 0%, transparent 70%);
 }
 
 .bento-amber .bento-ambient-glow {
-  background: radial-gradient(circle, rgba(242, 226, 5, 0.30) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.30) 0%, transparent 70%);
 }
 
 .bento-rose .bento-ambient-glow {
-  background: radial-gradient(circle, rgba(242, 29, 47, 0.30) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.30) 0%, transparent 70%);
 }
 
 .bento-kpi-card:hover .bento-ambient-glow {
-  opacity: 0.35;
-  transform: scale(1.2);
+  opacity: 0.18;
+  transform: scale(1.15);
 }
 
 .bento-card-inner {
@@ -890,39 +889,39 @@ html[data-target-view="view-webgis"] #groupSitac.collapsed .section-chevron {
 }
 
 .bento-kpi-card:hover .bento-icon-badge {
-  transform: scale(1.08);
+  transform: scale(1.05);
 }
 
 .bento-cyan .bento-icon-badge {
-  background: rgba(5, 199, 242, 0.16) !important;
-  color: #05C7F2 !important;
-  border: 1px solid rgba(5, 199, 242, 0.35) !important;
+  background: rgba(2, 132, 199, 0.14) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(2, 132, 199, 0.30) !important;
 }
 
 .bento-emerald .bento-icon-badge {
-  background: rgba(14, 96, 115, 0.28) !important;
-  color: #05C7F2 !important;
-  border: 1px solid rgba(14, 96, 115, 0.55) !important;
+  background: rgba(16, 185, 129, 0.14) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.30) !important;
 }
 
 .bento-amber .bento-icon-badge {
-  background: rgba(242, 226, 5, 0.16) !important;
-  color: #F2E205 !important;
-  border: 1px solid rgba(242, 226, 5, 0.35) !important;
+  background: rgba(245, 158, 11, 0.14) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.30) !important;
 }
 
 .bento-rose .bento-icon-badge {
-  background: rgba(242, 29, 47, 0.18) !important;
-  color: #F21D2F !important;
-  border: 1px solid rgba(242, 29, 47, 0.40) !important;
+  background: rgba(239, 68, 68, 0.14) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.30) !important;
 }
 
 .bento-label {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #8baaa5;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
 }
 
 .bento-big-value {
@@ -944,6 +943,7 @@ html[data-target-view="view-webgis"] #groupSitac.collapsed .section-chevron {
   overflow: hidden;
   text-overflow: ellipsis;
   display: block;
+  color: #f8fafc;
 }
 
 /* Bento Dual Metric Box (Option 1) */
@@ -2406,7 +2406,7 @@ select:focus {
 
 /* --- Topbar --- */
 .portal-topbar {
-  background: rgba(11, 33, 41, 0.92) !important;
+  background: rgba(11, 19, 36, 0.92) !important;
   border-bottom: 1px solid var(--border-subtle) !important;
   backdrop-filter: blur(20px) !important;
   -webkit-backdrop-filter: blur(20px) !important;
@@ -4942,9 +4942,9 @@ select:focus {
 }
 
 .exec-period-pill.active {
-  background: linear-gradient(135deg, #2A9D8F 0%, #1A7A6E 100%);
+  background: #0284c7;
   color: #ffffff !important;
-  box-shadow: 0 2px 8px rgba(26, 122, 110, 0.35);
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.35);
 }
 
 [data-theme="light"] .exec-period-pill {
@@ -4957,7 +4957,7 @@ select:focus {
 
 [data-theme="light"] .exec-period-pill.active {
   background: #ffffff !important;
-  color: #0f766e !important;
+  color: #0284c7 !important;
   border: 1px solid #cbd5e1 !important;
   font-weight: 700 !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;

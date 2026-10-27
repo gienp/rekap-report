@@ -1755,25 +1755,25 @@
     }
   };
 
-  // ── PREMIUM CHART THEME ────────────────────────────────────────────────────
-  // Custom palette aligned with the portal's color system
+  // ── CORPORATE ENTERPRISE CHART THEME (PLN ICON PLUS) ────────────────────────
+  // Professional corporate palette aligned with enterprise operations
   const CHART_PALETTE = {
-    cyan:    '#05C7F2', // Vibrant Cyan (User Palette)
-    purple:  '#8B5CF6', // Royal Purple / Violet (High Contrast)
-    amber:   '#F2E205', // Radiant Yellow (User Palette)
-    rose:    '#F21D2F', // Crimson Red (User Palette)
-    emerald: '#0E6073', // Deep Ocean Teal (User Palette)
-    orange:  '#F97316', // Vibrant Orange
-    green:   '#10B981', // Emerald Green
-    slate:   '#94A3B8', // Clean Slate Gray
-    pink:    '#EC4899', // Hot Pink
-    sky:     '#38BDF8', // Sky Blue
+    cyan:    '#0284C7', // PLN Corporate Blue
+    purple:  '#6366F1', // Indigo / Enterprise Accent
+    amber:   '#F59E0B', // Corporate Amber / Gold
+    rose:    '#EF4444', // Clean Enterprise Red
+    emerald: '#10B981', // Clean Emerald Green
+    orange:  '#F97316', // Corporate Orange
+    green:   '#059669', // Deep Forest Green
+    slate:   '#64748B', // Neutral Slate Gray
+    pink:    '#EC4899', // Professional Rose
+    sky:     '#38BDF8', // Sky Blue Accent
   };
   const PALETTE_ORDER = ['cyan', 'purple', 'amber', 'rose', 'emerald', 'orange', 'green', 'slate', 'pink', 'sky'];
   const getPaletteColors = (n) => PALETTE_ORDER.slice(0, n).map(k => CHART_PALETTE[k]);
 
   // Build a canvas gradient for line/area charts
-  const makeGradient = (ctx, colorHex, alphaTop = 0.35, alphaBot = 0.02) => {
+  const makeGradient = (ctx, colorHex, alphaTop = 0.28, alphaBot = 0.02) => {
     const h = ctx.canvas.offsetHeight || 220;
     const g = ctx.createLinearGradient(0, 0, 0, h);
     const hex = colorHex.replace('#','');
@@ -1787,12 +1787,12 @@
 
   const getChartTheme = () => {
     const isDark = state.theme === 'dark';
-    const textColor      = isDark ? '#8ba8b0' : '#49636a';
-    const titleColor     = isDark ? '#F2F2F2' : '#0a1f24';
-    const gridColor      = isDark ? 'rgba(5, 199, 242, 0.08)' : 'rgba(14, 96, 115, 0.08)';
-    const tooltipBg      = isDark ? 'rgba(11, 33, 41, 0.96)' : 'rgba(255, 255, 255, 0.98)';
-    const tooltipBorder  = isDark ? 'rgba(5, 199, 242, 0.35)' : 'rgba(14, 96, 115, 0.25)';
-    const tooltipText    = isDark ? '#F2F2F2' : '#0a1f24';
+    const textColor      = isDark ? '#94a3b8' : '#475569';
+    const titleColor     = isDark ? '#f8fafc' : '#0f172a';
+    const gridColor      = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)';
+    const tooltipBg      = isDark ? 'rgba(15, 23, 42, 0.96)' : 'rgba(255, 255, 255, 0.98)';
+    const tooltipBorder  = isDark ? 'rgba(2, 132, 199, 0.35)' : 'rgba(2, 132, 199, 0.25)';
+    const tooltipText    = isDark ? '#f8fafc' : '#0f172a';
     const donutBorder    = isDark ? 'transparent' : '#ffffff';
     const donutBorderWidth = isDark ? 0 : 2;
 
@@ -1800,7 +1800,7 @@
     Chart.defaults.font.family = "'DM Sans', sans-serif";
     Chart.defaults.font.size   = 11;
     Chart.defaults.color       = textColor;
-    Chart.defaults.borderColor = isDark ? 'rgba(5, 199, 242, 0.10)' : 'rgba(14, 96, 115, 0.10)';
+    Chart.defaults.borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
 
     // Scale border & grid defaults — eliminates harsh black axis lines in light mode
     if (Chart.defaults.scale) {
