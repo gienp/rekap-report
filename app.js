@@ -1354,8 +1354,14 @@
       });
 
       let preStatusFiltered = scopedSitac;
-      if (region !== 'ALL') {
-        preStatusFiltered = preStatusFiltered.filter(s => (typeof classifySitacRegion === 'function' ? classifySitacRegion(s) : 'LAINNYA') === region);
+      if (region && region !== 'ALL') {
+        const selectedRegions = String(region).split(',').map(r => r.trim().toUpperCase()).filter(Boolean);
+        if (selectedRegions.length > 0 && !selectedRegions.includes('ALL')) {
+          preStatusFiltered = preStatusFiltered.filter(s => {
+            const rCode = (typeof classifySitacRegion === 'function' ? classifySitacRegion(s) : 'LAINNYA');
+            return selectedRegions.includes(rCode);
+          });
+        }
       }
       if (pic !== 'ALL' && (!isPicLapangan || allowAllTeam)) {
         const pLower = pic.toLowerCase();
@@ -5491,6 +5497,64 @@
   // =========================================================================
   // VIEW 5: MONITORING PERIZINAN PROYEK PA (MODUL B)
   // =========================================================================
+  function syncRegionalTabButtons(containerId, regionValue) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const selected = String(regionValue || 'ALL').split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+    const isAll = selected.length === 0 || selected.includes('ALL');
+    container.querySelectorAll('.sitac-region-btn').forEach(btn => {
+      const code = btn.getAttribute('data-region') || 'ALL';
+      if (isAll) {
+        btn.classList.toggle('active', code === 'ALL');
+      } else {
+        btn.classList.toggle('active', selected.includes(code));
+      }
+    });
+  }
+
+  function setupRegionalTabsMultiSelect(containerId, onFilterChange) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const allBtn = container.querySelector('.sitac-region-btn[data-region="ALL"]');
+    const specificBtns = Array.from(container.querySelectorAll('.sitac-region-btn:not([data-region="ALL"])'));
+
+    container.querySelectorAll('.sitac-region-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const clickedRegion = btn.getAttribute('data-region') || 'ALL';
+
+        if (clickedRegion === 'ALL') {
+          // Reset to Semua
+          specificBtns.forEach(b => b.classList.remove('active'));
+          allBtn?.classList.add('active');
+          onFilterChange('ALL');
+        } else {
+          // Specific region toggle
+          allBtn?.classList.remove('active');
+
+          if (btn.classList.contains('active')) {
+            // Already active -> toggle OFF (unselect)
+            btn.classList.remove('active');
+          } else {
+            // Inactive -> toggle ON (multi-select)
+            btn.classList.add('active');
+          }
+
+          // Check which specific region buttons are currently active
+          const activeBtns = specificBtns.filter(b => b.classList.contains('active'));
+          if (activeBtns.length === 0) {
+            // If all specific regions were deactivated, fall back to "Semua"
+            allBtn?.classList.add('active');
+            onFilterChange('ALL');
+          } else {
+            const joinedCodes = activeBtns.map(b => b.getAttribute('data-region')).join(',');
+            onFilterChange(joinedCodes);
+          }
+        }
+      });
+    });
+  }
+
   function formatDisplayDate(dateStr) {
     if (!dateStr) return '';
     try {
@@ -5582,7 +5646,29 @@
         if (bTangerang) bTangerang.textContent = rs.TANGERANG ? rs.TANGERANG.count : 0;
 
         const curRegion = finalRegion;
-        const stats = rs[curRegion] || rs.ALL || { count: 0, berbiaya: 0, zerocost: 0, biaya_awal: 0, biaya_final: 0, efisiensi_rupiah: 0, efisiensi_persen: 0 };
+        syncRegionalTabButtons('sitacRegionTabs', curRegion);
+
+        const selectedList = String(curRegion).split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+        let stats = { count: 0, berbiaya: 0, zerocost: 0, biaya_awal: 0, biaya_final: 0, efisiensi_rupiah: 0, efisiensi_persen: 0 };
+        if (selectedList.length === 0 || selectedList.includes('ALL')) {
+          stats = rs.ALL || stats;
+        } else if (selectedList.length === 1) {
+          stats = rs[selectedList[0]] || rs.ALL || stats;
+        } else {
+          selectedList.forEach(code => {
+            const regStat = rs[code];
+            if (regStat) {
+              stats.count += Number(regStat.count) || 0;
+              stats.berbiaya += Number(regStat.berbiaya) || 0;
+              stats.zerocost += Number(regStat.zerocost) || 0;
+              stats.biaya_awal += Number(regStat.biaya_awal) || 0;
+              stats.biaya_final += Number(regStat.biaya_final) || 0;
+            }
+          });
+          const bHemat = Math.max(0, stats.biaya_awal - stats.biaya_final);
+          stats.efisiensi_rupiah = bHemat;
+          stats.efisiensi_persen = stats.biaya_awal > 0 ? Number((bHemat / stats.biaya_awal * 100).toFixed(1)) : 0;
+        }
 
         const elTotal = document.getElementById('regKpiTotalPa');
         const elBerbiaya = document.getElementById('regKpiBerbiaya');
@@ -5616,7 +5702,10 @@
           TANGERANG: 'Kota Tangerang, Tangerang Selatan, Kab Tangerang'
         };
         if (elScopeDesc) {
-          const baseScope = scopeLabels[curRegion] || curRegion;
+          let baseScope = 'Seluruh Wilayah (Jabodetabek, Banten, Tangerang)';
+          if (selectedList.length > 0 && !selectedList.includes('ALL')) {
+            baseScope = selectedList.map(code => scopeLabels[code] || code).join(' + ');
+          }
           if (startDate || endDate) {
             const sFmt = startDate ? formatDisplayDate(startDate) : 'Awal';
             const eFmt = endDate ? formatDisplayDate(endDate) : 'Sekarang';
@@ -6026,7 +6115,29 @@
         if (bTangerang) bTangerang.textContent = rs.TANGERANG ? rs.TANGERANG.count : 0;
 
         const curRegion = finalRegion;
-        const stats = rs[curRegion] || rs.ALL || { count: 0, berbiaya: 0, zerocost: 0, biaya_awal: 0, biaya_final: 0, efisiensi_rupiah: 0, efisiensi_persen: 0 };
+        syncRegionalTabButtons('colleaguesRegionTabs', curRegion);
+
+        const selectedList = String(curRegion).split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+        let stats = { count: 0, berbiaya: 0, zerocost: 0, biaya_awal: 0, biaya_final: 0, efisiensi_rupiah: 0, efisiensi_persen: 0 };
+        if (selectedList.length === 0 || selectedList.includes('ALL')) {
+          stats = rs.ALL || stats;
+        } else if (selectedList.length === 1) {
+          stats = rs[selectedList[0]] || rs.ALL || stats;
+        } else {
+          selectedList.forEach(code => {
+            const regStat = rs[code];
+            if (regStat) {
+              stats.count += Number(regStat.count) || 0;
+              stats.berbiaya += Number(regStat.berbiaya) || 0;
+              stats.zerocost += Number(regStat.zerocost) || 0;
+              stats.biaya_awal += Number(regStat.biaya_awal) || 0;
+              stats.biaya_final += Number(regStat.biaya_final) || 0;
+            }
+          });
+          const bHemat = Math.max(0, stats.biaya_awal - stats.biaya_final);
+          stats.efisiensi_rupiah = bHemat;
+          stats.efisiensi_persen = stats.biaya_awal > 0 ? Number((bHemat / stats.biaya_awal * 100).toFixed(1)) : 0;
+        }
 
         const elTotal = document.getElementById('regColleaguesTotalPa');
         const elBerbiaya = document.getElementById('regColleaguesBerbiaya');
@@ -6343,16 +6454,12 @@
         }
       });
 
-      // Regional Tabs
-      document.querySelectorAll('#colleaguesRegionTabs .sitac-region-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          document.querySelectorAll('#colleaguesRegionTabs .sitac-region-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          state.colleagues.region = btn.getAttribute('data-region') || 'ALL';
-          state.colleagues.page = 1;
-          scrollColleaguesTableToTop();
-          loadColleaguesData();
-        });
+      // Regional Tabs with Multi-Select and Toggle-off
+      setupRegionalTabsMultiSelect('colleaguesRegionTabs', (regionCodes) => {
+        state.colleagues.region = regionCodes;
+        state.colleagues.page = 1;
+        scrollColleaguesTableToTop();
+        loadColleaguesData();
       });
 
       // Date Presets
@@ -12607,16 +12714,12 @@
       }
     });
 
-    // Regional SITAC Filter Tabs (JAKPUSEL, JAKUTIM, BODEBEK, JAKBAR, BANTEN, TANGERANG)
-    document.querySelectorAll('#sitacRegionTabs .sitac-region-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('#sitacRegionTabs .sitac-region-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        state.sitac.region = btn.getAttribute('data-region') || 'ALL';
-        state.sitac.page = 1;
-        scrollTableToTop('#view-sitac-pa .table-container-card');
-        loadSitacData();
-      });
+    // Regional SITAC Filter Tabs with Multi-Select and Toggle-off
+    setupRegionalTabsMultiSelect('sitacRegionTabs', (regionCodes) => {
+      state.sitac.region = regionCodes;
+      state.sitac.page = 1;
+      scrollTableToTop('#view-sitac-pa .table-container-card');
+      loadSitacData();
     });
     document.getElementById('sitacPrevPageBtn')?.addEventListener('click', () => {
       if (state.sitac.page > 1) {

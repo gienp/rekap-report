@@ -2294,9 +2294,10 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             region_stats[rk]['efisiensi_rupiah'] = ef
             region_stats[rk]['efisiensi_persen'] = round((ef / aw * 100), 2) if aw > 0 else 0.0
 
-        # Filter by region if specified
-        if region_filter != 'ALL':
-            records = [r for r in all_matched_records if r.get('region') == region_filter]
+        # Filter by region if specified (supports multi-selection comma-separated)
+        selected_regions = [x.strip() for x in region_filter.split(',') if x.strip()]
+        if selected_regions and 'ALL' not in selected_regions:
+            records = [r for r in all_matched_records if r.get('region') in selected_regions]
         else:
             records = all_matched_records
 
