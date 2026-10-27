@@ -14119,7 +14119,18 @@
       return;
     }
 
-    normalizedExcelRecords = rawExcelRows.map(r => normalizeExcelRow(r, targetModule));
+    normalizedExcelRecords = rawExcelRows
+      .map(r => normalizeExcelRow(r, targetModule))
+      .filter(r => {
+        if (!r) return false;
+        if (targetModule === 'sitac_records') {
+          return Boolean(r.no_pa || r.pelanggan || r.terminating || r.ptl || r.pic_perijinan || r.biaya_permintaan_awal || r.biaya_final);
+        } else if (targetModule === 'collo_records') {
+          return Boolean(r.sid || r.no_so || r.pelanggan || r.pengelola || r.originating || r.terminating);
+        } else {
+          return Boolean(r.no_tiket || r.terminating || r.pic_perijinan || r.biaya_gangguan);
+        }
+      });
 
     // Calculate duplicates against current dataset in web with multi-key smart matching
     let dupCount = 0;
@@ -14565,15 +14576,19 @@
             const data = new Uint8Array(evt.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
             const firstSheet = workbook.SheetNames[0];
-            const jsonRows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet]);
+            const jsonRows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { defval: '' });
+            const cleanedRows = (jsonRows || []).filter(row => {
+              if (!row || typeof row !== 'object') return false;
+              return Object.values(row).some(v => v !== null && v !== undefined && String(v).trim() !== '');
+            });
 
-            if (!jsonRows || jsonRows.length === 0) {
+            if (!cleanedRows || cleanedRows.length === 0) {
               alert('File Excel kosong atau tidak memiliki baris data.');
               resetExcelImportSelection(true);
               return;
             }
 
-            rawExcelRows = jsonRows;
+            rawExcelRows = cleanedRows;
             renderImportPreviewTable(targetSelect?.value || 'sitac_records');
 
           } catch (err) {
