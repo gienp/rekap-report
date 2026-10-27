@@ -379,7 +379,7 @@
             <div id="toolsGroupMenu"
               class="hidden absolute right-0 top-full mt-2 w-64 topbar-dropdown-menu shadow-2xl p-1.5 z-[9999] space-y-0.5">
               <!-- Mobile quick-export section (only visible on mobile phones < 640px) -->
-              <div class="sm:hidden border-b border-white/10 pb-1 mb-1">
+              <div class="sm:hidden border-b border-white/10 pb-1 mb-1" id="mobileExportSection">
                 <div class="px-2.5 py-1 text-[10px] uppercase font-bold text-cyan-400 tracking-wider">Ekspor Laporan
                 </div>
                 <button type="button" class="topbar-dropdown-item w-full text-left"
@@ -1072,6 +1072,11 @@
                 title="Ekspor Data Colocation ke Excel (.xlsx)">
                 <i class="fa-solid fa-file-excel text-emerald-400"></i>
                 <span>Excel</span>
+              </button>
+              <button type="button" class="btn btn-secondary text-xs flex items-center gap-1.5 text-rose-400 hover:text-rose-300" id="btnExportColloPdf"
+                title="Cetak Data Colocation Terfilter ke PDF">
+                <i class="fa-solid fa-file-pdf"></i>
+                <span>PDF</span>
               </button>
               <button
                 class="btn btn-primary text-xs bg-indigo-600 hover:bg-indigo-500 border-indigo-500 shadow-md shadow-indigo-950/40"
@@ -1788,6 +1793,11 @@
                 <i class="fa-solid fa-file-excel text-emerald-400"></i>
                 <span class="hidden sm:inline">Excel</span>
               </button>
+              <button type="button" class="btn btn-secondary text-xs flex items-center gap-1.5 text-rose-400 hover:text-rose-300" id="btnExportSitacPdf"
+                title="Cetak Data SITAC Terfilter ke PDF">
+                <i class="fa-solid fa-file-pdf"></i>
+                <span class="hidden sm:inline">PDF</span>
+              </button>
               <button class="btn btn-primary text-xs shadow-md shadow-cyan-950/40" id="btnOpenAddSitacDirect">
                 <i class="fa-solid fa-plus"></i>
                 <span>Input Proyek PA</span>
@@ -2201,6 +2211,11 @@
                 <i class="fa-solid fa-file-excel text-emerald-400"></i>
                 <span class="hidden sm:inline">Excel</span>
               </button>
+              <button type="button" class="btn btn-secondary text-xs flex items-center gap-1.5 text-rose-400 hover:text-rose-300"
+                id="btnExportColleaguesPdf" title="Cetak Data Tim SITAC Terfilter ke PDF">
+                <i class="fa-solid fa-file-pdf"></i>
+                <span class="hidden sm:inline">PDF</span>
+              </button>
             </div>
           </div>
         </div>
@@ -2317,11 +2332,18 @@
               <p class="text-xs text-slate-400">Perbandingan perizinan berbiaya vs tanpa biaya (Zero Cost) hasil
                 negosiasi tim SITAC.</p>
             </div>
-            <button id="btnExportEfisiensi" class="btn btn-secondary text-xs flex items-center gap-1.5"
-              title="Unduh CSV Rekap Efisiensi">
-              <i class="fa-solid fa-file-arrow-down text-amber-400"></i>
-              <span>Unduh CSV Efisiensi</span>
-            </button>
+            <div class="flex items-center gap-2">
+              <button id="btnExportEfisiensi" class="btn btn-secondary text-xs flex items-center gap-1.5"
+                title="Unduh CSV Rekap Efisiensi">
+                <i class="fa-solid fa-file-arrow-down text-amber-400"></i>
+                <span>CSV</span>
+              </button>
+              <button id="btnExportEfisiensiPdf" class="btn btn-secondary text-xs flex items-center gap-1.5 text-rose-400 hover:text-rose-300"
+                title="Cetak Rekap Efisiensi ke PDF">
+                <i class="fa-solid fa-file-pdf"></i>
+                <span>PDF</span>
+              </button>
+            </div>
           </div>
           <div class="panel-body overflow-x-auto">
             <table class="portal-table">
@@ -4534,7 +4556,7 @@
   <script src="sitac_collo_data.js?v=12.23"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=12.43"></script>
+  <script src="app.js?v=12.44"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>

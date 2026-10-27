@@ -4053,6 +4053,9 @@
       });
     }
 
+    // Context-Aware Topbar & Mobile Export Visibility
+    updateExportMenuVisibility(viewId);
+
     setTimeout(() => {
       if (typeof updateAllTableScrollState === 'function') updateAllTableScrollState();
     }, 120);
@@ -4061,6 +4064,74 @@
     }, 350);
   }
   window.switchView = switchView;
+
+  function updateExportMenuVisibility(viewId) {
+    const exportContainer = document.getElementById('exportGroupDropdownContainer');
+    const mobileExportSection = document.getElementById('mobileExportSection');
+    const itemPdfTitle = document.querySelector('#btnExportCurrentModulePdf .item-title');
+    const itemExcelTitle = document.querySelector('#btnExportExcel .item-title');
+
+    // Views where data tables exist and can be exported
+    const EXPORTABLE_VIEWS = [
+      'view-executive',
+      'view-collo-list',
+      'view-collo-rev-sharing',
+      'view-collo-alerts',
+      'view-sitac-pa',
+      'view-sitac-colleagues',
+      'view-gangguan',
+      'view-efisiensi',
+      'view-pic-matrix'
+    ];
+
+    const canExport = EXPORTABLE_VIEWS.includes(viewId);
+
+    if (exportContainer) {
+      if (canExport) {
+        exportContainer.classList.remove('hidden');
+        exportContainer.style.display = '';
+      } else {
+        exportContainer.classList.add('hidden');
+        exportContainer.style.display = 'none';
+      }
+    }
+
+    if (mobileExportSection) {
+      mobileExportSection.style.display = canExport ? '' : 'none';
+    }
+
+    // Dynamic label for current module export
+    if (canExport && itemPdfTitle) {
+      const pdfLabels = {
+        'view-executive': 'Cetak Ringkasan Eksekutif PDF',
+        'view-collo-list': 'Cetak Tabel Colocation PDF',
+        'view-collo-rev-sharing': 'Cetak Rev Sharing PDF',
+        'view-collo-alerts': 'Cetak Alert Kontrak PDF',
+        'view-sitac-pa': 'Cetak Tabel SITAC PA PDF',
+        'view-sitac-colleagues': 'Cetak Tim SITAC PDF',
+        'view-gangguan': 'Cetak Rekap Gangguan PDF',
+        'view-efisiensi': 'Cetak Rekap Efisiensi PDF',
+        'view-pic-matrix': 'Cetak Beban Kerja PIC PDF'
+      };
+      itemPdfTitle.textContent = pdfLabels[viewId] || 'Cetak Modul Aktif PDF';
+    }
+
+    if (canExport && itemExcelTitle) {
+      const excelLabels = {
+        'view-executive': 'Ekspor Ringkasan (.xlsx)',
+        'view-collo-list': 'Ekspor Data Colocation (.xlsx)',
+        'view-collo-rev-sharing': 'Ekspor Rev Sharing (.xlsx)',
+        'view-collo-alerts': 'Ekspor Alert Kontrak (.xlsx)',
+        'view-sitac-pa': 'Ekspor Data SITAC (.xlsx)',
+        'view-sitac-colleagues': 'Ekspor Tim SITAC (.xlsx)',
+        'view-gangguan': 'Ekspor Rekap Gangguan (.xlsx)',
+        'view-efisiensi': 'Ekspor Rekap Efisiensi (.xlsx)',
+        'view-pic-matrix': 'Ekspor Matriks PIC (.xlsx)'
+      };
+      itemExcelTitle.textContent = excelLabels[viewId] || 'Ekspor Excel (.xlsx)';
+    }
+  }
+  window.updateExportMenuVisibility = updateExportMenuVisibility;
 
   // =========================================================================
   // VIEW 1: EXECUTIVE OVERVIEW
@@ -9014,7 +9085,7 @@
       });
       downloadExcelFile(filename, 'Proyek SITAC', headers, rows);
 
-    } else if (view === 'view-sitac-colleagues' || view === 'colleagues') {
+    } else if (view === 'view-sitac-colleagues' || view === 'colleagues' || view === 'sitac_colleagues') {
       const records = state.colleagues?.data;
       if (!records || records.length === 0) return alert('Tidak ada data Tim SITAC untuk diekspor!');
       const filename = `Monitoring_Tim_SITAC_${today}.xlsx`;
@@ -12146,6 +12217,13 @@
       exportCurrentViewPdf();
     });
 
+    // Inline Table Toolbar Export Buttons
+    document.getElementById('btnExportColloPdf')?.addEventListener('click', exportCurrentViewPdf);
+    document.getElementById('btnExportSitacPdf')?.addEventListener('click', exportCurrentViewPdf);
+    document.getElementById('btnExportColleaguesPdf')?.addEventListener('click', exportCurrentViewPdf);
+    document.getElementById('btnExportEfisiensiPdf')?.addEventListener('click', exportCurrentViewPdf);
+    document.getElementById('btnExportColleaguesExcel')?.addEventListener('click', () => exportCurrentViewExcel('colleagues'));
+
     document.getElementById('btnDownloadMasterPdf')?.addEventListener('click', () => {
       exportPdfMenu?.classList.add('hidden');
       showToast('Mengunduh Laporan Master PDF...');
@@ -12153,6 +12231,11 @@
 
     document.getElementById('btnExportPicMatrix')?.addEventListener('click', exportPicMatrixCsv);
     document.getElementById('btnExportEfisiensi')?.addEventListener('click', exportEfisiensiCsv);
+
+    // Initial check of export menu visibility based on initial view
+    if (typeof updateExportMenuVisibility === 'function') {
+      updateExportMenuVisibility(state.activeView);
+    }
 
     // 4. View 2 (Collo) Controls
     document.querySelectorAll('.collo-status-tab').forEach(btn => {
