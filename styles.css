@@ -1061,6 +1061,19 @@ canvas {
   box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
 }
 
+.filter-select option,
+select option {
+  background-color: #0f172a;
+  color: #f8fafc;
+  padding: 6px 10px;
+}
+
+[data-theme="light"] .filter-select option,
+[data-theme="light"] select option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
 /* Dedicated Search Input Wrap with Guaranteed Spacing & Alignment */
 .filter-search-wrap {
   position: relative;

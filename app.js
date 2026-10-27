@@ -7789,10 +7789,10 @@
         <div>
           <label class="form-label">Progress Pengerjaan *</label>
           <select name="progress" class="filter-select w-full text-xs font-semibold">
-            <option value="Finish" ${rec.progress === 'Finish' ? 'selected' : ''}>Finish (Pin Hijau)</option>
-            <option value="Ongoing" ${rec.progress === 'Ongoing' ? 'selected' : ''}>Ongoing (Pin Biru)</option>
-            <option value="Hold" ${rec.progress === 'Hold' ? 'selected' : ''}>Hold (Pin Kuning)</option>
-            <option value="Cancel" ${rec.progress === 'Cancel' ? 'selected' : ''}>Cancel (Pin Merah)</option>
+            <option value="Finish" ${rec.progress === 'Finish' ? 'selected' : ''}>Finish</option>
+            <option value="Ongoing" ${rec.progress === 'Ongoing' ? 'selected' : ''}>Ongoing</option>
+            <option value="Hold" ${rec.progress === 'Hold' ? 'selected' : ''}>Hold</option>
+            <option value="Cancel" ${rec.progress === 'Cancel' ? 'selected' : ''}>Cancel</option>
           </select>
         </div>
 
