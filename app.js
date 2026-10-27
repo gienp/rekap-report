@@ -14,6 +14,24 @@
     window.PORTAL_DATASET = window.SITAC_COLLO_DATA;
   }
 
+  // Pastikan dataset SITAC diurutkan berdasarkan tanggal terbaru (descending)
+  if (window.SITAC_COLLO_DATA && Array.isArray(window.SITAC_COLLO_DATA.sitac_records)) {
+    window.SITAC_COLLO_DATA.sitac_records.sort((a, b) => {
+      const getT = (item) => {
+        const raw = item.date_dispos || item.date_close || item.date_pa || item.created_at || '';
+        const s = String(raw).trim();
+        if (s && s.length >= 10) {
+          const t = Date.parse(s.substring(0, 10));
+          if (!isNaN(t)) return t;
+        }
+        return 0;
+      };
+      const diff = getT(b) - getT(a);
+      if (diff !== 0) return diff;
+      return (Number(b.id) || 0) - (Number(a.id) || 0);
+    });
+  }
+
   // =========================================================================
   // PERSISTENT DATA MUTATION ENGINE (LOCALSTORAGE & CLOUD FIRESTORE)
   // Ensures newly added, edited, or deleted records PERSIST across page refreshes (F5)
@@ -1366,6 +1384,29 @@
 
       let filtered = preStatusFiltered;
       if (status !== 'ALL') filtered = filtered.filter(s => s.progress === status);
+
+      // Urutkan data berdasarkan tanggal terbaru (descending)
+      const parseSitacDate = (item) => {
+        let raw = '';
+        if (dateField === 'date_close') {
+          raw = item.date_close || item.date_dispos || item.date_pa || item.created_at || '';
+        } else {
+          raw = item.date_dispos || item.date_close || item.date_pa || item.created_at || '';
+        }
+        const s = String(raw).trim();
+        if (s && s.length >= 10) {
+          const t = Date.parse(s.substring(0, 10));
+          if (!isNaN(t)) return t;
+        }
+        return 0;
+      };
+
+      filtered = [...filtered].sort((a, b) => {
+        const timeA = parseSitacDate(a);
+        const timeB = parseSitacDate(b);
+        if (timeB !== timeA) return timeB - timeA;
+        return (Number(b.id) || 0) - (Number(a.id) || 0);
+      });
 
       const total = filtered.length;
       const totalPages = Math.ceil(total / pageSize) || 1;

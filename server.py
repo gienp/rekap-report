@@ -2241,7 +2241,17 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
         where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
 
         # Fetch all records matching the base conditions to perform regional classification & statistics
-        cursor.execute(f"SELECT * FROM sitac_records {where_clause} ORDER BY id ASC", params)
+        order_field = date_field if date_field in ['date_dispos', 'date_close'] else 'date_dispos'
+        secondary_field = 'date_close' if order_field == 'date_dispos' else 'date_dispos'
+        order_clause = f"""ORDER BY 
+            CASE 
+                WHEN {order_field} IS NOT NULL AND {order_field} != '' THEN {order_field}
+                WHEN {secondary_field} IS NOT NULL AND {secondary_field} != '' THEN {secondary_field}
+                WHEN date_pa IS NOT NULL AND date_pa != '' THEN date_pa
+                WHEN created_at IS NOT NULL AND created_at != '' THEN substr(created_at, 1, 10)
+                ELSE '0000-00-00'
+            END DESC, id DESC"""
+        cursor.execute(f"SELECT * FROM sitac_records {where_clause} {order_clause}", params)
         all_matched_records = [dict(r) for r in cursor.fetchall()]
 
         # Regional statistical accumulator
@@ -2618,7 +2628,12 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             ws.append([])
             ws.append(headers)
 
-            cursor.execute("SELECT * FROM sitac_records ORDER BY id ASC")
+            cursor.execute("""SELECT * FROM sitac_records ORDER BY 
+                CASE 
+                    WHEN date_dispos IS NOT NULL AND date_dispos != '' THEN date_dispos 
+                    WHEN date_close IS NOT NULL AND date_close != '' THEN date_close 
+                    ELSE '0000-00-00' 
+                END DESC, id DESC""")
             rows = cursor.fetchall()
             for idx, r in enumerate(rows, start=1):
                 ws.append([
