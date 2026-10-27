@@ -83,11 +83,24 @@
             'view-collo-alerts', 'view-sitac-pa', 'view-sitac-colleagues',
             'view-efisiensi', 'view-pic-matrix', 'view-webgis'
           ];
-          var hash = (window.location.hash || '').replace(/^#/, '').trim();
+          var SLUG_MAP = {
+            'dashboard': 'view-executive', 'executive': 'view-executive', 'ringkasan': 'view-executive',
+            'collo': 'view-collo-list', 'colocation': 'view-collo-list',
+            'revshare': 'view-collo-rev-sharing', 'revenue-sharing': 'view-collo-rev-sharing',
+            'alerts': 'view-collo-alerts', 'alert': 'view-collo-alerts',
+            'sitac': 'view-sitac-pa', 'perizinan': 'view-sitac-pa', 'pa': 'view-sitac-pa',
+            'tim-sitac': 'view-sitac-colleagues', 'colleagues': 'view-sitac-colleagues',
+            'efisiensi': 'view-efisiensi',
+            'pic': 'view-pic-matrix', 'beban-kerja': 'view-pic-matrix', 'pic-matrix': 'view-pic-matrix',
+            'gis': 'view-webgis', 'webgis': 'view-webgis', 'peta': 'view-webgis'
+          };
+          var rawHash = (window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
+          var resolvedHash = SLUG_MAP[rawHash] || rawHash;
           var saved = localStorage.getItem('telecom_portal_active_view');
+          var resolvedSaved = SLUG_MAP[saved] || saved;
           var user = null;
           try { user = JSON.parse(localStorage.getItem('telecom_portal_user') || 'null'); } catch (e) { }
-          var target = (hash && VALID.indexOf(hash) !== -1) ? hash : ((saved && VALID.indexOf(saved) !== -1) ? saved : 'view-executive');
+          var target = (resolvedHash && VALID.indexOf(resolvedHash) !== -1) ? resolvedHash : ((resolvedSaved && VALID.indexOf(resolvedSaved) !== -1) ? resolvedSaved : 'view-executive');
 
           if (user && user.role === 'lapangan' && (target === 'view-executive' || target.indexOf('view-collo-') === 0 || target === 'view-efisiensi')) {
             target = 'view-sitac-pa';
@@ -4520,7 +4533,7 @@
   <script src="sitac_collo_data.js?v=12.23"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=12.37"></script>
+  <script src="app.js?v=12.38"></script>
 
   <!-- 3. Firebase Cloud Synchronization SDK (Non-Blocking Deferred) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js" defer></script>

@@ -1580,16 +1580,62 @@
     'view-webgis'
   ];
 
+  const VIEW_SLUGS = {
+    'view-executive': 'dashboard',
+    'view-collo-list': 'collo',
+    'view-collo-rev-sharing': 'revshare',
+    'view-collo-alerts': 'alerts',
+    'view-sitac-pa': 'sitac',
+    'view-sitac-colleagues': 'tim-sitac',
+    'view-efisiensi': 'efisiensi',
+    'view-pic-matrix': 'pic',
+    'view-webgis': 'gis'
+  };
+
+  const SLUG_TO_VIEW = {
+    'dashboard': 'view-executive',
+    'executive': 'view-executive',
+    'ringkasan': 'view-executive',
+    'collo': 'view-collo-list',
+    'colocation': 'view-collo-list',
+    'revshare': 'view-collo-rev-sharing',
+    'revenue-sharing': 'view-collo-rev-sharing',
+    'alerts': 'view-collo-alerts',
+    'alert': 'view-collo-alerts',
+    'sitac': 'view-sitac-pa',
+    'perizinan': 'view-sitac-pa',
+    'pa': 'view-sitac-pa',
+    'tim-sitac': 'view-sitac-colleagues',
+    'colleagues': 'view-sitac-colleagues',
+    'efisiensi': 'view-efisiensi',
+    'pic': 'view-pic-matrix',
+    'beban-kerja': 'view-pic-matrix',
+    'pic-matrix': 'view-pic-matrix',
+    'gis': 'view-webgis',
+    'webgis': 'view-webgis',
+    'peta': 'view-webgis'
+  };
+
+  function resolveViewIdFromHash(rawHash) {
+    const clean = (rawHash || '').replace(/^#/, '').trim().toLowerCase();
+    if (!clean) return null;
+    if (VALID_VIEWS.includes(clean)) return clean;
+    if (SLUG_TO_VIEW[clean]) return SLUG_TO_VIEW[clean];
+    return null;
+  }
+
+  function getViewSlug(viewId) {
+    return VIEW_SLUGS[viewId] || viewId.replace(/^view-/, '');
+  }
+
   function getSavedActiveView() {
     try {
-      const hash = (window.location.hash || '').replace(/^#/, '').trim();
-      if (hash && VALID_VIEWS.includes(hash)) {
-        return hash;
-      }
+      const fromHash = resolveViewIdFromHash(window.location.hash);
+      if (fromHash) return fromHash;
+
       const saved = localStorage.getItem('telecom_portal_active_view');
-      if (saved && VALID_VIEWS.includes(saved)) {
-        return saved;
-      }
+      const fromSaved = resolveViewIdFromHash(saved);
+      if (fromSaved) return fromSaved;
     } catch (e) {}
     return 'view-executive';
   }
@@ -3912,8 +3958,10 @@
     try {
       localStorage.setItem('telecom_portal_active_view', viewId);
       document.documentElement.setAttribute('data-target-view', viewId);
-      if (window.location.hash !== '#' + viewId) {
-        history.replaceState(null, '', '#' + viewId);
+      const slug = getViewSlug(viewId);
+      const targetHash = '#' + slug;
+      if (window.location.hash !== targetHash) {
+        history.replaceState(null, '', targetHash);
       }
     } catch (e) {}
 
@@ -11583,9 +11631,9 @@
 
     // 1a. Listen for browser hash change (back/forward button & direct URL hash)
     window.addEventListener('hashchange', () => {
-      const hash = (window.location.hash || '').replace(/^#/, '').trim();
-      if (hash && hash !== state.activeView && VALID_VIEWS.includes(hash)) {
-        switchView(hash);
+      const resolved = resolveViewIdFromHash(window.location.hash);
+      if (resolved && resolved !== state.activeView) {
+        switchView(resolved);
       }
     });
 
