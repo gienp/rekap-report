@@ -194,27 +194,33 @@
             <span class="flex items-center gap-1.5"><i class="fa-solid fa-sliders text-cyan-400"></i> Alat &amp; Akun</span>
             <span class="text-cyan-400 text-[9px] font-mono" id="sidebarDropdownRoleLabel">AKUN</span>
           </div>
-          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition" type="button" onclick="document.getElementById('btnOpenChangePassword').click(); document.getElementById('sidebarUserDropdownMenu').classList.add('hidden');">
+          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition" type="button" id="btnOpenChangePassword">
             <i class="fa-solid fa-key text-slate-400 w-4 text-center"></i>
-            <span>Ganti Password</span>
+            <span>Ganti Password Akun</span>
           </button>
-          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition" type="button" onclick="document.getElementById('btnOpenUpdateEmail').click(); document.getElementById('sidebarUserDropdownMenu').classList.add('hidden');">
-            <i class="fa-solid fa-envelope text-cyan-400 w-4 text-center"></i>
-            <span>Email Pemulihan</span>
+          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center justify-between transition" type="button" id="btnOpenUpdateEmail">
+            <div class="flex items-center gap-2.5">
+              <i class="fa-solid fa-envelope text-cyan-400 w-4 text-center"></i>
+              <span>Email Pemulihan</span>
+            </div>
+            <span id="myEmailMissingBadge" class="hidden text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">Belum Ada</span>
           </button>
-          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition admin-only" type="button" onclick="document.getElementById('btnOpenAdminUsers').click(); document.getElementById('sidebarUserDropdownMenu').classList.add('hidden');">
-            <i class="fa-solid fa-users-gear text-amber-400 w-4 text-center"></i>
-            <span>Kelola Akun PIC</span>
+          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center justify-between transition admin-only" type="button" id="btnOpenAdminUsers">
+            <div class="flex items-center gap-2.5">
+              <i class="fa-solid fa-users-gear text-amber-400 w-4 text-center"></i>
+              <span>Kelola Akun PIC (Admin)</span>
+            </div>
+            <span id="toolsPendingUserBadge" class="hidden text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold shrink-0">0 Baru</span>
           </button>
-          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition admin-only" type="button" onclick="document.getElementById('btnOpenImportExcel').click(); document.getElementById('sidebarUserDropdownMenu').classList.add('hidden');">
+          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition admin-only" type="button" id="btnOpenImportExcel">
             <i class="fa-solid fa-file-import text-emerald-400 w-4 text-center"></i>
             <span>Import Bulk Excel</span>
           </button>
-          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition admin-only" type="button" onclick="document.getElementById('btnOpenAuditLogs').click(); document.getElementById('sidebarUserDropdownMenu').classList.add('hidden');">
+          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition admin-only" type="button" id="btnOpenAuditLogs">
             <i class="fa-solid fa-clock-rotate-left text-cyan-400 w-4 text-center"></i>
-            <span>Riwayat Log Audit</span>
+            <span>Riwayat Aktivitas Log</span>
           </button>
-          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition admin-only" type="button" onclick="document.getElementById('btnOpenDatabaseViewer').click(); document.getElementById('sidebarUserDropdownMenu').classList.add('hidden');">
+          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition admin-only" type="button" id="btnOpenDatabaseViewer">
             <i class="fa-solid fa-database text-indigo-400 w-4 text-center"></i>
             <span>Akses &amp; Explorer DB</span>
           </button>
@@ -322,83 +328,7 @@
             id="breadcrumbPageTitle">Dashboard Ringkasan Eksekutif</h2>
         </div>
 
-        <!-- Vertical Divider Kiri -->
-        <div class="topbar-divider hidden sm:block shrink-0"></div>
 
-        <!-- 3. Alat & Manajemen Dropdown Trigger (Kiri Topbar) -->
-        <div class="relative inline-block text-left shrink-0" id="toolsGroupDropdownContainer">
-          <button id="btnToggleToolsMenu"
-            class="btn btn-secondary btn-dropdown-trigger h-8.5 px-2 sm:px-2.5 text-xs rounded-lg flex items-center justify-center gap-1"
-            title="Alat & Manajemen Sistem">
-            <i class="fa-solid fa-sliders icon-tools text-[11px] text-cyan-400"></i>
-            <span class="hidden md:inline font-medium">Alat</span>
-            <i class="fa-solid fa-chevron-down text-[8px] dropdown-chevron opacity-60 ml-0.5 hidden sm:inline"></i>
-          </button>
-
-          <div id="toolsGroupMenu"
-            class="hidden absolute left-0 top-full mt-2 w-64 topbar-dropdown-menu shadow-2xl p-1.5 z-[9999] space-y-0.5">
-            <button type="button" id="btnOpenImportExcel" class="topbar-dropdown-item w-full text-left admin-only">
-              <i class="fa-solid fa-file-import icon-excel text-base w-5 text-center shrink-0"></i>
-              <div class="overflow-hidden">
-                <div class="item-title font-bold">Import Bulk Excel</div>
-                <div class="item-desc">Unggah data massal dari file .xlsx</div>
-              </div>
-            </button>
-
-            <button type="button" id="btnOpenAuditLogs" class="topbar-dropdown-item w-full text-left admin-only">
-              <i class="fa-solid fa-clock-rotate-left icon-audit text-base w-5 text-center shrink-0"></i>
-              <div class="overflow-hidden">
-                <div class="item-title font-bold">Riwayat Aktivitas Log</div>
-                <div class="item-desc">Audit trail & perubahan data</div>
-              </div>
-            </button>
-
-            <button type="button" id="btnOpenDatabaseViewer" class="topbar-dropdown-item w-full text-left admin-only">
-              <i class="fa-solid fa-database icon-db text-base w-5 text-center shrink-0"></i>
-              <div class="overflow-hidden">
-                <div class="item-title font-bold">Akses & Explorer DB</div>
-                <div class="item-desc">Query & inspeksi tabel database</div>
-              </div>
-            </button>
-
-            <button type="button" id="btnOpenAdminUsers"
-              class="topbar-dropdown-item w-full text-left admin-only hidden flex items-center justify-between">
-              <div class="flex items-center gap-2.5 overflow-hidden">
-                <i class="fa-solid fa-users-gear icon-users text-base w-5 text-center shrink-0"></i>
-                <div class="overflow-hidden">
-                  <div class="item-title font-bold">Kelola Akun PIC (Admin)</div>
-                  <div class="item-desc">Persetujuan & manajemen teknisi</div>
-                </div>
-              </div>
-              <span id="toolsPendingUserBadge"
-                class="hidden text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold shrink-0">0
-                Baru</span>
-            </button>
-
-            <div class="dropdown-divider my-1"></div>
-
-            <button type="button" id="btnOpenChangePassword" class="topbar-dropdown-item w-full text-left">
-              <i class="fa-solid fa-key icon-key text-base w-5 text-center shrink-0"></i>
-              <div class="overflow-hidden">
-                <div class="item-title font-bold">Ganti Password Akun</div>
-                <div class="item-desc">Perbarui kredensial login sesi Anda</div>
-              </div>
-            </button>
-
-            <button type="button" id="btnOpenUpdateEmail" class="topbar-dropdown-item w-full text-left">
-              <i class="fa-solid fa-envelope icon-envelope text-base w-5 text-center shrink-0 text-cyan-400"></i>
-              <div class="overflow-hidden">
-                <div class="item-title font-bold flex items-center gap-1.5">
-                  <span>Email Pemulihan Sandi</span>
-                  <span id="myEmailMissingBadge"
-                    class="hidden text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">Belum
-                    Ada</span>
-                </div>
-                <div class="item-desc" id="myEmailDesc">Tambahkan atau ubah email Anda</div>
-              </div>
-            </button>
-          </div>
-        </div>
       </div>
 
       <!-- Center: Universal Global Search Bar Trigger (Desktop/Tablet >= 640px) -->
@@ -4569,7 +4499,7 @@
   <script src="sitac_collo_data.js?v=12.23"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=12.50"></script>
+  <script src="app.js?v=12.51"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>
