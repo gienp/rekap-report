@@ -242,6 +242,37 @@
             </button>
           </div>
         </div>
+
+        <!-- 4. ALAT & ADMINISTRASI SISTEM (Sidebar Kiri) -->
+        <div class="nav-section-group collapsed" id="groupToolsSidebar">
+          <button type="button" class="section-dropdown-btn" data-toggle="groupToolsSidebar">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-sliders text-cyan-400 text-xs"></i>
+              <span>Alat & Administrasi</span>
+            </div>
+            <i class="fa-solid fa-chevron-down section-chevron"></i>
+          </button>
+          <div class="section-items">
+            <button class="nav-item admin-only" type="button" onclick="document.getElementById('btnOpenImportExcel').click()">
+              <span class="nav-label flex items-center gap-2"><i class="fa-solid fa-file-import text-emerald-400 w-4 text-center"></i> Import Bulk Excel</span>
+            </button>
+            <button class="nav-item admin-only" type="button" onclick="document.getElementById('btnOpenAuditLogs').click()">
+              <span class="nav-label flex items-center gap-2"><i class="fa-solid fa-clock-rotate-left text-cyan-400 w-4 text-center"></i> Riwayat Log Audit</span>
+            </button>
+            <button class="nav-item admin-only" type="button" onclick="document.getElementById('btnOpenDatabaseViewer').click()">
+              <span class="nav-label flex items-center gap-2"><i class="fa-solid fa-database text-indigo-400 w-4 text-center"></i> Akses & Explorer DB</span>
+            </button>
+            <button class="nav-item admin-only" type="button" onclick="document.getElementById('btnOpenAdminUsers').click()">
+              <span class="nav-label flex items-center gap-2"><i class="fa-solid fa-users-gear text-amber-400 w-4 text-center"></i> Kelola Akun PIC</span>
+            </button>
+            <button class="nav-item" type="button" onclick="document.getElementById('btnOpenChangePassword').click()">
+              <span class="nav-label flex items-center gap-2"><i class="fa-solid fa-key text-slate-400 w-4 text-center"></i> Ganti Password</span>
+            </button>
+            <button class="nav-item" type="button" onclick="document.getElementById('btnOpenUpdateEmail').click()">
+              <span class="nav-label flex items-center gap-2"><i class="fa-solid fa-envelope text-cyan-400 w-4 text-center"></i> Email Pemulihan</span>
+            </button>
+          </div>
+        </div>
       </nav>
     </div>
 
@@ -268,16 +299,94 @@
     <!-- TOP HEADER BAR -->
     <header
       class="portal-topbar flex items-center justify-between px-3 sm:px-6 py-2.5 sm:py-3.5 sticky top-0 z-50 gap-1.5 sm:gap-4">
-      <!-- Left: Breadcrumb & Title -->
+      <!-- Left: Breadcrumb & Title + Alat Menu (Dipindahkan ke Kiri) -->
       <div class="flex items-center gap-1.5 sm:gap-3 flex-1 sm:flex-initial min-w-0">
         <button id="sidebarToggleBtn" class="lg:hidden btn-icon shrink-0" title="Toggle Menu">
           <i class="fa-solid fa-bars"></i>
         </button>
-        <div class="breadcrumbs min-w-0 flex-1">
+        <div class="breadcrumbs min-w-0">
           <span class="topbar-category-tag block leading-none text-[10px] sm:text-xs"
             id="breadcrumbCategory">Overview</span>
           <h2 class="topbar-page-title truncate mt-0.5 leading-tight text-xs sm:text-base font-bold"
             id="breadcrumbPageTitle">Dashboard Ringkasan Eksekutif</h2>
+        </div>
+
+        <!-- Vertical Divider Kiri -->
+        <div class="topbar-divider hidden sm:block shrink-0"></div>
+
+        <!-- 3. Alat & Manajemen Dropdown Trigger (Kiri Topbar) -->
+        <div class="relative inline-block text-left shrink-0" id="toolsGroupDropdownContainer">
+          <button id="btnToggleToolsMenu"
+            class="btn btn-secondary btn-dropdown-trigger h-8.5 px-2 sm:px-2.5 text-xs rounded-lg flex items-center justify-center gap-1"
+            title="Alat & Manajemen Sistem">
+            <i class="fa-solid fa-sliders icon-tools text-[11px] text-cyan-400"></i>
+            <span class="hidden md:inline font-medium">Alat</span>
+            <i class="fa-solid fa-chevron-down text-[8px] dropdown-chevron opacity-60 ml-0.5 hidden sm:inline"></i>
+          </button>
+
+          <div id="toolsGroupMenu"
+            class="hidden absolute left-0 top-full mt-2 w-64 topbar-dropdown-menu shadow-2xl p-1.5 z-[9999] space-y-0.5">
+            <button type="button" id="btnOpenImportExcel" class="topbar-dropdown-item w-full text-left admin-only">
+              <i class="fa-solid fa-file-import icon-excel text-base w-5 text-center shrink-0"></i>
+              <div class="overflow-hidden">
+                <div class="item-title font-bold">Import Bulk Excel</div>
+                <div class="item-desc">Unggah data massal dari file .xlsx</div>
+              </div>
+            </button>
+
+            <button type="button" id="btnOpenAuditLogs" class="topbar-dropdown-item w-full text-left admin-only">
+              <i class="fa-solid fa-clock-rotate-left icon-audit text-base w-5 text-center shrink-0"></i>
+              <div class="overflow-hidden">
+                <div class="item-title font-bold">Riwayat Aktivitas Log</div>
+                <div class="item-desc">Audit trail & perubahan data</div>
+              </div>
+            </button>
+
+            <button type="button" id="btnOpenDatabaseViewer" class="topbar-dropdown-item w-full text-left admin-only">
+              <i class="fa-solid fa-database icon-db text-base w-5 text-center shrink-0"></i>
+              <div class="overflow-hidden">
+                <div class="item-title font-bold">Akses & Explorer DB</div>
+                <div class="item-desc">Query & inspeksi tabel database</div>
+              </div>
+            </button>
+
+            <button type="button" id="btnOpenAdminUsers"
+              class="topbar-dropdown-item w-full text-left admin-only hidden flex items-center justify-between">
+              <div class="flex items-center gap-2.5 overflow-hidden">
+                <i class="fa-solid fa-users-gear icon-users text-base w-5 text-center shrink-0"></i>
+                <div class="overflow-hidden">
+                  <div class="item-title font-bold">Kelola Akun PIC (Admin)</div>
+                  <div class="item-desc">Persetujuan & manajemen teknisi</div>
+                </div>
+              </div>
+              <span id="toolsPendingUserBadge"
+                class="hidden text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold shrink-0">0
+                Baru</span>
+            </button>
+
+            <div class="dropdown-divider my-1"></div>
+
+            <button type="button" id="btnOpenChangePassword" class="topbar-dropdown-item w-full text-left">
+              <i class="fa-solid fa-key icon-key text-base w-5 text-center shrink-0"></i>
+              <div class="overflow-hidden">
+                <div class="item-title font-bold">Ganti Password Akun</div>
+                <div class="item-desc">Perbarui kredensial login sesi Anda</div>
+              </div>
+            </button>
+
+            <button type="button" id="btnOpenUpdateEmail" class="topbar-dropdown-item w-full text-left">
+              <i class="fa-solid fa-envelope icon-envelope text-base w-5 text-center shrink-0 text-cyan-400"></i>
+              <div class="overflow-hidden">
+                <div class="item-title font-bold flex items-center gap-1.5">
+                  <span>Email Pemulihan Sandi</span>
+                  <span id="myEmailMissingBadge"
+                    class="hidden text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">Belum
+                    Ada</span>
+                </div>
+                <div class="item-desc" id="myEmailDesc">Tambahkan atau ubah email Anda</div>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -307,7 +416,7 @@
           <i class="fa-solid fa-magnifying-glass text-cyan-400 text-xs"></i>
         </button>
 
-        <!-- Cluster 1: Core Data Operations (Tambah Data, Ekspor, Alat) -->
+        <!-- Cluster 1: Core Data Operations (Tambah Data & Ekspor) -->
         <div class="flex items-center gap-1 sm:gap-1.5">
           <!-- 1. Primary Action: + Tambah Data (Desktop/Tablet only; on mobile it's in the bottom app bar) -->
           <button id="btnOpenAddModal"
@@ -361,111 +470,6 @@
                 <div class="overflow-hidden">
                   <div class="item-title font-bold">Cetak Modul Aktif PDF</div>
                   <div class="item-desc">Cetak tabel layar aktif</div>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <!-- 3. Alat & Manajemen Dropdown Trigger (Serves as Alat & Ekspor menu on mobile) -->
-          <div class="relative inline-block text-left" id="toolsGroupDropdownContainer">
-            <button id="btnToggleToolsMenu"
-              class="btn btn-secondary btn-dropdown-trigger h-8.5 w-8.5 sm:w-auto px-2 sm:px-2.5 text-xs rounded-lg flex items-center justify-center gap-1"
-              title="Alat & Ekspor">
-              <i class="fa-solid fa-sliders icon-tools text-[11px]"></i>
-              <span class="hidden md:inline">Alat</span>
-              <i class="fa-solid fa-chevron-down text-[8px] dropdown-chevron opacity-60 ml-0.5 hidden sm:inline"></i>
-            </button>
-
-            <div id="toolsGroupMenu"
-              class="hidden absolute right-0 top-full mt-2 w-64 topbar-dropdown-menu shadow-2xl p-1.5 z-[9999] space-y-0.5">
-              <!-- Mobile quick-export section (only visible on mobile phones < 640px) -->
-              <div class="sm:hidden border-b border-white/10 pb-1 mb-1" id="mobileExportSection">
-                <div class="px-2.5 py-1 text-[10px] uppercase font-bold text-cyan-400 tracking-wider">Ekspor Laporan
-                </div>
-                <button type="button" class="topbar-dropdown-item w-full text-left"
-                  onclick="document.getElementById('btnExportExcel').click()">
-                  <i class="fa-solid fa-file-excel icon-excel text-base w-5 text-center shrink-0"></i>
-                  <div class="overflow-hidden">
-                    <div class="item-title font-bold">Ekspor Excel (.xlsx)</div>
-                    <div class="item-desc">Unduh data aktif ke Sheet Excel</div>
-                  </div>
-                </button>
-                <button type="button" class="topbar-dropdown-item w-full text-left"
-                  onclick="document.getElementById('btnQuickExport').click()">
-                  <i class="fa-solid fa-file-csv icon-csv text-base w-5 text-center shrink-0"></i>
-                  <div class="overflow-hidden">
-                    <div class="item-title font-bold">Ekspor CSV (.csv)</div>
-                    <div class="item-desc">Unduh format CSV standar</div>
-                  </div>
-                </button>
-                <a href="/api/download/pdf-report" download="Laporan_Rekap_Telecom_Ops.pdf"
-                  class="topbar-dropdown-item w-full text-left admin-only">
-                  <i class="fa-solid fa-file-pdf icon-pdf text-base w-5 text-center shrink-0"></i>
-                  <div class="overflow-hidden">
-                    <div class="item-title font-bold">Laporan Master PDF</div>
-                    <div class="item-desc">Rekap PDF lengkap semua modul</div>
-                  </div>
-                </a>
-              </div>
-
-              <button type="button" id="btnOpenImportExcel" class="topbar-dropdown-item w-full text-left admin-only">
-                <i class="fa-solid fa-file-import icon-excel text-base w-5 text-center shrink-0"></i>
-                <div class="overflow-hidden">
-                  <div class="item-title font-bold">Import Bulk Excel</div>
-                  <div class="item-desc">Unggah data massal dari file .xlsx</div>
-                </div>
-              </button>
-
-              <button type="button" id="btnOpenAuditLogs" class="topbar-dropdown-item w-full text-left admin-only">
-                <i class="fa-solid fa-clock-rotate-left icon-audit text-base w-5 text-center shrink-0"></i>
-                <div class="overflow-hidden">
-                  <div class="item-title font-bold">Riwayat Aktivitas Log</div>
-                  <div class="item-desc">Audit trail & perubahan data</div>
-                </div>
-              </button>
-
-              <button type="button" id="btnOpenDatabaseViewer" class="topbar-dropdown-item w-full text-left admin-only">
-                <i class="fa-solid fa-database icon-db text-base w-5 text-center shrink-0"></i>
-                <div class="overflow-hidden">
-                  <div class="item-title font-bold">Akses & Explorer DB</div>
-                  <div class="item-desc">Query & inspeksi tabel database</div>
-                </div>
-              </button>
-
-              <button type="button" id="btnOpenAdminUsers"
-                class="topbar-dropdown-item w-full text-left admin-only hidden flex items-center justify-between">
-                <div class="flex items-center gap-2.5 overflow-hidden">
-                  <i class="fa-solid fa-users-gear icon-users text-base w-5 text-center shrink-0"></i>
-                  <div class="overflow-hidden">
-                    <div class="item-title font-bold">Kelola Akun PIC (Admin)</div>
-                    <div class="item-desc">Persetujuan & manajemen teknisi</div>
-                  </div>
-                </div>
-                <span id="toolsPendingUserBadge"
-                  class="hidden text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold shrink-0">0
-                  Baru</span>
-              </button>
-
-              <div class="dropdown-divider my-1"></div>
-
-              <button type="button" id="btnOpenChangePassword" class="topbar-dropdown-item w-full text-left">
-                <i class="fa-solid fa-key icon-key text-base w-5 text-center shrink-0"></i>
-                <div class="overflow-hidden">
-                  <div class="item-title font-bold">Ganti Password Akun</div>
-                  <div class="item-desc">Perbarui kredensial login sesi Anda</div>
-                </div>
-              </button>
-
-              <button type="button" id="btnOpenUpdateEmail" class="topbar-dropdown-item w-full text-left">
-                <i class="fa-solid fa-envelope icon-envelope text-base w-5 text-center shrink-0 text-cyan-400"></i>
-                <div class="overflow-hidden">
-                  <div class="item-title font-bold flex items-center gap-1.5">
-                    <span>Email Pemulihan Sandi</span>
-                    <span id="myEmailMissingBadge"
-                      class="hidden text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">Belum
-                      Ada</span>
-                  </div>
-                  <div class="item-desc" id="myEmailDesc">Tambahkan atau ubah email Anda</div>
                 </div>
               </button>
             </div>
@@ -4556,7 +4560,7 @@
   <script src="sitac_collo_data.js?v=12.23"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=12.44"></script>
+  <script src="app.js?v=12.45"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>
