@@ -1293,15 +1293,45 @@
       const startDate = params.get('startDate') || params.get('start_date') || '';
       const endDate = params.get('endDate') || params.get('end_date') || '';
       const dateField = params.get('dateField') || params.get('date_field') || 'date_dispos';
+      const datePreset = params.get('datePreset') || params.get('preset') || 'ALL';
+      const activePresets = String(datePreset).split(',').map(p => p.trim()).filter(Boolean);
 
-      const allowAllTeam = params.get('all_team') === '1' || params.get('scope') === 'all';
-      let scopedSitac = sitacList;
-      if (isPicLapangan && !allowAllTeam) {
-        scopedSitac = scopedSitac.filter(s => isUserAssignedToTask(s, authUser));
-      }
+      const getPresetDateRange = (preset) => {
+        const today = new Date();
+        const curYear = today.getFullYear();
+        const curMonth = today.getMonth();
+        if (preset === 'THIS_MONTH') {
+          const firstDay = new Date(curYear, curMonth, 1);
+          const lastDay = new Date(curYear, curMonth + 1, 0);
+          return { start: firstDay.toISOString().slice(0, 10), end: lastDay.toISOString().slice(0, 10) };
+        } else if (preset === 'LAST_MONTH') {
+          const firstDay = new Date(curYear, curMonth - 1, 1);
+          const lastDay = new Date(curYear, curMonth, 0);
+          return { start: firstDay.toISOString().slice(0, 10), end: lastDay.toISOString().slice(0, 10) };
+        } else if (['2024', '2025', '2026'].includes(preset)) {
+          return { start: `${preset}-01-01`, end: `${preset}-12-31`, year: parseInt(preset, 10) };
+        }
+        return null;
+      };
 
-      // Filter by Date Range if specified
-      if (startDate || endDate) {
+      // Filter by Date Presets (supports multi-selection) or Custom Range
+      if (activePresets.length > 0 && !activePresets.includes('ALL')) {
+        scopedSitac = scopedSitac.filter(s => {
+          const raw = s[dateField] || s.date_dispos || s.date_close || '';
+          const dStr = String(raw).trim().substring(0, 10);
+          const sYear = Number(s.tahun) || (dStr && dStr.length >= 4 ? parseInt(dStr.substring(0, 4), 10) : 0);
+
+          return activePresets.some(preset => {
+            const range = getPresetDateRange(preset);
+            if (!range) return false;
+            if (range.year && sYear === range.year) return true;
+            if (dStr && range.start && range.end) {
+              return dStr >= range.start && dStr <= range.end;
+            }
+            return false;
+          });
+        });
+      } else if (startDate || endDate) {
         scopedSitac = scopedSitac.filter(s => {
           const raw = s[dateField] || s.date_dispos || '';
           const dStr = String(raw).trim().substring(0, 10);
@@ -5497,6 +5527,62 @@
   // =========================================================================
   // VIEW 5: MONITORING PERIZINAN PROYEK PA (MODUL B)
   // =========================================================================
+  function syncDatePresetButtons(containerId, presetValue) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const selected = String(presetValue || 'ALL').split(',').map(s => s.trim()).filter(Boolean);
+    const isAll = selected.length === 0 || selected.includes('ALL');
+    container.querySelectorAll('.sitac-date-preset-btn').forEach(btn => {
+      const code = btn.getAttribute('data-preset') || 'ALL';
+      if (isAll) {
+        btn.classList.toggle('active', code === 'ALL');
+      } else {
+        btn.classList.toggle('active', selected.includes(code));
+      }
+    });
+  }
+
+  function setupDatePresetsMultiSelect(containerId, onFilterChange) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const allBtn = container.querySelector('.sitac-date-preset-btn[data-preset="ALL"]');
+    const specificBtns = Array.from(container.querySelectorAll('.sitac-date-preset-btn:not([data-preset="ALL"])'));
+
+    container.querySelectorAll('.sitac-date-preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const clickedPreset = btn.getAttribute('data-preset') || 'ALL';
+
+        if (clickedPreset === 'ALL') {
+          // Reset to Semua
+          specificBtns.forEach(b => b.classList.remove('active'));
+          allBtn?.classList.add('active');
+          onFilterChange('ALL');
+        } else {
+          allBtn?.classList.remove('active');
+
+          if (btn.classList.contains('active')) {
+            // Already active -> toggle OFF (unselect)
+            btn.classList.remove('active');
+          } else {
+            // Inactive -> toggle ON (multi-select)
+            btn.classList.add('active');
+          }
+
+          // Check which specific preset buttons are currently active
+          const activeBtns = specificBtns.filter(b => b.classList.contains('active'));
+          if (activeBtns.length === 0) {
+            allBtn?.classList.add('active');
+            onFilterChange('ALL');
+          } else {
+            const joinedPresets = activeBtns.map(b => b.getAttribute('data-preset')).join(',');
+            onFilterChange(joinedPresets);
+          }
+        }
+      });
+    });
+  }
+
   function syncRegionalTabButtons(containerId, regionValue) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -5569,17 +5655,19 @@
   }
 
   async function loadSitacData() {
-    const { status, pic, year, aging, region, search, startDate, endDate, dateField, page, pageSize } = state.sitac;
+    const { status, pic, year, aging, region, search, startDate, endDate, dateField, page, pageSize, datePreset } = state.sitac;
     const isLapangan = state.currentUser?.role === 'lapangan';
     const finalPic = (isLapangan || state.myTasksOnlySitac) && state.activeTechnician && state.activeTechnician !== 'Admin'
       ? state.activeTechnician
       : pic;
     const finalRegion = region || 'ALL';
+    const finalDatePreset = datePreset || 'ALL';
     const params = new URLSearchParams({
       status, pic: finalPic, year, aging, region: finalRegion, search, page, pageSize,
       startDate: startDate || '',
       endDate: endDate || '',
-      dateField: dateField || 'date_dispos'
+      dateField: dateField || 'date_dispos',
+      datePreset: finalDatePreset
     });
 
     try {
@@ -5647,6 +5735,7 @@
 
         const curRegion = finalRegion;
         syncRegionalTabButtons('sitacRegionTabs', curRegion);
+        syncDatePresetButtons('sitacDatePresets', finalDatePreset);
 
         const selectedList = String(curRegion).split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
         let stats = { count: 0, berbiaya: 0, zerocost: 0, biaya_awal: 0, biaya_final: 0, efisiensi_rupiah: 0, efisiensi_persen: 0 };
@@ -5706,10 +5795,26 @@
           if (selectedList.length > 0 && !selectedList.includes('ALL')) {
             baseScope = selectedList.map(code => scopeLabels[code] || code).join(' + ');
           }
-          if (startDate || endDate) {
+
+          const activePresets = String(finalDatePreset).split(',').map(p => p.trim()).filter(Boolean);
+          let dateScopeText = '';
+          if (activePresets.length > 0 && !activePresets.includes('ALL')) {
+            const presetLabels = {
+              THIS_MONTH: 'Bulan Ini',
+              LAST_MONTH: 'Bulan Lalu',
+              2026: '2026',
+              2025: '2025',
+              2024: '2024'
+            };
+            dateScopeText = activePresets.map(p => presetLabels[p] || p).join(' + ');
+          } else if (startDate || endDate) {
             const sFmt = startDate ? formatDisplayDate(startDate) : 'Awal';
             const eFmt = endDate ? formatDisplayDate(endDate) : 'Sekarang';
-            elScopeDesc.textContent = `${baseScope} (${sFmt} - ${eFmt})`;
+            dateScopeText = `${sFmt} - ${eFmt}`;
+          }
+
+          if (dateScopeText) {
+            elScopeDesc.textContent = `${baseScope} (${dateScopeText})`;
           } else {
             elScopeDesc.textContent = baseScope;
           }
@@ -5979,63 +6084,61 @@
   }
 
   function applyColleaguesDatePreset(preset) {
-    const today = new Date();
-    const curYear = today.getFullYear();
-    const curMonth = today.getMonth();
+    state.colleagues.datePreset = preset || 'ALL';
 
-    let start = '';
-    let end = '';
+    const selected = String(preset || 'ALL').split(',').map(s => s.trim()).filter(Boolean);
+    const isAll = selected.length === 0 || selected.includes('ALL');
 
-    if (preset === 'THIS_MONTH') {
-      const firstDay = new Date(curYear, curMonth, 1);
-      const lastDay = new Date(curYear, curMonth + 1, 0);
-      start = firstDay.toISOString().slice(0, 10);
-      end = lastDay.toISOString().slice(0, 10);
-    } else if (preset === 'LAST_MONTH') {
-      const firstDay = new Date(curYear, curMonth - 1, 1);
-      const lastDay = new Date(curYear, curMonth, 0);
-      start = firstDay.toISOString().slice(0, 10);
-      end = lastDay.toISOString().slice(0, 10);
-    } else if (preset === '2026') {
-      start = '2026-01-01';
-      end = '2026-12-31';
-    } else if (preset === '2025') {
-      start = '2025-01-01';
-      end = '2025-12-31';
-    } else if (preset === '2024') {
-      start = '2024-01-01';
-      end = '2024-12-31';
-    } else if (preset === 'ALL') {
-      start = '';
-      end = '';
-    }
-
-    state.colleagues.datePreset = preset;
-    state.colleagues.startDate = start;
-    state.colleagues.endDate = end;
+    syncDatePresetButtons('colleaguesDatePresets', preset);
 
     const inpStart = document.getElementById('colleaguesStartDate');
     const inpEnd = document.getElementById('colleaguesEndDate');
-    if (inpStart) inpStart.value = start;
-    if (inpEnd) inpEnd.value = end;
-
-    document.querySelectorAll('#colleaguesDatePresets .sitac-date-preset-btn').forEach(btn => {
-      if (btn.getAttribute('data-preset') === preset) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
-    });
-
     const yrSelect = document.getElementById('colleaguesFilterYear');
-    if (yrSelect) {
-      if (['2024', '2025', '2026', 'ALL'].includes(preset)) {
-        yrSelect.value = preset;
-        state.colleagues.year = preset;
-      } else {
-        yrSelect.value = 'ALL';
-        state.colleagues.year = 'ALL';
+
+    if (isAll) {
+      state.colleagues.startDate = '';
+      state.colleagues.endDate = '';
+      state.colleagues.year = 'ALL';
+      if (inpStart) inpStart.value = '';
+      if (inpEnd) inpEnd.value = '';
+      if (yrSelect) yrSelect.value = 'ALL';
+    } else if (selected.length === 1) {
+      const p = selected[0];
+      const today = new Date();
+      const curYear = today.getFullYear();
+      const curMonth = today.getMonth();
+      let start = '', end = '';
+
+      if (p === 'THIS_MONTH') {
+        start = new Date(curYear, curMonth, 1).toISOString().slice(0, 10);
+        end = new Date(curYear, curMonth + 1, 0).toISOString().slice(0, 10);
+      } else if (p === 'LAST_MONTH') {
+        start = new Date(curYear, curMonth - 1, 1).toISOString().slice(0, 10);
+        end = new Date(curYear, curMonth, 0).toISOString().slice(0, 10);
+      } else if (['2024', '2025', '2026'].includes(p)) {
+        start = `${p}-01-01`;
+        end = `${p}-12-31`;
       }
+
+      state.colleagues.startDate = start;
+      state.colleagues.endDate = end;
+      if (['2024', '2025', '2026'].includes(p)) {
+        state.colleagues.year = p;
+        if (yrSelect) yrSelect.value = p;
+      } else {
+        state.colleagues.year = 'ALL';
+        if (yrSelect) yrSelect.value = 'ALL';
+      }
+      if (inpStart) inpStart.value = start;
+      if (inpEnd) inpEnd.value = end;
+    } else {
+      // Multiple presets selected (e.g. '2025,2026' or 'THIS_MONTH,LAST_MONTH')
+      state.colleagues.startDate = '';
+      state.colleagues.endDate = '';
+      state.colleagues.year = 'ALL';
+      if (inpStart) inpStart.value = '';
+      if (inpEnd) inpEnd.value = '';
+      if (yrSelect) yrSelect.value = 'ALL';
     }
 
     state.colleagues.page = 1;
@@ -6045,8 +6148,9 @@
 
   async function loadColleaguesData() {
     if (!state.colleagues) return;
-    const { status, pic, year, aging, region, search, startDate, endDate, dateField, page, pageSize } = state.colleagues;
+    const { status, pic, year, aging, region, search, startDate, endDate, dateField, page, pageSize, datePreset } = state.colleagues;
     const finalRegion = region || 'ALL';
+    const finalDatePreset = datePreset || 'ALL';
     const params = new URLSearchParams({
       all_team: '1',
       status: status || 'ALL',
@@ -6059,7 +6163,8 @@
       pageSize: pageSize || 25,
       startDate: startDate || '',
       endDate: endDate || '',
-      dateField: dateField || 'date_dispos'
+      dateField: dateField || 'date_dispos',
+      datePreset: finalDatePreset
     });
 
     try {
@@ -6462,12 +6567,9 @@
         loadColleaguesData();
       });
 
-      // Date Presets
-      document.querySelectorAll('#colleaguesDatePresets .sitac-date-preset-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const preset = btn.getAttribute('data-preset') || 'ALL';
-          applyColleaguesDatePreset(preset);
-        });
+      // Date Presets with Multi-Select and Toggle-off
+      setupDatePresetsMultiSelect('colleaguesDatePresets', (presetCodes) => {
+        applyColleaguesDatePreset(presetCodes);
       });
 
       // Apply Custom Date Range
@@ -12585,63 +12687,61 @@
       loadSitacData();
     });
     function applySitacDatePreset(preset) {
-      const today = new Date();
-      const curYear = today.getFullYear();
-      const curMonth = today.getMonth();
+      state.sitac.datePreset = preset || 'ALL';
 
-      let start = '';
-      let end = '';
+      const selected = String(preset || 'ALL').split(',').map(s => s.trim()).filter(Boolean);
+      const isAll = selected.length === 0 || selected.includes('ALL');
 
-      if (preset === 'THIS_MONTH') {
-        const firstDay = new Date(curYear, curMonth, 1);
-        const lastDay = new Date(curYear, curMonth + 1, 0);
-        start = firstDay.toISOString().slice(0, 10);
-        end = lastDay.toISOString().slice(0, 10);
-      } else if (preset === 'LAST_MONTH') {
-        const firstDay = new Date(curYear, curMonth - 1, 1);
-        const lastDay = new Date(curYear, curMonth, 0);
-        start = firstDay.toISOString().slice(0, 10);
-        end = lastDay.toISOString().slice(0, 10);
-      } else if (preset === '2026') {
-        start = '2026-01-01';
-        end = '2026-12-31';
-      } else if (preset === '2025') {
-        start = '2025-01-01';
-        end = '2025-12-31';
-      } else if (preset === '2024') {
-        start = '2024-01-01';
-        end = '2024-12-31';
-      } else if (preset === 'ALL') {
-        start = '';
-        end = '';
-      }
-
-      state.sitac.datePreset = preset;
-      state.sitac.startDate = start;
-      state.sitac.endDate = end;
+      syncDatePresetButtons('sitacDatePresets', preset);
 
       const inpStart = document.getElementById('sitacStartDate');
       const inpEnd = document.getElementById('sitacEndDate');
-      if (inpStart) inpStart.value = start;
-      if (inpEnd) inpEnd.value = end;
-
-      document.querySelectorAll('#sitacDatePresets .sitac-date-preset-btn').forEach(btn => {
-        if (btn.getAttribute('data-preset') === preset) {
-          btn.classList.add('active');
-        } else {
-          btn.classList.remove('active');
-        }
-      });
-
       const yrSelect = document.getElementById('sitacFilterYear');
-      if (yrSelect) {
-        if (['2024', '2025', '2026', 'ALL'].includes(preset)) {
-          yrSelect.value = preset;
-          state.sitac.year = preset;
-        } else {
-          yrSelect.value = 'ALL';
-          state.sitac.year = 'ALL';
+
+      if (isAll) {
+        state.sitac.startDate = '';
+        state.sitac.endDate = '';
+        state.sitac.year = 'ALL';
+        if (inpStart) inpStart.value = '';
+        if (inpEnd) inpEnd.value = '';
+        if (yrSelect) yrSelect.value = 'ALL';
+      } else if (selected.length === 1) {
+        const p = selected[0];
+        const today = new Date();
+        const curYear = today.getFullYear();
+        const curMonth = today.getMonth();
+        let start = '', end = '';
+
+        if (p === 'THIS_MONTH') {
+          start = new Date(curYear, curMonth, 1).toISOString().slice(0, 10);
+          end = new Date(curYear, curMonth + 1, 0).toISOString().slice(0, 10);
+        } else if (p === 'LAST_MONTH') {
+          start = new Date(curYear, curMonth - 1, 1).toISOString().slice(0, 10);
+          end = new Date(curYear, curMonth, 0).toISOString().slice(0, 10);
+        } else if (['2024', '2025', '2026'].includes(p)) {
+          start = `${p}-01-01`;
+          end = `${p}-12-31`;
         }
+
+        state.sitac.startDate = start;
+        state.sitac.endDate = end;
+        if (['2024', '2025', '2026'].includes(p)) {
+          state.sitac.year = p;
+          if (yrSelect) yrSelect.value = p;
+        } else {
+          state.sitac.year = 'ALL';
+          if (yrSelect) yrSelect.value = 'ALL';
+        }
+        if (inpStart) inpStart.value = start;
+        if (inpEnd) inpEnd.value = end;
+      } else {
+        // Multiple presets selected (e.g. '2025,2026' or 'THIS_MONTH,LAST_MONTH')
+        state.sitac.startDate = '';
+        state.sitac.endDate = '';
+        state.sitac.year = 'ALL';
+        if (inpStart) inpStart.value = '';
+        if (inpEnd) inpEnd.value = '';
+        if (yrSelect) yrSelect.value = 'ALL';
       }
 
       state.sitac.page = 1;
@@ -12649,12 +12749,9 @@
       loadSitacData();
     }
 
-    // Bind Date Preset buttons
-    document.querySelectorAll('#sitacDatePresets .sitac-date-preset-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const preset = btn.getAttribute('data-preset') || 'ALL';
-        applySitacDatePreset(preset);
-      });
+    // Bind Date Preset buttons with Multi-Select and Toggle-off
+    setupDatePresetsMultiSelect('sitacDatePresets', (presetCodes) => {
+      applySitacDatePreset(presetCodes);
     });
 
     // Custom Date Range: Filter button

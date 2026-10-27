@@ -2217,21 +2217,52 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             conditions.append("(LOWER(pic_perijinan) = ? OR LOWER(pic_perijinan) LIKE ?)")
             params.extend([pic_filter.lower(), f"%{pic_filter.lower()}%"])
 
-        if year_filter != 'ALL':
-            conditions.append("tahun = ?")
-            params.append(int(year_filter))
-
         if aging_filter != 'ALL':
             conditions.append("aging_category = ?")
             params.append(aging_filter.lower())
 
-        if start_date:
-            conditions.append(f"{date_field} >= ?")
-            params.append(start_date)
+        date_preset = q.get('datePreset', q.get('preset', ['ALL']))[0].strip()
+        active_presets = [p.strip() for p in date_preset.split(',') if p.strip()] if date_preset != 'ALL' else []
 
-        if end_date:
-            conditions.append(f"{date_field} <= ?")
-            params.append(end_date)
+        if active_presets and 'ALL' not in active_presets:
+            preset_conds = []
+            today = datetime.date.today()
+            cur_year = today.year
+            cur_month = today.month
+
+            for p in active_presets:
+                if p == 'THIS_MONTH':
+                    first_day = datetime.date(cur_year, cur_month, 1)
+                    if cur_month == 12:
+                        last_day = datetime.date(cur_year + 1, 1, 1) - datetime.timedelta(days=1)
+                    else:
+                        last_day = datetime.date(cur_year, cur_month + 1, 1) - datetime.timedelta(days=1)
+                    preset_conds.append(f"({date_field} >= '{first_day.isoformat()}' AND {date_field} <= '{last_day.isoformat()}')")
+                elif p == 'LAST_MONTH':
+                    if cur_month == 1:
+                        first_day = datetime.date(cur_year - 1, 12, 1)
+                        last_day = datetime.date(cur_year, 1, 1) - datetime.timedelta(days=1)
+                    else:
+                        first_day = datetime.date(cur_year, cur_month - 1, 1)
+                        last_day = datetime.date(cur_year, cur_month, 1) - datetime.timedelta(days=1)
+                    preset_conds.append(f"({date_field} >= '{first_day.isoformat()}' AND {date_field} <= '{last_day.isoformat()}')")
+                elif p in ('2024', '2025', '2026'):
+                    preset_conds.append(f"(tahun = {p} OR ({date_field} >= '{p}-01-01' AND {date_field} <= '{p}-12-31'))")
+
+            if preset_conds:
+                conditions.append("(" + " OR ".join(preset_conds) + ")")
+        else:
+            if year_filter != 'ALL':
+                conditions.append("tahun = ?")
+                params.append(int(year_filter))
+
+            if start_date:
+                conditions.append(f"{date_field} >= ?")
+                params.append(start_date)
+
+            if end_date:
+                conditions.append(f"{date_field} <= ?")
+                params.append(end_date)
 
         if search:
             search_param = f"%{search}%"
