@@ -3519,13 +3519,20 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
                 for r in records:
                     no_pa = str(r.get('no_pa', '')).strip()
                     pelanggan = str(r.get('pelanggan', '')).strip()
-                    if not no_pa or not pelanggan:
+                    terminating = str(r.get('terminating', '')).strip()
+                    if not no_pa and not pelanggan:
                         skipped_count += 1
                         continue
 
-                    is_generic = re.sub(r'[\s_\-]+', '', no_pa).upper() in ('NONPA', '')
-                    cursor.execute("SELECT id FROM sitac_records WHERE UPPER(TRIM(no_pa)) = UPPER(?) LIMIT 1", (no_pa,))
-                    existing = cursor.fetchone()
+                    is_generic = re.sub(r'[\s_\-]+', '', no_pa).upper() in ('NONPA', 'NOPA', 'NON', '')
+                    existing = None
+                    if not is_generic and no_pa:
+                        cursor.execute("SELECT id FROM sitac_records WHERE UPPER(TRIM(no_pa)) = UPPER(?) LIMIT 1", (no_pa,))
+                        existing = cursor.fetchone()
+                    if not existing and pelanggan and terminating:
+                        cursor.execute("SELECT id FROM sitac_records WHERE UPPER(TRIM(pelanggan)) = UPPER(?) AND UPPER(TRIM(terminating)) = UPPER(?) LIMIT 1", (pelanggan, terminating))
+                        existing = cursor.fetchone()
+
 
                     b_awal = safe_int(r.get('biaya_permintaan_awal', 0))
                     b_final = safe_int(r.get('biaya_final', 0))

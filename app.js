@@ -13877,33 +13877,115 @@
 
     normalizedExcelRecords = rawExcelRows.map(r => normalizeExcelRow(r, targetModule));
 
-    // Calculate duplicates against current dataset in web
+    // Calculate duplicates against current dataset in web with multi-key smart matching
     let dupCount = 0;
+    const isGenericNo = (val) => {
+      const v = String(val || '').trim().toUpperCase().replace(/[\s\-_]/g, '');
+      return !v || v === 'NONPA' || v === 'NOPA' || v === 'NON' || v === '';
+    };
+
     if (targetModule === 'sitac_records') {
       const sitacSrcA = Array.isArray(window.SITAC_COLLO_DATA?.sitac_records) ? window.SITAC_COLLO_DATA.sitac_records : [];
       const sitacSrcB = Array.isArray(state?.sitac?.data) ? state.sitac.data : [];
-      const existingNos = new Set([...sitacSrcA, ...sitacSrcB].map(s => String(s.no_pa || '').trim().toUpperCase()));
+      const combined = [...sitacSrcA, ...sitacSrcB];
+
+      const existingNos = new Set();
+      const existingPelangganTerm = new Set();
+
+      combined.forEach(s => {
+        const pa = String(s.no_pa || '').trim().toUpperCase();
+        if (pa && !isGenericNo(pa)) existingNos.add(pa);
+        const pel = String(s.pelanggan || '').trim().toUpperCase();
+        const term = String(s.terminating || '').trim().toUpperCase();
+        if (pel && term) existingPelangganTerm.add(`${pel}|${term}`);
+      });
+
       normalizedExcelRecords.forEach(r => {
         const k = String(r.no_pa || '').trim().toUpperCase();
-        r._isDuplicate = Boolean(k && k !== 'NONPA' && k !== '-' && existingNos.has(k));
+        const pel = String(r.pelanggan || '').trim().toUpperCase();
+        const term = String(r.terminating || '').trim().toUpperCase();
+        const ptKey = `${pel}|${term}`;
+
+        if (k && !isGenericNo(k)) {
+          r._isDuplicate = existingNos.has(k) || (pel && term && existingPelangganTerm.has(ptKey));
+        } else if (pel && term) {
+          r._isDuplicate = existingPelangganTerm.has(ptKey);
+        } else {
+          r._isDuplicate = false;
+        }
+
         if (r._isDuplicate) dupCount++;
       });
     } else if (targetModule === 'collo_records') {
       const colloSrcA = Array.isArray(window.SITAC_COLLO_DATA?.collo_records) ? window.SITAC_COLLO_DATA.collo_records : [];
       const colloSrcB = Array.isArray(state?.collo?.data) ? state.collo.data : [];
-      const existingKeys = new Set([...colloSrcA, ...colloSrcB].map(c => `${String(c.sid || '').trim().toUpperCase()}|${String(c.no_so || '').trim().toUpperCase()}`));
+      const combined = [...colloSrcA, ...colloSrcB];
+
+      const existingKeys = new Set();
+      const existingSids = new Set();
+      const existingSos = new Set();
+      const existingPelTerm = new Set();
+
+      combined.forEach(c => {
+        const sid = String(c.sid || '').trim().toUpperCase();
+        const so = String(c.no_so || '').trim().toUpperCase();
+        const pel = String(c.pelanggan || '').trim().toUpperCase();
+        const term = String(c.terminating || '').trim().toUpperCase();
+        if (sid && so) existingKeys.add(`${sid}|${so}`);
+        if (sid) existingSids.add(sid);
+        if (so) existingSos.add(so);
+        if (pel && term) existingPelTerm.add(`${pel}|${term}`);
+      });
+
       normalizedExcelRecords.forEach(r => {
-        const k = `${String(r.sid || '').trim().toUpperCase()}|${String(r.no_so || '').trim().toUpperCase()}`;
-        r._isDuplicate = Boolean(r.sid && r.no_so && existingKeys.has(k));
+        const sid = String(r.sid || '').trim().toUpperCase();
+        const so = String(r.no_so || '').trim().toUpperCase();
+        const pel = String(r.pelanggan || '').trim().toUpperCase();
+        const term = String(r.terminating || '').trim().toUpperCase();
+
+        if (sid && so) {
+          r._isDuplicate = existingKeys.has(`${sid}|${so}`);
+        } else if (sid) {
+          r._isDuplicate = existingSids.has(sid);
+        } else if (so) {
+          r._isDuplicate = existingSos.has(so);
+        } else if (pel && term) {
+          r._isDuplicate = existingPelTerm.has(`${pel}|${term}`);
+        } else {
+          r._isDuplicate = false;
+        }
+
         if (r._isDuplicate) dupCount++;
       });
     } else if (targetModule === 'gangguan_records') {
       const gngSrcA = Array.isArray(window.SITAC_COLLO_DATA?.gangguan_records) ? window.SITAC_COLLO_DATA.gangguan_records : [];
       const gngSrcB = Array.isArray(state?.gangguan?.data) ? state.gangguan.data : [];
-      const existingNos = new Set([...gngSrcA, ...gngSrcB].map(g => String(g.no_tiket || '').trim().toUpperCase()));
+      const combined = [...gngSrcA, ...gngSrcB];
+
+      const existingNos = new Set();
+      const existingTermTgl = new Set();
+
+      combined.forEach(g => {
+        const t = String(g.no_tiket || '').trim().toUpperCase();
+        if (t && !t.startsWith('TIKET-EMERGENCY')) existingNos.add(t);
+        const term = String(g.terminating || '').trim().toUpperCase();
+        const tgl = String(g.tgl_dispos || '').trim();
+        if (term) existingTermTgl.add(`${term}|${tgl}`);
+      });
+
       normalizedExcelRecords.forEach(r => {
         const k = String(r.no_tiket || '').trim().toUpperCase();
-        r._isDuplicate = Boolean(k && existingNos.has(k));
+        const term = String(r.terminating || '').trim().toUpperCase();
+        const tgl = String(r.tgl_dispos || '').trim();
+
+        if (k && !k.startsWith('TIKET-EMERGENCY')) {
+          r._isDuplicate = existingNos.has(k);
+        } else if (term) {
+          r._isDuplicate = existingTermTgl.has(`${term}|${tgl}`);
+        } else {
+          r._isDuplicate = false;
+        }
+
         if (r._isDuplicate) dupCount++;
       });
     }
@@ -14267,16 +14349,54 @@
           }
         }
 
-        // 3. Update local in-memory dataset
+        // 3. Update local in-memory dataset with smart matching
         const colKey = targetModule === 'sitac_records' ? 'sitac_records' : (targetModule === 'collo_records' ? 'collo_records' : 'gangguan_records');
         if (window.SITAC_COLLO_DATA && window.SITAC_COLLO_DATA[colKey]) {
+          const isGeneric = (val) => {
+            const v = String(val || '').trim().toUpperCase().replace(/[\s\-_]/g, '');
+            return !v || v === 'NONPA' || v === 'NOPA' || v === 'NON' || v === '';
+          };
+
+          const matchItem = (item, r) => {
+            if (targetModule === 'sitac_records') {
+              const k1 = String(item.no_pa || '').trim().toUpperCase();
+              const k2 = String(r.no_pa || '').trim().toUpperCase();
+              if (k1 && k2 && !isGeneric(k1) && !isGeneric(k2)) {
+                return k1 === k2;
+              }
+              const p1 = String(item.pelanggan || '').trim().toUpperCase();
+              const p2 = String(r.pelanggan || '').trim().toUpperCase();
+              const t1 = String(item.terminating || '').trim().toUpperCase();
+              const t2 = String(r.terminating || '').trim().toUpperCase();
+              return p1 && p2 && t1 && t2 && p1 === p2 && t1 === t2;
+            } else if (targetModule === 'collo_records') {
+              const s1 = String(item.sid || '').trim().toUpperCase();
+              const s2 = String(r.sid || '').trim().toUpperCase();
+              const so1 = String(item.no_so || '').trim().toUpperCase();
+              const so2 = String(r.no_so || '').trim().toUpperCase();
+              if (s1 && s2 && so1 && so2) return s1 === s2 && so1 === so2;
+              if (s1 && s2) return s1 === s2;
+              if (so1 && so2) return so1 === so2;
+              const p1 = String(item.pelanggan || '').trim().toUpperCase();
+              const p2 = String(r.pelanggan || '').trim().toUpperCase();
+              const t1 = String(item.terminating || '').trim().toUpperCase();
+              const t2 = String(r.terminating || '').trim().toUpperCase();
+              return p1 && p2 && t1 && t2 && p1 === p2 && t1 === t2;
+            } else {
+              const t1 = String(item.no_tiket || '').trim().toUpperCase();
+              const t2 = String(r.no_tiket || '').trim().toUpperCase();
+              if (t1 && t2 && !t1.startsWith('TIKET-EMERGENCY') && !t2.startsWith('TIKET-EMERGENCY')) {
+                return t1 === t2;
+              }
+              const term1 = String(item.terminating || '').trim().toUpperCase();
+              const term2 = String(r.terminating || '').trim().toUpperCase();
+              return term1 && term2 && term1 === term2;
+            }
+          };
+
           if (mode === 'update') {
             normalizedExcelRecords.forEach(r => {
-              const existingIdx = window.SITAC_COLLO_DATA[colKey].findIndex(item => {
-                if (targetModule === 'sitac_records') return item.no_pa && item.no_pa.toUpperCase() === r.no_pa.toUpperCase();
-                if (targetModule === 'collo_records') return item.sid === r.sid && item.no_so === r.no_so;
-                return item.no_tiket === r.no_tiket;
-              });
+              const existingIdx = window.SITAC_COLLO_DATA[colKey].findIndex(item => matchItem(item, r));
               if (existingIdx !== -1) {
                 Object.assign(window.SITAC_COLLO_DATA[colKey][existingIdx], r);
               } else {
@@ -14286,11 +14406,7 @@
           } else {
             // mode === 'skip': add only new
             normalizedExcelRecords.forEach(r => {
-              const exists = window.SITAC_COLLO_DATA[colKey].some(item => {
-                if (targetModule === 'sitac_records') return item.no_pa && item.no_pa.toUpperCase() === r.no_pa.toUpperCase();
-                if (targetModule === 'collo_records') return item.sid === r.sid && item.no_so === r.no_so;
-                return item.no_tiket === r.no_tiket;
-              });
+              const exists = window.SITAC_COLLO_DATA[colKey].some(item => matchItem(item, r));
               if (!exists) {
                 window.SITAC_COLLO_DATA[colKey].unshift({ id: Date.now() + Math.floor(Math.random() * 1000), ...r });
               }
