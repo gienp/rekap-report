@@ -2258,6 +2258,17 @@ select:focus {
   border-color: rgba(14, 165, 233, 0.28) !important;
   color: #0284c7 !important;
 }
+[data-theme="light"] #sidebarUserDropdownMenu {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12) !important;
+}
+[data-theme="light"] #sidebarUserDropdownMenu button {
+  color: #1e293b !important;
+}
+[data-theme="light"] #sidebarUserDropdownMenu button:hover {
+  background-color: #f1f5f9 !important;
+}
 [data-theme="light"] .sidebar-nav::-webkit-scrollbar-thumb {
   background: #cbd5e1 !important;
 }

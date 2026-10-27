@@ -3493,6 +3493,10 @@
         sidebarRole.textContent = roleText;
         sidebarRole.className = roleClass;
       }
+      const dropdownRole = document.getElementById('sidebarDropdownRoleLabel');
+      if (dropdownRole) {
+        dropdownRole.textContent = isLapangan ? (state.currentUser?.pic_code || 'LAPANGAN').toUpperCase() : (isSales ? 'SALES' : 'ADMIN');
+      }
     }
     let iconClass = 'fa-solid fa-shield-halved';
     let boxClass = 'w-6 h-6 rounded-full flex items-center justify-center text-[10px] bg-cyan-500/20 text-cyan-400 border border-cyan-500/30';
@@ -13242,10 +13246,48 @@
     });
 
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeAllDropdowns();
+      if (e.key === 'Escape') {
+        closeAllDropdowns();
+        const mUser = document.getElementById('sidebarUserDropdownMenu');
+        if (mUser && !mUser.classList.contains('hidden')) {
+          mUser.classList.add('hidden');
+          const uc = document.getElementById('sidebarUserChevron');
+          if (uc) uc.style.transform = '';
+        }
+      }
     });
 
-    // 15b. Database Access & Explorer Modal Handlers
+    // 15b. Sidebar User Tools Dropdown Handlers
+    const btnUserSidebar = document.getElementById('btnToggleUserToolsSidebar');
+    const menuUserSidebar = document.getElementById('sidebarUserDropdownMenu');
+    const userChevron = document.getElementById('sidebarUserChevron');
+
+    if (btnUserSidebar && menuUserSidebar) {
+      btnUserSidebar.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const willOpen = menuUserSidebar.classList.contains('hidden');
+        menuUserSidebar.classList.toggle('hidden', !willOpen);
+        if (userChevron) userChevron.style.transform = willOpen ? 'rotate(180deg)' : '';
+      });
+
+      menuUserSidebar.querySelectorAll('button').forEach(item => {
+        item.addEventListener('click', () => {
+          menuUserSidebar.classList.add('hidden');
+          if (userChevron) userChevron.style.transform = '';
+        });
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('#sidebarUserContainer')) {
+          if (!menuUserSidebar.classList.contains('hidden')) {
+            menuUserSidebar.classList.add('hidden');
+            if (userChevron) userChevron.style.transform = '';
+          }
+        }
+      });
+    }
+
+    // 15c. Database Access & Explorer Modal Handlers
     document.getElementById('btnOpenDatabaseViewer')?.addEventListener('click', openDatabaseViewerModal);
     document.querySelector('.db-status-pill')?.addEventListener('click', openDatabaseViewerModal);
     document.getElementById('btnCloseDatabaseViewer')?.addEventListener('click', () => {

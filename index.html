@@ -72,7 +72,7 @@
   <link rel="preload" href="app.js?v=12.34" as="script">
 
   <!-- Custom Portal Stylesheet -->
-  <link rel="stylesheet" href="styles.css?v=12.23">
+  <link rel="stylesheet" href="styles.css?v=12.24">
 
   <!-- ZERO-FLICKER VIEW PERSISTENCE SYNC (ELIMINATES PAGE REFRESH FLASH) -->
   <script>
@@ -149,36 +149,76 @@
         </button>
       </div>
 
-      <!-- Logged-in User Profile Card in Sidebar -->
-      <div id="sidebarUserProfileCard"
-        class="mx-3 mt-3 mb-2 p-2.5 rounded-xl bg-slate-900/80 border border-white/10 flex items-center justify-between gap-2.5">
-        <div class="flex items-center gap-2.5 min-w-0 flex-1">
-          <div id="sidebarUserRoleAvatar"
-            class="w-8 h-8 rounded-full flex items-center justify-center text-xs bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shrink-0">
-            <i class="fa-solid fa-shield-halved" id="sidebarUserRoleIcon"></i>
-          </div>
-          <div class="min-w-0 flex-1 leading-tight">
-            <div class="font-bold text-slate-100 text-xs truncate" id="sidebarUserNameDisplay">Administrator</div>
-            <div class="text-[9px] uppercase tracking-wider text-cyan-400 font-semibold mt-0.5"
-              id="sidebarUserRoleDisplay">ADMIN</div>
-          </div>
-        </div>
-        <!-- Quick Actions inside Sidebar: Theme & Logout -->
-        <div class="flex items-center gap-1 shrink-0">
-          <button type="button" id="themeToggleBtn"
-            class="btn btn-secondary h-8 w-8 !p-0 rounded-lg flex items-center justify-center text-xs text-slate-300 hover:text-amber-300 transition"
-            title="Ganti Mode Terang / Gelap">
-            <i class="fa-solid fa-moon text-xs"></i>
+      <!-- Logged-in User Profile Container in Sidebar with Integrated Alat & Pengaturan -->
+      <div class="mx-3 mt-3 mb-2 relative" id="sidebarUserContainer">
+        <div id="sidebarUserProfileCard"
+          class="p-2.5 rounded-xl bg-slate-900/80 border border-white/10 flex items-center justify-between gap-2 transition hover:border-cyan-500/30">
+          <button type="button" id="btnToggleUserToolsSidebar"
+            class="flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer group focus:outline-none"
+            title="Klik untuk membuka menu Alat & Pengaturan Akun">
+            <div id="sidebarUserRoleAvatar"
+              class="w-8 h-8 rounded-full flex items-center justify-center text-xs bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shrink-0 group-hover:scale-105 transition-transform">
+              <i class="fa-solid fa-shield-halved" id="sidebarUserRoleIcon"></i>
+            </div>
+            <div class="min-w-0 flex-1 leading-tight">
+              <div class="flex items-center gap-1.5">
+                <span class="font-bold text-slate-100 text-xs truncate group-hover:text-cyan-300 transition-colors" id="sidebarUserNameDisplay">Administrator</span>
+                <i class="fa-solid fa-chevron-down text-[9px] text-slate-400 group-hover:text-cyan-400 transition-transform" id="sidebarUserChevron"></i>
+              </div>
+              <div class="text-[9px] uppercase tracking-wider text-cyan-400 font-semibold mt-0.5"
+                id="sidebarUserRoleDisplay">ADMIN</div>
+            </div>
           </button>
-          <button type="button" id="btnLogout"
-            class="btn btn-secondary h-8 w-8 !p-0 rounded-lg flex items-center justify-center text-xs text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/40 transition"
-            title="Keluar / Logout">
-            <i class="fa-solid fa-arrow-right-from-bracket text-xs"></i>
+          <!-- Quick Actions inside Sidebar: Theme & Logout -->
+          <div class="flex items-center gap-1 shrink-0">
+            <button type="button" id="themeToggleBtn"
+              class="btn btn-secondary h-8 w-8 !p-0 rounded-lg flex items-center justify-center text-xs text-slate-300 hover:text-amber-300 transition"
+              title="Ganti Mode Terang / Gelap">
+              <i class="fa-solid fa-moon text-xs"></i>
+            </button>
+            <button type="button" id="btnLogout"
+              class="btn btn-secondary h-8 w-8 !p-0 rounded-lg flex items-center justify-center text-xs text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/40 transition"
+              title="Keluar / Logout">
+              <i class="fa-solid fa-arrow-right-from-bracket text-xs"></i>
+            </button>
+          </div>
+          <!-- Retained hidden controls for backwards compatibility -->
+          <span id="lockedPicBadgeName" class="hidden">ADMIN</span>
+          <input type="hidden" id="selectActiveTechnician" value="Admin">
+        </div>
+
+        <!-- Dropdown Menu Alat & Administrasi (Terintegrasi di Tampilan User) -->
+        <div id="sidebarUserDropdownMenu"
+          class="hidden absolute left-0 right-0 top-full mt-1.5 p-1.5 rounded-xl bg-slate-900/95 border border-white/10 shadow-2xl backdrop-blur-xl z-[100] space-y-0.5">
+          <div class="px-2 py-1 text-[10px] uppercase tracking-wider font-bold text-slate-400 flex items-center justify-between border-b border-white/5 mb-1">
+            <span class="flex items-center gap-1.5"><i class="fa-solid fa-sliders text-cyan-400"></i> Alat &amp; Akun</span>
+            <span class="text-cyan-400 text-[9px] font-mono" id="sidebarDropdownRoleLabel">AKUN</span>
+          </div>
+          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition" type="button" onclick="document.getElementById('btnOpenChangePassword').click(); document.getElementById('sidebarUserDropdownMenu').classList.add('hidden');">
+            <i class="fa-solid fa-key text-slate-400 w-4 text-center"></i>
+            <span>Ganti Password</span>
+          </button>
+          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition" type="button" onclick="document.getElementById('btnOpenUpdateEmail').click(); document.getElementById('sidebarUserDropdownMenu').classList.add('hidden');">
+            <i class="fa-solid fa-envelope text-cyan-400 w-4 text-center"></i>
+            <span>Email Pemulihan</span>
+          </button>
+          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition admin-only" type="button" onclick="document.getElementById('btnOpenAdminUsers').click(); document.getElementById('sidebarUserDropdownMenu').classList.add('hidden');">
+            <i class="fa-solid fa-users-gear text-amber-400 w-4 text-center"></i>
+            <span>Kelola Akun PIC</span>
+          </button>
+          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition admin-only" type="button" onclick="document.getElementById('btnOpenImportExcel').click(); document.getElementById('sidebarUserDropdownMenu').classList.add('hidden');">
+            <i class="fa-solid fa-file-import text-emerald-400 w-4 text-center"></i>
+            <span>Import Bulk Excel</span>
+          </button>
+          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition admin-only" type="button" onclick="document.getElementById('btnOpenAuditLogs').click(); document.getElementById('sidebarUserDropdownMenu').classList.add('hidden');">
+            <i class="fa-solid fa-clock-rotate-left text-cyan-400 w-4 text-center"></i>
+            <span>Riwayat Log Audit</span>
+          </button>
+          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition admin-only" type="button" onclick="document.getElementById('btnOpenDatabaseViewer').click(); document.getElementById('sidebarUserDropdownMenu').classList.add('hidden');">
+            <i class="fa-solid fa-database text-indigo-400 w-4 text-center"></i>
+            <span>Akses &amp; Explorer DB</span>
           </button>
         </div>
-        <!-- Retained hidden controls for backwards compatibility -->
-        <span id="lockedPicBadgeName" class="hidden">ADMIN</span>
-        <input type="hidden" id="selectActiveTechnician" value="Admin">
       </div>
 
       <!-- Navigation Tree -->
@@ -243,36 +283,7 @@
           </div>
         </div>
 
-        <!-- 4. ALAT & ADMINISTRASI SISTEM (Sidebar Kiri) -->
-        <div class="nav-section-group collapsed" id="groupToolsSidebar">
-          <button type="button" class="section-dropdown-btn" data-toggle="groupToolsSidebar">
-            <div class="flex items-center gap-2">
-              <i class="fa-solid fa-sliders text-cyan-400 text-xs"></i>
-              <span>Alat & Administrasi</span>
-            </div>
-            <i class="fa-solid fa-chevron-down section-chevron"></i>
-          </button>
-          <div class="section-items">
-            <button class="nav-item admin-only" type="button" onclick="document.getElementById('btnOpenImportExcel').click()">
-              <span class="nav-label flex items-center gap-2"><i class="fa-solid fa-file-import text-emerald-400 w-4 text-center"></i> Import Bulk Excel</span>
-            </button>
-            <button class="nav-item admin-only" type="button" onclick="document.getElementById('btnOpenAuditLogs').click()">
-              <span class="nav-label flex items-center gap-2"><i class="fa-solid fa-clock-rotate-left text-cyan-400 w-4 text-center"></i> Riwayat Log Audit</span>
-            </button>
-            <button class="nav-item admin-only" type="button" onclick="document.getElementById('btnOpenDatabaseViewer').click()">
-              <span class="nav-label flex items-center gap-2"><i class="fa-solid fa-database text-indigo-400 w-4 text-center"></i> Akses & Explorer DB</span>
-            </button>
-            <button class="nav-item admin-only" type="button" onclick="document.getElementById('btnOpenAdminUsers').click()">
-              <span class="nav-label flex items-center gap-2"><i class="fa-solid fa-users-gear text-amber-400 w-4 text-center"></i> Kelola Akun PIC</span>
-            </button>
-            <button class="nav-item" type="button" onclick="document.getElementById('btnOpenChangePassword').click()">
-              <span class="nav-label flex items-center gap-2"><i class="fa-solid fa-key text-slate-400 w-4 text-center"></i> Ganti Password</span>
-            </button>
-            <button class="nav-item" type="button" onclick="document.getElementById('btnOpenUpdateEmail').click()">
-              <span class="nav-label flex items-center gap-2"><i class="fa-solid fa-envelope text-cyan-400 w-4 text-center"></i> Email Pemulihan</span>
-            </button>
-          </div>
-        </div>
+
       </nav>
     </div>
 
@@ -4559,7 +4570,7 @@
   <script src="sitac_collo_data.js?v=12.23"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=12.49"></script>
+  <script src="app.js?v=12.50"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>
