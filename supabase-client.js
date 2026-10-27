@@ -174,12 +174,22 @@
       ];
 
       const isMatch = (uData.password_hash === pwHash) ||
+        (uData.password_hash === password) || // Jika admin mengetik teks biasa di tabel Supabase
         (uData.role === 'admin' && (password === 'admin123' || pwHash === uData.password_hash)) ||
         (uData.role === 'sales' && (password === 'sales123' || pwHash === uData.password_hash)) ||
         (uData.role === 'lapangan' && (password === 'pic123' || password === `${uData.username}123` || pwHash === uData.password_hash));
 
       if (!isMatch) {
         throw new Error('Kata sandi yang Anda masukkan salah.');
+      }
+
+      // Jika di Supabase tersimpan teks biasa, otomatis konversi menjadi hash aman
+      if (uData.password_hash === password) {
+        restFetch('users', {
+          method: 'PATCH',
+          query: `id=eq.${uData.id}`,
+          body: { password_hash: pwHash }
+        }).catch(() => {});
       }
 
       console.log(`[Supabase Auth] Login berhasil untuk @${uData.username} (${uData.full_name}) via PostgreSQL!`);
