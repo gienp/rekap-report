@@ -69,7 +69,7 @@
 
   <!-- High-Priority Preloads for Instant Master Dataset & Application Engine -->
   <link rel="preload" href="sitac_collo_data.js?v=12.23" as="script">
-  <link rel="preload" href="app.js?v=12.60" as="script">
+  <link rel="preload" href="app.js?v=12.61" as="script">
 
   <!-- Custom Portal Stylesheet -->
   <link rel="stylesheet" href="styles.css?v=12.27">
@@ -797,7 +797,7 @@
               <div class="my-1.5 flex items-center justify-between">
                 <div>
                   <div class="bento-big-value text-slate-100" id="execSitacFinish">
-                    373 <span class="text-xs text-slate-400 font-normal">/ 451 PA</span>
+                    534 <span class="text-xs text-slate-400 font-normal">/ 686 PA</span>
                   </div>
                   <span class="text-[10px] text-slate-400 font-medium block mt-0.5">Penugasan Selesai</span>
                 </div>
@@ -864,7 +864,7 @@
                 <i class="fa-solid fa-chart-pie text-indigo-400"></i>
                 <span id="titleSitacStatus">Distribusi Status SITAC</span>
               </div>
-              <span class="pbi-visual-badge" id="badgeSitacStatus">451 PA</span>
+              <span class="pbi-visual-badge" id="badgeSitacStatus">686 PA</span>
             </div>
             <div class="p-4 h-[320px] flex items-center justify-center">
               <canvas id="chartSitacStatus"></canvas>
@@ -1457,7 +1457,7 @@
                 <i class="fa-solid fa-chart-pie text-emerald-400"></i>
                 <span>Proporsi Status Hasil Penugasan (PA)</span>
               </div>
-              <span class="pbi-visual-badge" id="sitacChartTotalBadge">Total 451 PA</span>
+              <span class="pbi-visual-badge" id="sitacChartTotalBadge">Total 686 PA</span>
             </div>
             <div class="p-4 h-[250px] flex items-center justify-center">
               <canvas id="chartSitacStatusDetail"></canvas>
@@ -1682,15 +1682,15 @@
               class="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-xl border border-white/10 overflow-x-auto max-w-full no-scrollbar shrink-0"
               id="sitacStatusTabs">
               <button class="sitac-tab-btn active" data-status="ALL"><span>Semua (<span
-                    id="sitacTotalBadge">451</span>)</span></button>
+                    id="sitacTotalBadge">686</span>)</span></button>
               <button class="sitac-tab-btn" data-status="Finish"><span>Finish (<span
-                    id="sitacFinishBadge">373</span>)</span></button>
+                    id="sitacFinishBadge">534</span>)</span></button>
               <button class="sitac-tab-btn" data-status="Ongoing"><span>Ongoing (<span
-                    id="sitacOngoingBadge">10</span>)</span></button>
+                    id="sitacOngoingBadge">35</span>)</span></button>
               <button class="sitac-tab-btn" data-status="Hold"><span>Hold (<span
-                    id="sitacHoldBadge">5</span>)</span></button>
+                    id="sitacHoldBadge">9</span>)</span></button>
               <button class="sitac-tab-btn" data-status="Cancel"><span>Cancel (<span
-                    id="sitacCancelBadge">63</span>)</span></button>
+                    id="sitacCancelBadge">108</span>)</span></button>
             </div>
 
             <!-- Search Input with Guaranteed Width & Clear Button -->
@@ -4503,7 +4503,7 @@
   <script src="sitac_collo_data.js?v=12.23"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=12.60"></script>
+  <script src="app.js?v=12.61"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>

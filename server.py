@@ -2209,10 +2209,6 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
         conditions = []
         params = []
 
-        if status_filter != 'ALL':
-            conditions.append("progress = ?")
-            params.append(status_filter)
-
         if pic_filter != 'ALL':
             conditions.append("(LOWER(pic_perijinan) = ? OR LOWER(pic_perijinan) LIKE ?)")
             params.extend([pic_filter.lower(), f"%{pic_filter.lower()}%"])
@@ -2332,11 +2328,7 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
         else:
             records = all_matched_records
 
-        total_count = len(records)
-        offset = (page - 1) * page_size
-        paginated_records = records[offset:offset + page_size]
-
-        # Calculate status counts for the selected region
+        # Calculate status counts for the selected region & year (before filtering by status)
         raw_status = {}
         for r in records:
             p = r.get('progress') or 'Ongoing'
@@ -2361,6 +2353,14 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             "yellow": raw_aging.get("yellow", 0),
             "red": raw_aging.get("red", 0)
         }
+
+        # Filter by status if specified
+        if status_filter != 'ALL':
+            records = [r for r in records if (r.get('progress') or 'Ongoing') == status_filter]
+
+        total_count = len(records)
+        offset = (page - 1) * page_size
+        paginated_records = records[offset:offset + page_size]
 
         conn.close()
 
