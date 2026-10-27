@@ -1233,6 +1233,14 @@ window.DEFAULT_FIREBASE_CONFIG = {
       console.warn('Mutation broadcast notice:', mutErr);
     }
 
+    // Also mirror to Supabase Cloud PostgreSQL
+    if (window.SupabaseManager && typeof window.SupabaseManager.addRecord === 'function') {
+      try {
+        const numId = Number(docId);
+        window.SupabaseManager.addRecord(collectionName, { id: isNaN(numId) ? docId : numId, ...data }).catch(() => {});
+      } catch (sbErr) {}
+    }
+
     return { id: docId, ...data };
   }
 
@@ -1289,6 +1297,14 @@ window.DEFAULT_FIREBASE_CONFIG = {
       }, { merge: true });
     } catch (mutErr) {}
 
+    // Also mirror to Supabase Cloud PostgreSQL
+    if (window.SupabaseManager && typeof window.SupabaseManager.updateRecord === 'function') {
+      try {
+        const numId = Number(sId);
+        window.SupabaseManager.updateRecord(collectionName, isNaN(numId) ? sId : numId, updates).catch(() => {});
+      } catch (sbErr) {}
+    }
+
     return { success: true };
   }
 
@@ -1327,6 +1343,14 @@ window.DEFAULT_FIREBASE_CONFIG = {
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
     } catch (mutErr) {}
+
+    // Also mirror to Supabase Cloud PostgreSQL
+    if (window.SupabaseManager && typeof window.SupabaseManager.deleteRecord === 'function') {
+      try {
+        const numId = Number(sId);
+        window.SupabaseManager.deleteRecord(collectionName, isNaN(numId) ? sId : numId).catch(() => {});
+      } catch (sbErr) {}
+    }
 
     return { success: true };
   }

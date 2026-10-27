@@ -1,8 +1,10 @@
 {
   "DB_TYPE": "postgresql",
-  "PG_HOST": "127.0.0.1",
-  "PG_PORT": 5432,
-  "PG_USER": "postgres",
-  "PG_PASSWORD": "",
-  "PG_DATABASE": "telecom_portal"
+  "SUPABASE_URL": "https://lujqgwpldwkjxmlxnfij.supabase.co",
+  "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx1anFnd3BsZHdranhtbHhuZmlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMwNjU4MTMsImV4cCI6MjEwODY0MTgxM30.LSCAwRRpGu7jDFFlGBkCGLFonsFmmkz3FDCwr7Y2uZY",
+  "PG_HOST": "aws-0-ap-southeast-1.pooler.supabase.com",
+  "PG_PORT": 6543,
+  "PG_USER": "postgres.lujqgwpldwkjxmlxnfij",
+  "PG_PASSWORD": "DB2490_gie#",
+  "PG_DATABASE": "postgres"
 }
