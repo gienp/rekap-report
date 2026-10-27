@@ -69,7 +69,7 @@
 
   <!-- High-Priority Preloads for Instant Master Dataset & Application Engine -->
   <link rel="preload" href="sitac_collo_data.js?v=12.23" as="script">
-  <link rel="preload" href="app.js?v=12.62" as="script">
+  <link rel="preload" href="app.js?v=12.63" as="script">
 
   <!-- Custom Portal Stylesheet -->
   <link rel="stylesheet" href="styles.css?v=12.27">
@@ -4096,15 +4096,26 @@
         </div>
 
         <div>
-          <label class="form-label text-xs text-slate-300 font-semibold mb-1 block">Pilih File Excel (.xlsx / .xls /
-            .csv) *</label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="form-label text-xs text-slate-300 font-semibold block">Pilih File Excel (.xlsx / .xls / .csv) *</label>
+            <button type="button" id="btnCancelImportFileLabel" class="hidden text-xs text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1 transition px-2 py-0.5 rounded hover:bg-rose-500/10 cursor-pointer" title="Batalkan pilihan file">
+              <i class="fa-solid fa-xmark"></i> Batalkan File
+            </button>
+          </div>
           <div
-            class="upload-dropzone p-5 text-center cursor-pointer border-2 border-dashed border-white/10 hover:border-emerald-500/50 rounded-xl transition bg-slate-900/50"
+            class="upload-dropzone p-5 text-center cursor-pointer border-2 border-dashed border-white/10 hover:border-emerald-500/50 rounded-xl transition bg-slate-900/50 relative group"
             id="importDropzoneBox" onclick="document.getElementById('importExcelFileInput').click()">
-            <i class="fa-solid fa-file-excel text-emerald-400 text-3xl mb-2"></i>
-            <div class="font-bold text-slate-200 text-xs" id="importFileNameLabel">Klik atau tarik file Excel ke sini
-            </div>
-            <div class="text-[11px] text-slate-400 mt-0.5">Mendukung format .xlsx, .xls, .csv otomatis dipetakan</div>
+            <!-- Floating Cancel / Remove File Button (X) -->
+            <button type="button" id="btnCancelImportFile"
+              class="hidden absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 hover:text-white text-xs font-semibold border border-rose-500/40 transition flex items-center gap-1.5 shadow-lg z-20 cursor-pointer"
+              title="Batalkan pilihan file ini">
+              <i class="fa-solid fa-xmark font-bold text-sm"></i>
+              <span>Batalkan</span>
+            </button>
+
+            <i class="fa-solid fa-file-excel text-emerald-400 text-3xl mb-2" id="importFileIcon"></i>
+            <div class="font-bold text-slate-200 text-xs" id="importFileNameLabel">Klik atau tarik file Excel ke sini</div>
+            <div class="text-[11px] text-slate-400 mt-0.5" id="importFileHint">Mendukung format .xlsx, .xls, .csv otomatis dipetakan</div>
           </div>
           <input type="file" id="importExcelFileInput" accept=".xlsx,.xls,.csv" class="hidden">
         </div>
@@ -4127,6 +4138,9 @@
               <span id="importPreviewNewBadge" class="hidden px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
                 <i class="fa-solid fa-circle-plus mr-1"></i> <span id="importPreviewNewCount">0</span> Data Baru
               </span>
+              <button type="button" id="btnCancelImportPreview" class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 hover:text-rose-100 border border-rose-500/30 font-semibold flex items-center gap-1.5 transition cursor-pointer" title="Batalkan dan hapus file yang dipilih">
+                <i class="fa-solid fa-xmark"></i> Batal Upload
+              </button>
             </div>
           </div>
           <div class="max-h-56 overflow-x-auto overflow-y-auto border border-white/10 rounded-lg bg-slate-950/70 p-1"
@@ -4503,7 +4517,7 @@
   <script src="sitac_collo_data.js?v=12.23"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=12.62"></script>
+  <script src="app.js?v=12.63"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>

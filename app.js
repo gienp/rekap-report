@@ -14473,6 +14473,67 @@
       });
     }
 
+    // Cancel & Reset chosen Excel file
+    const resetExcelImportSelection = (silent = false) => {
+      if (fileInput) fileInput.value = '';
+      rawExcelRows = [];
+      normalizedExcelRecords = [];
+
+      if (label) label.textContent = 'Klik atau tarik file Excel ke sini';
+      if (dropzone) {
+        dropzone.classList.remove('border-emerald-500', 'bg-emerald-950/20');
+        dropzone.classList.add('border-white/10');
+      }
+
+      const btnCancelDropzone = document.getElementById('btnCancelImportFile');
+      const btnCancelLabel = document.getElementById('btnCancelImportFileLabel');
+      const btnCancelPreview = document.getElementById('btnCancelImportPreview');
+      if (btnCancelDropzone) btnCancelDropzone.classList.add('hidden');
+      if (btnCancelLabel) btnCancelLabel.classList.add('hidden');
+      if (btnCancelPreview) btnCancelPreview.classList.add('hidden');
+
+      const previewContainer = document.getElementById('importPreviewContainer');
+      if (previewContainer) previewContainer.classList.add('hidden');
+
+      const previewTableWrap = document.getElementById('importPreviewTableWrap');
+      if (previewTableWrap) previewTableWrap.innerHTML = '';
+
+      const noticeBanner = document.getElementById('importDuplicateNoticeBanner');
+      if (noticeBanner) {
+        noticeBanner.classList.add('hidden');
+        noticeBanner.innerHTML = '';
+      }
+
+      const dupBadge = document.getElementById('importPreviewDupBadge');
+      const newBadge = document.getElementById('importPreviewNewBadge');
+      if (dupBadge) dupBadge.classList.add('hidden');
+      if (newBadge) newBadge.classList.add('hidden');
+
+      const submitBtn = document.getElementById('btnSubmitImportExcel');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up mr-1.5"></i> Impor Data Sekarang';
+      }
+
+      if (!silent) {
+        showToast('File yang dipilih berhasil dibatalkan', 'info');
+      }
+    };
+
+    // Attach cancel click handlers (with stopPropagation so dropzone click is not triggered)
+    document.getElementById('btnCancelImportFile')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      resetExcelImportSelection();
+    });
+    document.getElementById('btnCancelImportFileLabel')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      resetExcelImportSelection();
+    });
+    document.getElementById('btnCancelImportPreview')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      resetExcelImportSelection();
+    });
+
     // File Input change handler
     if (fileInput) {
       fileInput.addEventListener('change', async (e) => {
@@ -14486,6 +14547,18 @@
 
         if (label) label.textContent = `File terpilih: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
         
+        // Show cancel buttons
+        const btnCancelDropzone = document.getElementById('btnCancelImportFile');
+        const btnCancelLabel = document.getElementById('btnCancelImportFileLabel');
+        const btnCancelPreview = document.getElementById('btnCancelImportPreview');
+        if (btnCancelDropzone) btnCancelDropzone.classList.remove('hidden');
+        if (btnCancelLabel) btnCancelLabel.classList.remove('hidden');
+        if (btnCancelPreview) btnCancelPreview.classList.remove('hidden');
+        if (dropzone) {
+          dropzone.classList.add('border-emerald-500', 'bg-emerald-950/20');
+          dropzone.classList.remove('border-white/10');
+        }
+        
         const reader = new FileReader();
         reader.onload = function(evt) {
           try {
@@ -14496,6 +14569,7 @@
 
             if (!jsonRows || jsonRows.length === 0) {
               alert('File Excel kosong atau tidak memiliki baris data.');
+              resetExcelImportSelection(true);
               return;
             }
 
@@ -14505,6 +14579,7 @@
           } catch (err) {
             console.error('Error reading excel file:', err);
             alert('Gagal membaca file Excel: ' + err.message);
+            resetExcelImportSelection(true);
           }
         };
         reader.readAsArrayBuffer(file);
