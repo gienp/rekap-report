@@ -2258,16 +2258,97 @@ select:focus {
   border-color: rgba(14, 165, 233, 0.28) !important;
   color: #0284c7 !important;
 }
+
+/* =========================================================================
+   SIDEBAR USER PROFILE CARD & DROPDOWN MENU ANIMATIONS
+   ========================================================================= */
+#sidebarUserProfileCard {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+#sidebarUserChevron {
+  display: inline-block;
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s ease;
+}
+
+#sidebarUserContainer.dropdown-open #sidebarUserProfileCard {
+  border-color: rgba(6, 182, 212, 0.45) !important;
+  box-shadow: 0 4px 20px -2px rgba(6, 182, 212, 0.18);
+}
+
+#sidebarUserContainer.dropdown-open #sidebarUserChevron {
+  transform: rotate(180deg);
+  color: #22d3ee;
+}
+
+#sidebarUserDropdownMenu {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.96);
+  transform-origin: top center;
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              visibility 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#sidebarUserDropdownMenu.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+  visibility: visible;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6), 0 0 15px rgba(6, 182, 212, 0.12) !important;
+}
+
+#sidebarUserDropdownMenu button {
+  transition: background-color 0.15s ease, transform 0.15s ease, color 0.15s ease;
+}
+
+#sidebarUserDropdownMenu button:hover {
+  transform: translateX(3px);
+}
+
+#sidebarUserDropdownMenu button:active {
+  transform: scale(0.98) translateX(2px);
+}
+
+#sidebarUserDropdownMenu.show button {
+  animation: userItemSlideIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+#sidebarUserDropdownMenu.show button:nth-child(2) { animation-delay: 0.02s; }
+#sidebarUserDropdownMenu.show button:nth-child(3) { animation-delay: 0.05s; }
+#sidebarUserDropdownMenu.show button:nth-child(4) { animation-delay: 0.08s; }
+#sidebarUserDropdownMenu.show button:nth-child(5) { animation-delay: 0.11s; }
+#sidebarUserDropdownMenu.show button:nth-child(6) { animation-delay: 0.14s; }
+#sidebarUserDropdownMenu.show button:nth-child(7) { animation-delay: 0.17s; }
+
+@keyframes userItemSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 [data-theme="light"] #sidebarUserDropdownMenu {
   background: #ffffff !important;
   border-color: #cbd5e1 !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 16px 35px -8px rgba(0, 0, 0, 0.14), 0 4px 12px rgba(0, 0, 0, 0.05) !important;
 }
 [data-theme="light"] #sidebarUserDropdownMenu button {
   color: #1e293b !important;
 }
 [data-theme="light"] #sidebarUserDropdownMenu button:hover {
   background-color: #f1f5f9 !important;
+  color: #0284c7 !important;
+}
+[data-theme="light"] #sidebarUserContainer.dropdown-open #sidebarUserProfileCard {
+  border-color: rgba(2, 132, 199, 0.5) !important;
+  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.12);
 }
 [data-theme="light"] .sidebar-nav::-webkit-scrollbar-thumb {
   background: #cbd5e1 !important;

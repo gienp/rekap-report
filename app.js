@@ -13245,47 +13245,58 @@
       if (changed) updateDropdownActiveStates();
     });
 
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        closeAllDropdowns();
-        const mUser = document.getElementById('sidebarUserDropdownMenu');
-        if (mUser && !mUser.classList.contains('hidden')) {
-          mUser.classList.add('hidden');
-          const uc = document.getElementById('sidebarUserChevron');
-          if (uc) uc.style.transform = '';
-        }
-      }
-    });
-
-    // 15b. Sidebar User Tools Dropdown Handlers
+    // 15b. Sidebar User Tools Dropdown Handlers (Silky Smooth Animation)
+    const containerUser = document.getElementById('sidebarUserContainer');
     const btnUserSidebar = document.getElementById('btnToggleUserToolsSidebar');
     const menuUserSidebar = document.getElementById('sidebarUserDropdownMenu');
     const userChevron = document.getElementById('sidebarUserChevron');
 
+    const closeSidebarUserMenu = () => {
+      if (menuUserSidebar && menuUserSidebar.classList.contains('show')) {
+        menuUserSidebar.classList.remove('show');
+        containerUser?.classList.remove('dropdown-open');
+        if (userChevron) userChevron.style.transform = '';
+      }
+    };
+
+    const openSidebarUserMenu = () => {
+      if (menuUserSidebar) {
+        menuUserSidebar.classList.add('show');
+        containerUser?.classList.add('dropdown-open');
+        if (userChevron) userChevron.style.transform = 'rotate(180deg)';
+      }
+    };
+
     if (btnUserSidebar && menuUserSidebar) {
       btnUserSidebar.addEventListener('click', (e) => {
         e.stopPropagation();
-        const willOpen = menuUserSidebar.classList.contains('hidden');
-        menuUserSidebar.classList.toggle('hidden', !willOpen);
-        if (userChevron) userChevron.style.transform = willOpen ? 'rotate(180deg)' : '';
+        const isOpen = menuUserSidebar.classList.contains('show');
+        if (isOpen) {
+          closeSidebarUserMenu();
+        } else {
+          openSidebarUserMenu();
+        }
       });
 
       menuUserSidebar.querySelectorAll('button').forEach(item => {
         item.addEventListener('click', () => {
-          menuUserSidebar.classList.add('hidden');
-          if (userChevron) userChevron.style.transform = '';
+          closeSidebarUserMenu();
         });
       });
 
       document.addEventListener('click', (e) => {
         if (!e.target.closest('#sidebarUserContainer')) {
-          if (!menuUserSidebar.classList.contains('hidden')) {
-            menuUserSidebar.classList.add('hidden');
-            if (userChevron) userChevron.style.transform = '';
-          }
+          closeSidebarUserMenu();
         }
       });
     }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeAllDropdowns();
+        closeSidebarUserMenu();
+      }
+    });
 
     // 15c. Database Access & Explorer Modal Handlers
     document.getElementById('btnOpenDatabaseViewer')?.addEventListener('click', openDatabaseViewerModal);
