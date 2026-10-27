@@ -1296,6 +1296,12 @@
       const datePreset = params.get('datePreset') || params.get('preset') || 'ALL';
       const activePresets = String(datePreset).split(',').map(p => p.trim()).filter(Boolean);
 
+      const allowAllTeam = params.get('all_team') === '1' || params.get('scope') === 'all';
+      let scopedSitac = sitacList;
+      if (isPicLapangan && !allowAllTeam) {
+        scopedSitac = scopedSitac.filter(s => isUserAssignedToTask(s, authUser));
+      }
+
       const getPresetDateRange = (preset) => {
         const today = new Date();
         const curYear = today.getFullYear();
