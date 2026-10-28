@@ -303,7 +303,44 @@ def sync_sitac_sheet(wb, conn):
     conn.commit()
     return inserted_count, updated_count
 
+def sync_to_supabase(conn):
+    cfg_path = os.path.join(BASE_DIR, "db_config.json")
+    if not os.path.isfile(cfg_path):
+        return
+    try:
+        with open(cfg_path, 'r', encoding='utf-8') as f:
+            cfg = json.load(f)
+        sb_url = cfg.get("SUPABASE_URL")
+        sb_key = cfg.get("SUPABASE_ANON_KEY")
+        if not sb_url or not sb_key:
+            return
+
+        import urllib.request
+        c = conn.cursor()
+        c.execute("SELECT * FROM sitac_records")
+        cols = [col[0] for col in c.description]
+        sitac_recs = [dict(zip(cols, row)) for row in c.fetchall()]
+
+        batch_size = 200
+        for i in range(0, len(sitac_recs), batch_size):
+            chunk = sitac_recs[i:i + batch_size]
+            url = f"{sb_url}/rest/v1/sitac_records"
+            headers = {
+                'apikey': sb_key,
+                'Authorization': f"Bearer {sb_key}",
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates'
+            }
+            data = json.dumps(chunk).encode('utf-8')
+            req = urllib.request.Request(url, data=data, headers=headers, method='POST')
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                pass
+        print(f"Successfully synced {len(sitac_recs)} SITAC records to Supabase Cloud PostgreSQL!")
+    except Exception as e:
+        print(f"Supabase sync notice: {e}")
+
 def export_db_to_static_files(conn):
+    sync_to_supabase(conn)
     c = conn.cursor()
     c.execute("SELECT * FROM sitac_records ORDER BY id ASC")
     cols = [col[0] for col in c.description]
