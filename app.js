@@ -1324,7 +1324,7 @@
       if (startDate || endDate) {
         scopedSitac = scopedSitac.filter(s => {
           const raw = s[dateField] || (dateField === 'date_close' ? s.date_close : s.date_dispos) || s.date_dispos || '';
-          const dStr = String(raw).trim().substring(0, 10);
+          const dStr = cleanDateToIso(raw);
           if (!dStr) return false;
           if (startDate && dStr < startDate) return false;
           if (endDate && dStr > endDate) return false;
@@ -14037,6 +14037,54 @@
 
   // =========================================================================
   // =========================================================================
+  // Robust date cleaner: converts Date objects, Excel serial numbers, and d-mmm-yy to YYYY-MM-DD
+  function cleanDateToIso(val) {
+    if (!val) return '';
+    if (val instanceof Date) {
+      if (isNaN(val.getTime())) return '';
+      return val.toISOString().slice(0, 10);
+    }
+    if (typeof val === 'number') {
+      if (val > 20000 && val < 60000) {
+        const d = new Date(Math.round((val - 25569) * 86400 * 1000));
+        if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+      }
+    }
+    let s = String(val).trim();
+    if (!s || s === '-' || s === 'null' || s === 'undefined') return '';
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+      return s.slice(0, 10);
+    }
+    const monthMap = {
+      jan: '01', feb: '02', mar: '03', apr: '04', mei: '05', may: '05',
+      jun: '06', jul: '07', agu: '08', ags: '08', aug: '08', sep: '09',
+      okt: '10', oct: '10', nov: '11', des: '12', dec: '12'
+    };
+    const m1 = s.match(/^(\d{1,2})[\s\-\/\.]([a-zA-Z]{3,9})[\s\-\/\.](\d{2,4})$/);
+    if (m1) {
+      const day = m1[1].padStart(2, '0');
+      const monStr = m1[2].toLowerCase().slice(0, 3);
+      const mon = monthMap[monStr];
+      let yr = m1[3];
+      if (yr.length === 2) yr = '20' + yr;
+      if (mon) return `${yr}-${mon}-${day}`;
+    }
+    const m2 = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+    if (m2) {
+      const day = m2[1].padStart(2, '0');
+      const mon = m2[2].padStart(2, '0');
+      const yr = m2[3];
+      return `${yr}-${mon}-${day}`;
+    }
+    const parsed = Date.parse(s);
+    if (!isNaN(parsed)) {
+      return new Date(parsed).toISOString().slice(0, 10);
+    }
+    return s;
+  }
+
+  // =========================================================================
+  // =========================================================================
   // 20. EXCEL BULK IMPORT HELPERS & SMART COLUMN MAPPER
   // =========================================================================
   let rawExcelRows = [];
@@ -14055,7 +14103,7 @@
       norm.no_pa = String(findVal(/^(no[_\s\.]*pa|nomor[_\s\.]*pa|nopa)$/i) || '').trim();
       norm.pelanggan = String(findVal(/^(pelanggan|nama[_\s\.]*pelanggan|customer|client|instansi)$/i) || '').trim();
       norm.ptl = String(findVal(/^(ptl|project[_\s\.]*technical[_\s\.]*lead)$/i) || '').trim();
-      norm.pic_perijinan = String(findVal(/^(pic|pic[_\s\.]*sitac|pic[_\s\.]*perijinan|pic[_\s\.]*perizinan|teknisi)$/i) || '').trim();
+      norm.pic_perijinan = String(findVal(/^(pic|pic[_\s\.]*sitac|pic[_\s\.]*perijinan|pic[_\s\.]*perizinan|teknisi|perijinan|perizinan)$/i) || '').trim();
       norm.terminating = String(findVal(/^(terminating|rute|lokasi|alamat[_\s\.]*terminating|jalur)$/i) || '').trim();
       norm.biaya_permintaan_awal = Number(findVal(/^(biaya[_\s\.]*awal|biaya[_\s\.]*permintaan[_\s\.]*awal|pengajuan[_\s\.]*awal|biaya_permintaan_awal)$/i) || 0);
       norm.biaya_final = Number(findVal(/^(biaya[_\s\.]*final|realisasi[_\s\.]*final|biaya_final|final)$/i) || 0);
@@ -14064,8 +14112,8 @@
       const lng = findVal(/^(longitude|long|lng|bujur)$/i);
       norm.latitude = (lat !== undefined && String(lat).trim() !== '') ? Number(lat) : null;
       norm.longitude = (lng !== undefined && String(lng).trim() !== '') ? Number(lng) : null;
-      norm.date_dispos = String(findVal(/^(tgl[_\s\.]*dispos|tanggal[_\s\.]*disposisi|tgl[_\s\.]*disposisi|date_dispos)$/i) || '').trim();
-      norm.date_close = String(findVal(/^(tgl[_\s\.]*close|tanggal[_\s\.]*selesai|tgl[_\s\.]*selesai|date_close)$/i) || '').trim();
+      norm.date_dispos = cleanDateToIso(findVal(/^(tgl[_\s\.]*dispos|tanggal[_\s\.]*disposisi|tgl[_\s\.]*disposisi|date[_\s\.]*dispos|date_dispos)$/i));
+      norm.date_close = cleanDateToIso(findVal(/^(tgl[_\s\.]*close|tanggal[_\s\.]*selesai|tgl[_\s\.]*selesai|date[_\s\.]*close|date_close)$/i));
       norm.update_pekerjaan = String(findVal(/^(update|update[_\s\.]*pekerjaan|catatan|keterangan)$/i) || '').trim();
 
     } else if (targetModule === 'collo_records') {
@@ -14614,7 +14662,7 @@
         reader.onload = function(evt) {
           try {
             const data = new Uint8Array(evt.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
+            const workbook = XLSX.read(data, { type: 'array', cellDates: true });
             const firstSheet = workbook.SheetNames[0];
             const jsonRows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { defval: '' });
             const cleanedRows = (jsonRows || []).filter(row => {
