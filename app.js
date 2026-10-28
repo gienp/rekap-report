@@ -14816,13 +14816,18 @@
             }
           };
 
+          const persistType = targetModule === 'sitac_records' ? 'sitac' : (targetModule === 'collo_records' ? 'collo' : 'gangguan');
           if (mode === 'update') {
             normalizedExcelRecords.forEach(r => {
               const existingIdx = window.SITAC_COLLO_DATA[colKey].findIndex(item => matchItem(item, r));
               if (existingIdx !== -1) {
-                Object.assign(window.SITAC_COLLO_DATA[colKey][existingIdx], r);
+                const ex = window.SITAC_COLLO_DATA[colKey][existingIdx];
+                Object.assign(ex, r);
+                persistUpdateRecord(persistType, ex.id, r);
               } else {
-                window.SITAC_COLLO_DATA[colKey].unshift({ id: Date.now() + Math.floor(Math.random() * 1000), ...r });
+                const newRec = { id: Date.now() + Math.floor(Math.random() * 1000), ...r };
+                window.SITAC_COLLO_DATA[colKey].unshift(newRec);
+                persistNewRecord(persistType, newRec);
               }
             });
           } else {
@@ -14830,7 +14835,9 @@
             normalizedExcelRecords.forEach(r => {
               const exists = window.SITAC_COLLO_DATA[colKey].some(item => matchItem(item, r));
               if (!exists) {
-                window.SITAC_COLLO_DATA[colKey].unshift({ id: Date.now() + Math.floor(Math.random() * 1000), ...r });
+                const newRec = { id: Date.now() + Math.floor(Math.random() * 1000), ...r };
+                window.SITAC_COLLO_DATA[colKey].unshift(newRec);
+                persistNewRecord(persistType, newRec);
               }
             });
           }
