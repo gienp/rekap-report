@@ -2220,7 +2220,14 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
         date_preset = q.get('datePreset', q.get('preset', ['ALL']))[0].strip()
         active_presets = [p.strip() for p in date_preset.split(',') if p.strip()] if date_preset != 'ALL' else []
 
-        if active_presets and 'ALL' not in active_presets:
+        if start_date or end_date:
+            if start_date:
+                conditions.append(f"{date_field} >= ?")
+                params.append(start_date)
+            if end_date:
+                conditions.append(f"{date_field} <= ?")
+                params.append(end_date)
+        elif active_presets and 'ALL' not in active_presets and 'CUSTOM' not in active_presets:
             preset_conds = []
             today = datetime.date.today()
             cur_year = today.year
@@ -2251,14 +2258,6 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             if year_filter != 'ALL':
                 conditions.append("tahun = ?")
                 params.append(int(year_filter))
-
-            if start_date:
-                conditions.append(f"{date_field} >= ?")
-                params.append(start_date)
-
-            if end_date:
-                conditions.append(f"{date_field} <= ?")
-                params.append(end_date)
 
         if search:
             search_param = f"%{search}%"

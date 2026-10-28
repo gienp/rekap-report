@@ -1320,8 +1320,18 @@
         return null;
       };
 
-      // Filter by Date Presets (supports multi-selection) or Custom Range
-      if (activePresets.length > 0 && !activePresets.includes('ALL')) {
+      // 1. Explicit Custom Date Range (Dari s/d) takes top priority
+      if (startDate || endDate) {
+        scopedSitac = scopedSitac.filter(s => {
+          const raw = s[dateField] || (dateField === 'date_close' ? s.date_close : s.date_dispos) || s.date_dispos || '';
+          const dStr = String(raw).trim().substring(0, 10);
+          if (!dStr) return false;
+          if (startDate && dStr < startDate) return false;
+          if (endDate && dStr > endDate) return false;
+          return true;
+        });
+      } else if (activePresets.length > 0 && !activePresets.includes('ALL') && !activePresets.includes('CUSTOM')) {
+        // 2. Named Presets (THIS_MONTH, LAST_MONTH, 2024, 2025, 2026, etc.)
         scopedSitac = scopedSitac.filter(s => {
           const raw = s[dateField] || s.date_dispos || s.date_close || '';
           const dStr = String(raw).trim().substring(0, 10);
@@ -1336,15 +1346,6 @@
             }
             return false;
           });
-        });
-      } else if (startDate || endDate) {
-        scopedSitac = scopedSitac.filter(s => {
-          const raw = s[dateField] || s.date_dispos || '';
-          const dStr = String(raw).trim().substring(0, 10);
-          if (!dStr) return false;
-          if (startDate && dStr < startDate) return false;
-          if (endDate && dStr > endDate) return false;
-          return true;
         });
       }
 
@@ -1406,7 +1407,12 @@
           return sPic === pLower || (s.pic_perijinan && s.pic_perijinan.toLowerCase() === pLower);
         });
       }
-      if (year !== 'ALL') preStatusFiltered = preStatusFiltered.filter(s => String(s.tahun) === String(year));
+      if (!startDate && !endDate && year && year !== 'ALL') {
+        const selectedYears = String(year).split(',').map(y => y.trim()).filter(Boolean);
+        if (selectedYears.length > 0 && !selectedYears.includes('ALL')) {
+          preStatusFiltered = preStatusFiltered.filter(s => selectedYears.includes(String(s.tahun)));
+        }
+      }
       if (aging !== 'ALL') {
         if (aging === 'green') preStatusFiltered = preStatusFiltered.filter(s => s.durasi_hari <= 7);
         else if (aging === 'yellow') preStatusFiltered = preStatusFiltered.filter(s => s.durasi_hari > 7 && s.durasi_hari <= 14);
@@ -6624,6 +6630,11 @@
         const end = document.getElementById('colleaguesEndDate')?.value || '';
         const field = document.getElementById('colleaguesDateField')?.value || 'date_dispos';
 
+        if (!start && !end) {
+          showToast('Pilih tanggal mulai atau tanggal akhir terlebih dahulu', 'warning');
+          return;
+        }
+
         if (start && end && start > end) {
           showToast('Tanggal mulai tidak boleh lebih besar dari tanggal akhir!', 'warning');
           return;
@@ -6632,20 +6643,32 @@
         state.colleagues.startDate = start;
         state.colleagues.endDate = end;
         state.colleagues.dateField = field;
-        state.colleagues.datePreset = (start || end) ? 'CUSTOM' : 'ALL';
+        state.colleagues.datePreset = 'CUSTOM';
+        state.colleagues.year = 'ALL';
 
         document.querySelectorAll('#colleaguesDatePresets .sitac-date-preset-btn').forEach(btn => {
           btn.classList.remove('active');
         });
+        updateYearDropdownSelection('colleaguesFilterYear', 'ALL');
 
         state.colleagues.page = 1;
         scrollColleaguesTableToTop();
         loadColleaguesData();
+        showToast(`Filter tanggal diterapkan: ${start || 'Awal'} s/d ${end || 'Sekarang'}`, 'info');
       });
 
       // Reset Custom Date Range
       document.getElementById('btnResetColleaguesDate')?.addEventListener('click', () => {
+        const inpStart = document.getElementById('colleaguesStartDate');
+        const inpEnd = document.getElementById('colleaguesEndDate');
+        if (inpStart) inpStart.value = '';
+        if (inpEnd) inpEnd.value = '';
+        state.colleagues.startDate = '';
+        state.colleagues.endDate = '';
+        state.colleagues.datePreset = 'ALL';
+        state.colleagues.year = 'ALL';
         applyColleaguesDatePreset('ALL');
+        showToast('Filter rentang tanggal direset', 'info');
       });
 
       // Quick Clear Date Badge Button
@@ -12802,6 +12825,11 @@
       const end = document.getElementById('sitacEndDate')?.value || '';
       const field = document.getElementById('sitacDateField')?.value || 'date_dispos';
 
+      if (!start && !end) {
+        showToast('Pilih tanggal mulai atau tanggal akhir terlebih dahulu', 'warning');
+        return;
+      }
+
       if (start && end && start > end) {
         alert('Tanggal mulai tidak boleh lebih besar dari tanggal akhir!');
         return;
@@ -12810,20 +12838,32 @@
       state.sitac.startDate = start;
       state.sitac.endDate = end;
       state.sitac.dateField = field;
-      state.sitac.datePreset = (start || end) ? 'CUSTOM' : 'ALL';
+      state.sitac.datePreset = 'CUSTOM';
+      state.sitac.year = 'ALL';
 
       document.querySelectorAll('#sitacDatePresets .sitac-date-preset-btn').forEach(btn => {
         btn.classList.remove('active');
       });
+      updateYearDropdownSelection('sitacFilterYear', 'ALL');
 
       state.sitac.page = 1;
       scrollTableToTop('#view-sitac-pa .table-container-card');
       loadSitacData();
+      showToast(`Filter tanggal diterapkan: ${start || 'Awal'} s/d ${end || 'Sekarang'}`, 'info');
     });
 
     // Custom Date Range: Reset button
     document.getElementById('btnResetSitacDate')?.addEventListener('click', () => {
+      const inpStart = document.getElementById('sitacStartDate');
+      const inpEnd = document.getElementById('sitacEndDate');
+      if (inpStart) inpStart.value = '';
+      if (inpEnd) inpEnd.value = '';
+      state.sitac.startDate = '';
+      state.sitac.endDate = '';
+      state.sitac.datePreset = 'ALL';
+      state.sitac.year = 'ALL';
       applySitacDatePreset('ALL');
+      showToast('Filter rentang tanggal direset', 'info');
     });
 
     // Quick clear date badge button
