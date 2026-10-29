@@ -5529,6 +5529,8 @@
 
       // Counts
       const cnt = json.counts || {};
+      const elAll = document.getElementById('countAlertAll');
+      if (elAll) elAll.textContent = cnt.total || ((cnt.critical || 0) + (cnt.warning || 0) + (cnt.safe || 0) + (cnt.expired || 0));
       document.getElementById('countAlertCritical').textContent = cnt.critical || 0;
       document.getElementById('countAlertWarning').textContent = cnt.warning || 0;
       document.getElementById('countAlertSafe').textContent = cnt.safe || 0;
@@ -5539,6 +5541,15 @@
       if (bAlerts && cnt.critical !== undefined) {
         bAlerts.textContent = Number(cnt.critical).toLocaleString('id-ID');
       }
+
+      // Sync category select & active cards
+      const catSelect = document.getElementById('alertCategoryFilter');
+      if (catSelect && catSelect.value !== category) {
+        catSelect.value = category;
+      }
+      document.querySelectorAll('.alert-filter-card').forEach(b => {
+        b.classList.toggle('active', (b.getAttribute('data-alert-cat') || '').toUpperCase() === (category || 'ALL').toUpperCase());
+      });
 
       // Sync status select dropdown if rendered
       const statusSelect = document.getElementById('alertStatusFilter');
@@ -5554,12 +5565,13 @@
       }
 
       // Table Title
-      document.getElementById('alertTableTitle').textContent = `Daftar Kontrak: ${category} [${statusLabel}] (${(json.data || []).length} sirkuit)`;
+      const catLabel = category === 'ALL' ? 'SEMUA STATUS KONTRAK' : category;
+      document.getElementById('alertTableTitle').textContent = `Daftar Kontrak: ${catLabel} [${statusLabel}] (${(json.data || []).length} sirkuit)`;
 
       // Table Body
       const tbody = document.getElementById('alertTableBody');
       if (tbody) {
-        const sliceData = (json.data || []).slice(0, 60);
+        const sliceData = (json.data || []).slice(0, 200);
         const rowspanMap = computeRowspanMap(sliceData, 'pengelola');
         let html = '';
         sliceData.forEach((c, idx) => {
@@ -13135,11 +13147,28 @@
     // 6. View 4 (Alerts) Controls
     document.querySelectorAll('.alert-filter-card').forEach(btn => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.alert-filter-card').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        state.alerts.category = btn.getAttribute('data-alert-cat');
+        const cat = btn.getAttribute('data-alert-cat') || 'ALL';
+        const isAlreadyActive = btn.classList.contains('active');
+        const targetCat = (isAlreadyActive && cat !== 'ALL') ? 'ALL' : cat;
+
+        document.querySelectorAll('.alert-filter-card').forEach(b => {
+          b.classList.toggle('active', (b.getAttribute('data-alert-cat') || '').toUpperCase() === targetCat.toUpperCase());
+        });
+        state.alerts.category = targetCat;
+        const catSelect = document.getElementById('alertCategoryFilter');
+        if (catSelect) catSelect.value = targetCat;
         loadAlertsData();
       });
+    });
+
+    const alertCategorySelect = document.getElementById('alertCategoryFilter');
+    alertCategorySelect?.addEventListener('change', (e) => {
+      const targetCat = e.target.value;
+      state.alerts.category = targetCat;
+      document.querySelectorAll('.alert-filter-card').forEach(b => {
+        b.classList.toggle('active', (b.getAttribute('data-alert-cat') || '').toUpperCase() === targetCat.toUpperCase());
+      });
+      loadAlertsData();
     });
 
     const alertSearch = document.getElementById('alertSearchInput');

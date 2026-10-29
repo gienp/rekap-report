@@ -68,11 +68,11 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- High-Priority Preloads for Instant Master Dataset & Application Engine -->
-  <link rel="preload" href="sitac_collo_data.js?v=1029.1548" as="script">
-  <link rel="preload" href="app.js?v=1029.1548" as="script">
+  <link rel="preload" href="sitac_collo_data.js?v=1029.1615" as="script">
+  <link rel="preload" href="app.js?v=1029.1615" as="script">
 
   <!-- Custom Portal Stylesheet -->
-  <link rel="stylesheet" href="styles.css?v=12.32">
+  <link rel="stylesheet" href="styles.css?v=12.33">
 
   <!-- ZERO-FLICKER VIEW PERSISTENCE SYNC (ELIMINATES PAGE REFRESH FLASH) -->
   <script>
@@ -1313,7 +1313,17 @@
            ===================================================================== -->
       <section id="view-collo-alerts" class="portal-view space-y-6">
         <!-- Urgency Alert Filter Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+          <button class="alert-filter-card border-sky-500/40" data-alert-cat="ALL">
+            <div class="flex items-center justify-between gap-2">
+              <span class="alert-tag text-sky-400 font-bold flex items-center gap-1.5 text-xs sm:text-sm truncate">
+                <i class="fa-solid fa-layer-group text-sky-400 text-xs shrink-0"></i> SEMUA STATUS
+              </span>
+              <span class="badge-pill bg-sky-500/20 text-sky-300 shrink-0" id="countAlertAll">592</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-2 text-left">Seluruh sirkuit & masa berlaku kontrak colocation aktif.</p>
+          </button>
+
           <button class="alert-filter-card active border-rose-500/40" data-alert-cat="CRITICAL">
             <div class="flex items-center justify-between gap-2">
               <span class="alert-tag text-rose-400 font-bold flex items-center gap-1.5 text-xs sm:text-sm truncate">
@@ -1400,6 +1410,13 @@
                   </p>
             </div>
             <div class="flex items-center gap-2.5 flex-wrap">
+              <select id="alertCategoryFilter" class="filter-select text-xs w-48" title="Filter Kategori Urgensi">
+                <option value="ALL">Semua Urgensi (Semua Status)</option>
+                <option value="CRITICAL" selected>CRITICAL (&lt; 30 Hari)</option>
+                <option value="WARNING">WARNING (30 - 60 Hari)</option>
+                <option value="SAFE">SAFE (&gt; 60 Hari)</option>
+                <option value="EXPIRED">EXPIRED / OVERDUE</option>
+              </select>
               <select id="alertStatusFilter" class="filter-select text-xs w-44" title="Filter Status Kontrak">
                 <option value="ACTIVE" selected>Aktif</option>
                 <option value="ALL">Semua Status (Aktif & Histori)</option>
@@ -4589,10 +4606,10 @@
   </nav>
 
   <!-- 1. Master Dataset & Fallback Engine (Immediate Priority for Instant First Paint) -->
-  <script src="sitac_collo_data.js?v=1029.1548"></script>
+  <script src="sitac_collo_data.js?v=1029.1615"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=1029.1548"></script>
+  <script src="app.js?v=1029.1615"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>
