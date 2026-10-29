@@ -5781,7 +5781,7 @@
     const sortedYears = getSitacAvailableYears();
     const curVal = activeYear !== undefined ? String(activeYear).trim() : (select.value || '');
 
-    let html = `<option value="">📅 Pilih Tahun ▾</option>`;
+    let html = `<option value="">Pilih Tahun</option>`;
     sortedYears.forEach(y => {
       const isSel = curVal === String(y);
       html += `<option value="${y}" ${isSel ? 'selected' : ''}>Tahun ${y}</option>`;
