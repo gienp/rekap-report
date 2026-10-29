@@ -1439,15 +1439,22 @@
         );
       }
 
-      // Filter Range Harga Biaya Final
+      // Filter Range Harga Biaya Final (Kelipatan 5 Juta & Kustom)
       if (pricePreset !== 'ALL' || minPrice !== null || maxPrice !== null) {
         preStatusFiltered = preStatusFiltered.filter(s => {
           const cost = Number(s.biaya_final) || 0;
           if (pricePreset === 'ZERO') return cost === 0 && s.is_berbiaya != 1;
           if (pricePreset === 'BERBIAYA') return cost > 0 || s.is_berbiaya == 1;
-          if (pricePreset === 'UNDER_5M') return cost > 0 && cost < 5000000;
-          if (pricePreset === '5M_15M') return cost >= 5000000 && cost <= 15000000;
-          if (pricePreset === '15M_50M') return cost > 15000000 && cost <= 50000000;
+          if (pricePreset === '0_5M' || pricePreset === 'UNDER_5M') return cost > 0 && cost <= 5000000;
+          if (pricePreset === '5M_10M') return cost >= 5000000 && cost <= 10000000;
+          if (pricePreset === '10M_15M') return cost > 10000000 && cost <= 15000000;
+          if (pricePreset === '15M_20M') return cost > 15000000 && cost <= 20000000;
+          if (pricePreset === '20M_25M') return cost > 20000000 && cost <= 25000000;
+          if (pricePreset === '25M_30M') return cost > 25000000 && cost <= 30000000;
+          if (pricePreset === '30M_35M') return cost > 30000000 && cost <= 35000000;
+          if (pricePreset === '35M_40M') return cost > 35000000 && cost <= 40000000;
+          if (pricePreset === '40M_45M') return cost > 40000000 && cost <= 45000000;
+          if (pricePreset === '45M_50M') return cost > 45000000 && cost <= 50000000;
           if (pricePreset === 'OVER_50M') return cost > 50000000;
           if (minPrice !== null && !isNaN(minPrice) && cost < minPrice) return false;
           if (maxPrice !== null && !isNaN(maxPrice) && cost > maxPrice) return false;

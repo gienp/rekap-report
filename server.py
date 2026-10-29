@@ -2270,12 +2270,26 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             conditions.append("((biaya_final = 0 OR biaya_final IS NULL) AND (is_berbiaya = 0 OR is_berbiaya IS NULL))")
         elif price_preset == 'BERBIAYA':
             conditions.append("(biaya_final > 0 OR is_berbiaya = 1)")
-        elif price_preset == 'UNDER_5M':
-            conditions.append("(biaya_final > 0 AND biaya_final < 5000000)")
-        elif price_preset == '5M_15M':
-            conditions.append("(biaya_final >= 5000000 AND biaya_final <= 15000000)")
-        elif price_preset == '15M_50M':
-            conditions.append("(biaya_final > 15000000 AND biaya_final <= 50000000)")
+        elif price_preset in ('0_5M', 'UNDER_5M'):
+            conditions.append("(biaya_final > 0 AND biaya_final <= 5000000)")
+        elif price_preset == '5M_10M':
+            conditions.append("(biaya_final >= 5000000 AND biaya_final <= 10000000)")
+        elif price_preset == '10M_15M':
+            conditions.append("(biaya_final > 10000000 AND biaya_final <= 15000000)")
+        elif price_preset == '15M_20M':
+            conditions.append("(biaya_final > 15000000 AND biaya_final <= 20000000)")
+        elif price_preset == '20M_25M':
+            conditions.append("(biaya_final > 20000000 AND biaya_final <= 25000000)")
+        elif price_preset == '25M_30M':
+            conditions.append("(biaya_final > 25000000 AND biaya_final <= 30000000)")
+        elif price_preset == '30M_35M':
+            conditions.append("(biaya_final > 30000000 AND biaya_final <= 35000000)")
+        elif price_preset == '35M_40M':
+            conditions.append("(biaya_final > 35000000 AND biaya_final <= 40000000)")
+        elif price_preset == '40M_45M':
+            conditions.append("(biaya_final > 40000000 AND biaya_final <= 45000000)")
+        elif price_preset == '45M_50M':
+            conditions.append("(biaya_final > 45000000 AND biaya_final <= 50000000)")
         elif price_preset == 'OVER_50M':
             conditions.append("(biaya_final > 50000000)")
         else:
