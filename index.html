@@ -68,8 +68,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- High-Priority Preloads for Instant Master Dataset & Application Engine -->
-  <link rel="preload" href="sitac_collo_data.js?v=1029.0909" as="script">
-  <link rel="preload" href="app.js?v=1029.0909" as="script">
+  <link rel="preload" href="sitac_collo_data.js?v=1029.0943" as="script">
+  <link rel="preload" href="app.js?v=1029.0943" as="script">
 
   <!-- Custom Portal Stylesheet -->
   <link rel="stylesheet" href="styles.css?v=12.27">
@@ -1722,6 +1722,28 @@
                 <option value="2025">2025</option>
                 <option value="2024">2024</option>
               </select>
+
+              <!-- Filter Range Harga Biaya Final -->
+              <div class="flex items-center gap-1.5 bg-slate-900/90 px-2.5 py-1 rounded-lg border border-white/10" id="sitacPriceRangeWrap">
+                <span class="text-[10px] font-bold text-amber-400">Rp</span>
+                <select id="sitacPricePreset" class="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer" title="Filter rentang biaya realisasi final">
+                  <option value="ALL" class="bg-slate-900 text-white">Semua Biaya</option>
+                  <option value="ZERO" class="bg-slate-900 text-white">Bebas Biaya (Rp 0)</option>
+                  <option value="BERBIAYA" class="bg-slate-900 text-white">Ada Biaya (&gt; Rp 0)</option>
+                  <option value="UNDER_5M" class="bg-slate-900 text-white">&lt; Rp 5 Juta</option>
+                  <option value="5M_15M" class="bg-slate-900 text-white">Rp 5 Jt - Rp 15 Jt</option>
+                  <option value="15M_50M" class="bg-slate-900 text-white">Rp 15 Jt - Rp 50 Jt</option>
+                  <option value="OVER_50M" class="bg-slate-900 text-white">&gt; Rp 50 Juta</option>
+                  <option value="CUSTOM" class="bg-slate-900 text-white">Rentang Khusus (Min - Maks)...</option>
+                </select>
+                <div id="sitacCustomPriceInputs" class="hidden items-center gap-1 pl-1.5 border-l border-white/10">
+                  <input type="number" id="sitacMinPrice" placeholder="Min Rp" min="0" step="500000" class="bg-slate-950/90 text-amber-300 font-mono text-xs px-1.5 py-0.5 rounded border border-white/10 w-20 focus:outline-none focus:border-amber-400" title="Biaya Minimal (Rp)">
+                  <span class="text-[10px] text-slate-500">s/d</span>
+                  <input type="number" id="sitacMaxPrice" placeholder="Maks Rp" min="0" step="500000" class="bg-slate-950/90 text-amber-300 font-mono text-xs px-1.5 py-0.5 rounded border border-white/10 w-24 focus:outline-none focus:border-amber-400" title="Biaya Maksimal (Rp)">
+                  <button type="button" id="btnApplySitacPrice" class="btn btn-primary text-[10px] py-0.5 px-2 font-bold shadow-sm" title="Terapkan Filter Range Harga">OK</button>
+                  <button type="button" id="btnResetSitacPrice" class="text-slate-400 hover:text-white text-[10px] p-0.5" title="Reset filter harga"><i class="fa-solid fa-rotate-left"></i></button>
+                </div>
+              </div>
             </div>
 
             <div class="flex flex-wrap items-center gap-2 shrink-0">
@@ -2148,6 +2170,28 @@
                 <option value="2025">2025</option>
                 <option value="2024">2024</option>
               </select>
+
+              <!-- Filter Range Harga Biaya Final (Monitoring Tim SITAC) -->
+              <div class="flex items-center gap-1.5 bg-slate-900/90 px-2.5 py-1 rounded-lg border border-white/10" id="colleaguesPriceRangeWrap">
+                <span class="text-[10px] font-bold text-amber-400">Rp</span>
+                <select id="colleaguesPricePreset" class="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer" title="Filter rentang biaya realisasi final">
+                  <option value="ALL" class="bg-slate-900 text-white">Semua Biaya</option>
+                  <option value="ZERO" class="bg-slate-900 text-white">Bebas Biaya (Rp 0)</option>
+                  <option value="BERBIAYA" class="bg-slate-900 text-white">Ada Biaya (&gt; Rp 0)</option>
+                  <option value="UNDER_5M" class="bg-slate-900 text-white">&lt; Rp 5 Juta</option>
+                  <option value="5M_15M" class="bg-slate-900 text-white">Rp 5 Jt - Rp 15 Jt</option>
+                  <option value="15M_50M" class="bg-slate-900 text-white">Rp 15 Jt - Rp 50 Jt</option>
+                  <option value="OVER_50M" class="bg-slate-900 text-white">&gt; Rp 50 Juta</option>
+                  <option value="CUSTOM" class="bg-slate-900 text-white">Rentang Khusus (Min - Maks)...</option>
+                </select>
+                <div id="colleaguesCustomPriceInputs" class="hidden items-center gap-1 pl-1.5 border-l border-white/10">
+                  <input type="number" id="colleaguesMinPrice" placeholder="Min Rp" min="0" step="500000" class="bg-slate-950/90 text-amber-300 font-mono text-xs px-1.5 py-0.5 rounded border border-white/10 w-20 focus:outline-none focus:border-amber-400" title="Biaya Minimal (Rp)">
+                  <span class="text-[10px] text-slate-500">s/d</span>
+                  <input type="number" id="colleaguesMaxPrice" placeholder="Maks Rp" min="0" step="500000" class="bg-slate-950/90 text-amber-300 font-mono text-xs px-1.5 py-0.5 rounded border border-white/10 w-24 focus:outline-none focus:border-amber-400" title="Biaya Maksimal (Rp)">
+                  <button type="button" id="btnApplyColleaguesPrice" class="btn btn-primary text-[10px] py-0.5 px-2 font-bold shadow-sm" title="Terapkan Filter Range Harga">OK</button>
+                  <button type="button" id="btnResetColleaguesPrice" class="text-slate-400 hover:text-white text-[10px] p-0.5" title="Reset filter harga"><i class="fa-solid fa-rotate-left"></i></button>
+                </div>
+              </div>
             </div>
 
             <div class="flex items-center gap-2 shrink-0">
@@ -4514,10 +4558,10 @@
   </nav>
 
   <!-- 1. Master Dataset & Fallback Engine (Immediate Priority for Instant First Paint) -->
-  <script src="sitac_collo_data.js?v=1029.0909"></script>
+  <script src="sitac_collo_data.js?v=1029.0943"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=1029.0909"></script>
+  <script src="app.js?v=1029.0943"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>

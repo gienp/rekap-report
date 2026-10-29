@@ -1304,6 +1304,9 @@
       const dateField = params.get('dateField') || params.get('date_field') || 'date_dispos';
       const datePreset = params.get('datePreset') || params.get('preset') || 'ALL';
       const activePresets = String(datePreset).split(',').map(p => p.trim()).filter(Boolean);
+      const pricePreset = params.get('pricePreset') || 'ALL';
+      const minPrice = (params.get('minPrice') !== null && params.get('minPrice') !== '') ? Number(params.get('minPrice')) : null;
+      const maxPrice = (params.get('maxPrice') !== null && params.get('maxPrice') !== '') ? Number(params.get('maxPrice')) : null;
 
       const allowAllTeam = params.get('all_team') === '1' || params.get('scope') === 'all';
       let scopedSitac = sitacList;
@@ -1434,6 +1437,22 @@
           (s.terminating || '').toLowerCase().includes(search) ||
           (s.pic_perijinan || '').toLowerCase().includes(search)
         );
+      }
+
+      // Filter Range Harga Biaya Final
+      if (pricePreset !== 'ALL' || minPrice !== null || maxPrice !== null) {
+        preStatusFiltered = preStatusFiltered.filter(s => {
+          const cost = Number(s.biaya_final) || 0;
+          if (pricePreset === 'ZERO') return cost === 0 && s.is_berbiaya != 1;
+          if (pricePreset === 'BERBIAYA') return cost > 0 || s.is_berbiaya == 1;
+          if (pricePreset === 'UNDER_5M') return cost > 0 && cost < 5000000;
+          if (pricePreset === '5M_15M') return cost >= 5000000 && cost <= 15000000;
+          if (pricePreset === '15M_50M') return cost > 15000000 && cost <= 50000000;
+          if (pricePreset === 'OVER_50M') return cost > 50000000;
+          if (minPrice !== null && !isNaN(minPrice) && cost < minPrice) return false;
+          if (maxPrice !== null && !isNaN(maxPrice) && cost > maxPrice) return false;
+          return true;
+        });
       }
 
       const counts = { ALL: preStatusFiltered.length, Finish: 0, Ongoing: 0, Hold: 0, Cancel: 0 };
@@ -1812,6 +1831,9 @@
       endDate: '',
       dateField: 'date_dispos',
       datePreset: 'ALL',
+      pricePreset: 'ALL',
+      minPrice: '',
+      maxPrice: '',
       page: 1,
       pageSize: 25,
       data: []
@@ -1829,6 +1851,9 @@
       endDate: '',
       dateField: 'date_dispos',
       datePreset: 'ALL',
+      pricePreset: 'ALL',
+      minPrice: '',
+      maxPrice: '',
       page: 1,
       pageSize: 25,
       data: []
@@ -5740,7 +5765,7 @@
   }
 
   async function loadSitacData() {
-    const { status, pic, year, aging, region, search, startDate, endDate, dateField, page, pageSize, datePreset } = state.sitac;
+    const { status, pic, year, aging, region, search, startDate, endDate, dateField, page, pageSize, datePreset, pricePreset, minPrice, maxPrice } = state.sitac;
     const isLapangan = state.currentUser?.role === 'lapangan';
     const finalPic = (isLapangan || state.myTasksOnlySitac) && state.activeTechnician && state.activeTechnician !== 'Admin'
       ? state.activeTechnician
@@ -5752,7 +5777,10 @@
       startDate: startDate || '',
       endDate: endDate || '',
       dateField: dateField || 'date_dispos',
-      datePreset: finalDatePreset
+      datePreset: finalDatePreset,
+      pricePreset: pricePreset || 'ALL',
+      minPrice: minPrice || '',
+      maxPrice: maxPrice || ''
     });
 
     try {
@@ -6230,7 +6258,7 @@
 
   async function loadColleaguesData() {
     if (!state.colleagues) return;
-    const { status, pic, year, aging, region, search, startDate, endDate, dateField, page, pageSize, datePreset } = state.colleagues;
+    const { status, pic, year, aging, region, search, startDate, endDate, dateField, page, pageSize, datePreset, pricePreset, minPrice, maxPrice } = state.colleagues;
     const finalRegion = region || 'ALL';
     const finalDatePreset = datePreset || 'ALL';
     const params = new URLSearchParams({
@@ -6246,7 +6274,10 @@
       startDate: startDate || '',
       endDate: endDate || '',
       dateField: dateField || 'date_dispos',
-      datePreset: finalDatePreset
+      datePreset: finalDatePreset,
+      pricePreset: pricePreset || 'ALL',
+      minPrice: minPrice || '',
+      maxPrice: maxPrice || ''
     });
 
     try {
@@ -6717,6 +6748,63 @@
           state.colleagues.page = 1;
           loadColleaguesData();
         }
+      });
+
+      // Price Range Filter for Colleagues
+      const collPricePresetEl = document.getElementById('colleaguesPricePreset');
+      const collCustomPriceWrap = document.getElementById('colleaguesCustomPriceInputs');
+      const collMinPriceEl = document.getElementById('colleaguesMinPrice');
+      const collMaxPriceEl = document.getElementById('colleaguesMaxPrice');
+
+      collPricePresetEl?.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (val === 'CUSTOM') {
+          collCustomPriceWrap?.classList.remove('hidden');
+          collCustomPriceWrap?.classList.add('flex');
+          collMinPriceEl?.focus();
+        } else {
+          collCustomPriceWrap?.classList.remove('flex');
+          collCustomPriceWrap?.classList.add('hidden');
+          if (collMinPriceEl) collMinPriceEl.value = '';
+          if (collMaxPriceEl) collMaxPriceEl.value = '';
+          state.colleagues.pricePreset = val;
+          state.colleagues.minPrice = '';
+          state.colleagues.maxPrice = '';
+          state.colleagues.page = 1;
+          scrollColleaguesTableToTop();
+          loadColleaguesData();
+        }
+      });
+
+      document.getElementById('btnApplyColleaguesPrice')?.addEventListener('click', () => {
+        const minVal = collMinPriceEl?.value ? Number(collMinPriceEl.value) : '';
+        const maxVal = collMaxPriceEl?.value ? Number(collMaxPriceEl.value) : '';
+        if (minVal !== '' && maxVal !== '' && Number(minVal) > Number(maxVal)) {
+          alert('Biaya minimum tidak boleh lebih besar dari biaya maksimum!');
+          return;
+        }
+        state.colleagues.pricePreset = 'CUSTOM';
+        state.colleagues.minPrice = minVal !== '' ? minVal : '';
+        state.colleagues.maxPrice = maxVal !== '' ? maxVal : '';
+        state.colleagues.page = 1;
+        scrollColleaguesTableToTop();
+        loadColleaguesData();
+        showToast(`Filter range harga: ${minVal ? formatRupiah(minVal) : 'Rp 0'} - ${maxVal ? formatRupiah(maxVal) : 'Maks'}`, 'info');
+      });
+
+      document.getElementById('btnResetColleaguesPrice')?.addEventListener('click', () => {
+        if (collPricePresetEl) collPricePresetEl.value = 'ALL';
+        if (collMinPriceEl) collMinPriceEl.value = '';
+        if (collMaxPriceEl) collMaxPriceEl.value = '';
+        collCustomPriceWrap?.classList.remove('flex');
+        collCustomPriceWrap?.classList.add('hidden');
+        state.colleagues.pricePreset = 'ALL';
+        state.colleagues.minPrice = '';
+        state.colleagues.maxPrice = '';
+        state.colleagues.page = 1;
+        scrollColleaguesTableToTop();
+        loadColleaguesData();
+        showToast('Filter range harga direset', 'info');
       });
 
       // Pagination buttons
@@ -12927,6 +13015,63 @@
         state.sitac.page = 1;
         loadSitacData();
       }
+    });
+
+    // Price Range Filter for SITAC
+    const sitacPricePresetEl = document.getElementById('sitacPricePreset');
+    const sitacCustomPriceWrap = document.getElementById('sitacCustomPriceInputs');
+    const sitacMinPriceEl = document.getElementById('sitacMinPrice');
+    const sitacMaxPriceEl = document.getElementById('sitacMaxPrice');
+
+    sitacPricePresetEl?.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (val === 'CUSTOM') {
+        sitacCustomPriceWrap?.classList.remove('hidden');
+        sitacCustomPriceWrap?.classList.add('flex');
+        sitacMinPriceEl?.focus();
+      } else {
+        sitacCustomPriceWrap?.classList.remove('flex');
+        sitacCustomPriceWrap?.classList.add('hidden');
+        if (sitacMinPriceEl) sitacMinPriceEl.value = '';
+        if (sitacMaxPriceEl) sitacMaxPriceEl.value = '';
+        state.sitac.pricePreset = val;
+        state.sitac.minPrice = '';
+        state.sitac.maxPrice = '';
+        state.sitac.page = 1;
+        scrollTableToTop('#view-sitac-pa .table-container-card');
+        loadSitacData();
+      }
+    });
+
+    document.getElementById('btnApplySitacPrice')?.addEventListener('click', () => {
+      const minVal = sitacMinPriceEl?.value ? Number(sitacMinPriceEl.value) : '';
+      const maxVal = sitacMaxPriceEl?.value ? Number(sitacMaxPriceEl.value) : '';
+      if (minVal !== '' && maxVal !== '' && Number(minVal) > Number(maxVal)) {
+        alert('Biaya minimum tidak boleh lebih besar dari biaya maksimum!');
+        return;
+      }
+      state.sitac.pricePreset = 'CUSTOM';
+      state.sitac.minPrice = minVal !== '' ? minVal : '';
+      state.sitac.maxPrice = maxVal !== '' ? maxVal : '';
+      state.sitac.page = 1;
+      scrollTableToTop('#view-sitac-pa .table-container-card');
+      loadSitacData();
+      showToast(`Filter range harga: ${minVal ? formatRupiah(minVal) : 'Rp 0'} - ${maxVal ? formatRupiah(maxVal) : 'Maks'}`, 'info');
+    });
+
+    document.getElementById('btnResetSitacPrice')?.addEventListener('click', () => {
+      if (sitacPricePresetEl) sitacPricePresetEl.value = 'ALL';
+      if (sitacMinPriceEl) sitacMinPriceEl.value = '';
+      if (sitacMaxPriceEl) sitacMaxPriceEl.value = '';
+      sitacCustomPriceWrap?.classList.remove('flex');
+      sitacCustomPriceWrap?.classList.add('hidden');
+      state.sitac.pricePreset = 'ALL';
+      state.sitac.minPrice = '';
+      state.sitac.maxPrice = '';
+      state.sitac.page = 1;
+      scrollTableToTop('#view-sitac-pa .table-container-card');
+      loadSitacData();
+      showToast('Filter range harga direset', 'info');
     });
 
     // Regional SITAC Filter Tabs with Multi-Select and Toggle-off

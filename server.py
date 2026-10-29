@@ -2259,6 +2259,33 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
                 conditions.append("tahun = ?")
                 params.append(int(year_filter))
 
+        # Price Range Filter
+        price_preset = q.get('pricePreset', ['ALL'])[0].strip()
+        min_price_raw = q.get('minPrice', [''])[0].strip()
+        max_price_raw = q.get('maxPrice', [''])[0].strip()
+        min_price = float(min_price_raw) if min_price_raw else None
+        max_price = float(max_price_raw) if max_price_raw else None
+
+        if price_preset == 'ZERO':
+            conditions.append("((biaya_final = 0 OR biaya_final IS NULL) AND (is_berbiaya = 0 OR is_berbiaya IS NULL))")
+        elif price_preset == 'BERBIAYA':
+            conditions.append("(biaya_final > 0 OR is_berbiaya = 1)")
+        elif price_preset == 'UNDER_5M':
+            conditions.append("(biaya_final > 0 AND biaya_final < 5000000)")
+        elif price_preset == '5M_15M':
+            conditions.append("(biaya_final >= 5000000 AND biaya_final <= 15000000)")
+        elif price_preset == '15M_50M':
+            conditions.append("(biaya_final > 15000000 AND biaya_final <= 50000000)")
+        elif price_preset == 'OVER_50M':
+            conditions.append("(biaya_final > 50000000)")
+        else:
+            if min_price is not None:
+                conditions.append("biaya_final >= ?")
+                params.append(min_price)
+            if max_price is not None:
+                conditions.append("biaya_final <= ?")
+                params.append(max_price)
+
         if search:
             search_param = f"%{search}%"
             conditions.append("(LOWER(no_pa) LIKE ? OR LOWER(pelanggan) LIKE ? OR LOWER(terminating) LIKE ? OR LOWER(pic_perijinan) LIKE ?)")
