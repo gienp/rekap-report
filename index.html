@@ -68,8 +68,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- High-Priority Preloads for Instant Master Dataset & Application Engine -->
-  <link rel="preload" href="sitac_collo_data.js?v=1029.1615" as="script">
-  <link rel="preload" href="app.js?v=1029.1615" as="script">
+  <link rel="preload" href="sitac_collo_data.js?v=1029.1620" as="script">
+  <link rel="preload" href="app.js?v=1029.1620" as="script">
 
   <!-- Custom Portal Stylesheet -->
   <link rel="stylesheet" href="styles.css?v=12.33">
@@ -1410,16 +1410,16 @@
                   </p>
             </div>
             <div class="flex items-center gap-2.5 flex-wrap">
-              <select id="alertCategoryFilter" class="filter-select text-xs w-48" title="Filter Kategori Urgensi">
-                <option value="ALL">Semua Urgensi (Semua Status)</option>
+              <select id="alertCategoryFilter" class="filter-select text-xs w-44" title="Filter Kategori Urgensi">
+                <option value="ALL">Semua Urgensi</option>
                 <option value="CRITICAL" selected>CRITICAL (&lt; 30 Hari)</option>
                 <option value="WARNING">WARNING (30 - 60 Hari)</option>
                 <option value="SAFE">SAFE (&gt; 60 Hari)</option>
                 <option value="EXPIRED">EXPIRED / OVERDUE</option>
               </select>
-              <select id="alertStatusFilter" class="filter-select text-xs w-44" title="Filter Status Kontrak">
+              <select id="alertStatusFilter" class="filter-select text-xs w-36" title="Filter Status Kontrak">
                 <option value="ACTIVE" selected>Aktif</option>
-                <option value="ALL">Semua Status (Aktif & Histori)</option>
+                <option value="ALL">Semua Status</option>
                 <option value="NON ACTIVE">Non-Aktif</option>
                 <option value="DEACTIVASI">Deaktivasi</option>
               </select>
@@ -4606,10 +4606,10 @@
   </nav>
 
   <!-- 1. Master Dataset & Fallback Engine (Immediate Priority for Instant First Paint) -->
-  <script src="sitac_collo_data.js?v=1029.1615"></script>
+  <script src="sitac_collo_data.js?v=1029.1620"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=1029.1615"></script>
+  <script src="app.js?v=1029.1620"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>
