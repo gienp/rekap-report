@@ -5720,53 +5720,65 @@
   // =========================================================================
   // VIEW 5: MONITORING PERIZINAN PROYEK PA (MODUL B)
   // =========================================================================
-  function getSystemAvailableYears(records) {
-    const curYear = new Date().getFullYear();
-    const yearSet = new Set([2024, 2025, 2026, curYear]);
+  function getSitacAvailableYears(records) {
+    const yearSet = new Set();
+    const list = Array.isArray(records) && records.length > 0
+      ? records
+      : (window.SITAC_COLLO_DATA?.sitac_records || state?.sitac?.data || []);
 
-    // Automatically expand up to current year if system calendar advances
-    if (curYear > 2026) {
-      for (let y = 2026; y <= curYear; y++) {
-        yearSet.add(y);
-      }
+    if (Array.isArray(list)) {
+      list.forEach(item => {
+        if (!item) return;
+        let yr = null;
+        if (item.date_dispos && String(item.date_dispos).length >= 4) {
+          const match = String(item.date_dispos).match(/^(20\d\d)/);
+          if (match) yr = parseInt(match[1], 10);
+        }
+        if (!yr && item.date_close && String(item.date_close).length >= 4) {
+          const match = String(item.date_close).match(/^(20\d\d)/);
+          if (match) yr = parseInt(match[1], 10);
+        }
+        if (!yr && item.date_pa && String(item.date_pa).length >= 4) {
+          const match = String(item.date_pa).match(/^(20\d\d)/);
+          if (match) yr = parseInt(match[1], 10);
+        }
+        if (!yr && item.tahun) {
+          const num = parseInt(item.tahun, 10);
+          if (num >= 2020 && num <= 2099) yr = num;
+        }
+        if (yr && yr >= 2020 && yr <= 2099) {
+          yearSet.add(yr);
+        }
+      });
     }
 
-    // Scan all datasets (SITAC, Colleagues, Collo, Gangguan)
-    const sources = [
-      records,
-      window.SITAC_COLLO_DATA?.sitac_records,
-      window.SITAC_COLLO_DATA?.collo_records,
-      window.SITAC_COLLO_DATA?.gangguan_records,
-      state?.sitac?.data,
-      state?.colleagues?.data
-    ];
+    // Also check state.sitac.data if distinct
+    if (Array.isArray(state?.sitac?.data)) {
+      state.sitac.data.forEach(item => {
+        if (!item) return;
+        let yr = null;
+        if (item.date_dispos && String(item.date_dispos).length >= 4) {
+          const match = String(item.date_dispos).match(/^(20\d\d)/);
+          if (match) yr = parseInt(match[1], 10);
+        }
+        if (yr && yr >= 2020 && yr <= 2099) yearSet.add(yr);
+      });
+    }
 
-    sources.forEach(list => {
-      if (Array.isArray(list)) {
-        list.forEach(item => {
-          if (!item) return;
-          const candidates = [item.tahun, item.date_dispos, item.date_close, item.start_date, item.created_at];
-          candidates.forEach(val => {
-            if (!val) return;
-            const str = String(val).trim();
-            const m = str.match(/\b(202\d|203\d)\b/);
-            if (m) {
-              const yr = parseInt(m[1], 10);
-              if (yr >= 2020 && yr <= 2040) yearSet.add(yr);
-            }
-          });
-        });
-      }
-    });
+    // Baseline fallback if data is still loading
+    if (yearSet.size === 0) {
+      [2026, 2025, 2024].forEach(y => yearSet.add(y));
+    }
 
     return Array.from(yearSet).sort((a, b) => b - a);
   }
-  window.getSystemAvailableYears = getSystemAvailableYears;
+  window.getSitacAvailableYears = getSitacAvailableYears;
+  window.getSystemAvailableYears = getSitacAvailableYears;
 
   function syncPresetYearSelect(selectId, activeYear) {
     const select = document.getElementById(selectId);
     if (!select) return;
-    const sortedYears = getSystemAvailableYears();
+    const sortedYears = getSitacAvailableYears();
     const curVal = activeYear !== undefined ? String(activeYear).trim() : (select.value || '');
 
     let html = `<option value="">📅 Pilih Tahun ▾</option>`;
