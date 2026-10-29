@@ -1682,6 +1682,27 @@
       }));
     }
 
+    // 15b. Network Links (Circuit Transmission Routes)
+    if (path === '/api/network-links') {
+      const status = (params.get('status') || 'ALL').toUpperCase();
+      const allLinks = (window.SITAC_COLLO_DATA && window.SITAC_COLLO_DATA.network_links) || [];
+      let filtered = allLinks;
+      if (status !== 'ALL') {
+        filtered = filtered.filter(l => (l.status || '').toUpperCase() === status);
+      }
+      const statusCounts = {
+        ALL: allLinks.length,
+        ACTIVE: allLinks.filter(l => (l.status || '').toUpperCase() === 'ACTIVE').length,
+        DEACTIVASI: allLinks.filter(l => (l.status || '').toUpperCase() === 'DEACTIVASI').length,
+        'NON ACTIVE': allLinks.filter(l => (l.status || '').toUpperCase() === 'NON ACTIVE').length
+      };
+      return {
+        total: filtered.length,
+        status_counts: statusCounts,
+        links: filtered
+      };
+    }
+
     // 16. Database Overview
     if (path === '/api/database/overview') {
       return {
