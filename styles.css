@@ -629,7 +629,7 @@ html[data-target-view^="view-collo-"] #groupCollo.collapsed .section-items {
   display: flex !important;
 }
 html[data-target-view^="view-collo-"] #groupCollo.collapsed .section-chevron {
-  transform: rotate(180deg) !important;
+  transform: rotate(0deg) !important;
 }
 
 html[data-target-view="view-sitac-pa"] #groupSitac.collapsed .section-items,
@@ -644,7 +644,7 @@ html[data-target-view="view-sitac-colleagues"] #groupSitac.collapsed .section-ch
 html[data-target-view="view-efisiensi"] #groupSitac.collapsed .section-chevron,
 html[data-target-view="view-pic-matrix"] #groupSitac.collapsed .section-chevron,
 html[data-target-view="view-webgis"] #groupSitac.collapsed .section-chevron {
-  transform: rotate(180deg) !important;
+  transform: rotate(0deg) !important;
 }
 
 .kpi-card {
