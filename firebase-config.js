@@ -1220,8 +1220,9 @@ window.DEFAULT_FIREBASE_CONFIG = {
     const eClean = String(newEmail || '').trim().toLowerCase();
 
     if (!uClean) throw new Error('Username wajib diisi.');
-    if (!eClean || !eClean.includes('@') || !eClean.includes('.')) {
-      throw new Error('Format email tidak valid. Masukkan alamat email yang benar.');
+    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+    if (!eClean || !emailRegex.test(eClean) || !eClean.split('@')[1]?.includes('.')) {
+      throw new Error('Format email tidak valid. Masukkan alamat email yang benar (contoh: nama@iconpln.co.id atau nama@gmail.com).');
     }
 
     const initRes = initializeFirebaseApp();
@@ -1234,7 +1235,7 @@ window.DEFAULT_FIREBASE_CONFIG = {
       if (!checkSnap.empty) {
         const existingUser = checkSnap.docs[0].data();
         if (existingUser.username && existingUser.username.toLowerCase() !== uClean) {
-          throw new Error(`Email '${eClean}' sudah digunakan oleh akun @${existingUser.username}. Silakan gunakan email lain.`);
+          throw new Error(`Email '${eClean}' sudah digunakan oleh akun @${existingUser.username} (${existingUser.full_name || existingUser.username}). Silakan gunakan email lain.`);
         }
       }
     } catch (e) {

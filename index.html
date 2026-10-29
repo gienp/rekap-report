@@ -68,8 +68,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- High-Priority Preloads for Instant Master Dataset & Application Engine -->
-  <link rel="preload" href="sitac_collo_data.js?v=1029.1643" as="script">
-  <link rel="preload" href="app.js?v=1029.1643" as="script">
+  <link rel="preload" href="sitac_collo_data.js?v=1029.1658" as="script">
+  <link rel="preload" href="app.js?v=1029.1658" as="script">
 
   <!-- Custom Portal Stylesheet -->
   <link rel="stylesheet" href="styles.css?v=12.33">
@@ -3726,20 +3726,14 @@
         </div>
 
         <div>
-          <div class="flex items-center justify-between mb-1">
-            <label class="form-label text-xs text-slate-300 font-semibold block">Alamat Email *</label>
-            <button type="button" id="btnMyEmailAutoSuggest"
-              class="text-[10px] text-cyan-400 hover:text-cyan-300 font-semibold hover:underline">
-              <i class="fa-solid fa-wand-magic-sparkles mr-0.5"></i>Gunakan Saran
-            </button>
-          </div>
+          <label class="form-label text-xs text-slate-300 font-semibold block mb-1">Alamat Email *</label>
           <div class="relative">
             <i class="fa-solid fa-envelope absolute left-3 top-2.5 text-slate-500 text-xs"></i>
             <input type="email" id="myEmailInput"
               class="filter-input w-full pl-8 pr-3 py-2 text-xs rounded-lg bg-slate-900 border border-white/10 text-white font-mono"
-              placeholder="nama@telecom.ops atau email aktif" required>
+              placeholder="misal: nama@iconpln.co.id atau nama@gmail.com" required>
           </div>
-          <p class="text-[10px] text-slate-400 mt-1">Email ini akan digunakan untuk fitur Lupa Sandi dan pemulihan akun.
+          <p class="text-[10px] text-slate-400 mt-1">Email ini digunakan untuk fitur Lupa Sandi dan pemulihan akun PIC.
           </p>
         </div>
 
@@ -3876,13 +3870,8 @@
             <div class="relative">
               <i class="fa-solid fa-envelope absolute left-3 top-2.5 text-slate-500 text-xs"></i>
               <input type="email" id="adminCreateEmail"
-                class="filter-input w-full pl-8 pr-28 py-2 text-xs rounded-lg bg-slate-900 border border-white/10 text-white"
-                placeholder="misal: nama@telecom.ops">
-              <button type="button" id="btnAutoFillEmail"
-                class="absolute right-2 top-1.5 text-[10px] px-2 py-1 rounded-md bg-cyan-600/30 hover:bg-cyan-600/60 text-cyan-300 border border-cyan-600/30 transition font-semibold hidden"
-                title="Isi email otomatis dari nama">
-                <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Isi Otomatis
-              </button>
+                class="filter-input w-full pl-8 pr-3 py-2 text-xs rounded-lg bg-slate-900 border border-white/10 text-white"
+                placeholder="misal: nama@iconpln.co.id atau nama@gmail.com">
             </div>
             <p id="adminCreateEmailHint" class="text-[10px] text-slate-500 mt-1 hidden">
               <i class="fa-solid fa-circle-info mr-1 text-cyan-500"></i>
@@ -4111,9 +4100,14 @@
               <div class="relative">
                 <i class="fa-solid fa-envelope absolute left-3 top-2.5 text-slate-500 text-xs"></i>
                 <input type="email" id="adminEmailInput"
-                  class="filter-input w-full pl-8 pr-3 py-2 text-xs rounded-lg bg-slate-900 border border-white/10 text-white font-mono"
-                  placeholder="misal: nama@telecom.ops atau email aktif">
+                  class="filter-input w-full pl-8 pr-3 py-2 text-xs rounded-lg bg-slate-900 border border-white/10 text-white font-mono transition-colors"
+                  placeholder="misal: nama@iconpln.co.id atau nama@gmail.com">
               </div>
+              <div id="adminEmailValidationStatus" class="text-[11px] mt-1.5 hidden"></div>
+              <p class="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1.5">
+                <i class="fa-solid fa-shield-halved text-cyan-400"></i>
+                <span>Sistem memvalidasi format email secara ketat &amp; menjamin satu email unik untuk satu akun.</span>
+              </p>
             </div>
 
             <div class="pt-1 text-right">
@@ -4610,10 +4604,10 @@
   </nav>
 
   <!-- 1. Master Dataset & Fallback Engine (Immediate Priority for Instant First Paint) -->
-  <script src="sitac_collo_data.js?v=1029.1643"></script>
+  <script src="sitac_collo_data.js?v=1029.1658"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=1029.1643"></script>
+  <script src="app.js?v=1029.1658"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>

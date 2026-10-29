@@ -11806,17 +11806,22 @@
       if (e.target.id === 'modalUpdateMyEmail') closeUpdateMyEmailModal();
     });
 
-    document.getElementById('btnMyEmailAutoSuggest')?.addEventListener('click', () => {
-      const user = state.currentUser || JSON.parse(localStorage.getItem('telecom_portal_user') || '{}');
-      const name = user.full_name || user.username || '';
-      if (!name) return;
-      const suggested = (name.trim().toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/).join('.') + '@telecom.ops');
-      const input = document.getElementById('myEmailInput');
-      if (input) {
-        input.value = suggested;
-        input.focus();
-      }
-    });
+    // Helper validasi format email ketat (RFC-compliant)
+    function isValidEmailAddress(email) {
+      if (!email || typeof email !== 'string') return false;
+      const s = email.trim().toLowerCase();
+      if (s.length < 6 || s.length > 254) return false;
+      const regex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+      if (!regex.test(s)) return false;
+      const parts = s.split('@');
+      if (parts.length !== 2) return false;
+      const domain = parts[1];
+      if (!domain.includes('.') || domain.startsWith('.') || domain.endsWith('.')) return false;
+      const tld = domain.split('.').pop();
+      if (!tld || tld.length < 2) return false;
+      return true;
+    }
+    window.isValidEmailAddress = isValidEmailAddress;
 
     document.getElementById('formUpdateMyEmail')?.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -11833,8 +11838,8 @@
         }
       }
 
-      if (!newEmail || !newEmail.includes('@') || !newEmail.includes('.')) {
-        return showAlert('Format email tidak valid. Masukkan alamat email yang benar.', true);
+      if (!isValidEmailAddress(newEmail)) {
+        return showAlert('Format email tidak valid. Masukkan alamat email yang benar (contoh: nama@iconpln.co.id atau nama@gmail.com).', true);
       }
 
       const user = state.currentUser || JSON.parse(localStorage.getItem('telecom_portal_user') || '{}');
@@ -12338,55 +12343,9 @@
       }
     });
 
-    // Admin: Auto-suggest email dari Nama Lengkap PIC
+    // Admin: Pengaturan form Tambah Akun
     (function setupEmailAutoSuggest() {
-      const displayNameInput = document.getElementById('adminCreateDisplayName');
       const usernameInput    = document.getElementById('adminCreateUsername');
-      const emailInput       = document.getElementById('adminCreateEmail');
-      const btnAutoFill      = document.getElementById('btnAutoFillEmail');
-      const hintEl           = document.getElementById('adminCreateEmailHint');
-      const hintText         = document.getElementById('adminCreateEmailHintText');
-
-      function generateEmailSuggestion(name) {
-        if (!name) return '';
-        // Buat email dari nama: "Budi Rodiyah" → "budi.rodiyah@telecom.ops"
-        return name.trim().toLowerCase()
-          .replace(/[^a-z0-9\s]/g, '')   // hapus karakter selain huruf & angka
-          .trim()
-          .split(/\s+/)
-          .join('.') + '@telecom.ops';
-      }
-
-      function updateEmailSuggest() {
-        if (!displayNameInput || !emailInput || !btnAutoFill || !hintEl || !hintText) return;
-        const name = displayNameInput.value.trim();
-        const currentEmail = emailInput.value.trim();
-        if (!name) {
-          btnAutoFill.classList.add('hidden');
-          hintEl.classList.add('hidden');
-          return;
-        }
-        const suggested = generateEmailSuggestion(name);
-        if (currentEmail && currentEmail === suggested) {
-          btnAutoFill.classList.add('hidden');
-        } else {
-          btnAutoFill.classList.remove('hidden');
-        }
-        hintText.textContent = `Saran: ${suggested}`;
-        hintEl.classList.remove('hidden');
-      }
-
-      displayNameInput?.addEventListener('input', updateEmailSuggest);
-
-      btnAutoFill?.addEventListener('click', () => {
-        const name = displayNameInput?.value.trim();
-        if (!name || !emailInput) return;
-        const suggested = generateEmailSuggestion(name);
-        emailInput.value = suggested;
-        emailInput.focus();
-        btnAutoFill.classList.add('hidden');
-        if (hintText) hintText.textContent = `Email diisi otomatis: ${suggested}`;
-      });
 
       // Jika username terisi nama orang (ada spasi / huruf kapital), tampilkan hint juga
       usernameInput?.addEventListener('input', () => {
@@ -12449,6 +12408,9 @@
 
       if (!username || !displayName || !password || !confirmPassword || !adminPw) {
         return showCreateAlert('Semua kolom bertanda * wajib diisi.', true);
+      }
+      if (email && !isValidEmailAddress(email)) {
+        return showCreateAlert('Format email tidak valid. Masukkan alamat email yang benar (contoh: nama@iconpln.co.id atau nama@gmail.com).', true);
       }
       if (username.length < 3) {
         return showCreateAlert('Username minimal 3 karakter.', true);
@@ -12681,7 +12643,75 @@
       if (emailInput) {
         emailInput.value = email;
       }
+      updateAdminEmailInputStatus();
     });
+
+    // Helper cek duplikasi email di daftar akun PIC
+    function checkEmailDuplicate(email, excludeUsername) {
+      const e = (email || '').trim().toLowerCase();
+      const u = (excludeUsername || '').trim().toLowerCase();
+      if (!e) return null;
+      const select = document.getElementById('adminEmailTargetUser');
+      if (select) {
+        for (let i = 0; i < select.options.length; i++) {
+          const opt = select.options[i];
+          const optUser = (opt.value || '').trim().toLowerCase();
+          const optEmail = (opt.getAttribute('data-email') || '').trim().toLowerCase();
+          if (optUser && optUser !== u && optEmail === e) {
+            return {
+              username: optUser,
+              name: opt.getAttribute('data-name') || optUser
+            };
+          }
+        }
+      }
+      return null;
+    }
+
+    // Live validation feedback pada input email admin
+    function updateAdminEmailInputStatus() {
+      const input = document.getElementById('adminEmailInput');
+      const statusEl = document.getElementById('adminEmailValidationStatus');
+      const targetSelect = document.getElementById('adminEmailTargetUser');
+      if (!input || !statusEl) return;
+
+      const rawVal = input.value.trim().toLowerCase();
+      const curUser = (targetSelect?.value || '').trim().toLowerCase();
+
+      // Reset state border
+      input.classList.remove('border-rose-500/80', 'border-amber-500/80', 'border-emerald-500/80');
+
+      if (!rawVal) {
+        statusEl.className = 'text-[11px] mt-1.5 hidden';
+        statusEl.innerHTML = '';
+        input.classList.add('border-white/10');
+        return;
+      }
+
+      if (!isValidEmailAddress(rawVal)) {
+        statusEl.className = 'text-[11px] mt-1.5 flex items-center gap-1.5 text-amber-400 font-medium';
+        statusEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Format email belum lengkap (contoh: nama@iconpln.co.id atau nama@gmail.com)';
+        input.classList.remove('border-white/10');
+        input.classList.add('border-amber-500/80');
+        return;
+      }
+
+      const dup = checkEmailDuplicate(rawVal, curUser);
+      if (dup) {
+        statusEl.className = 'text-[11px] mt-1.5 flex items-center gap-1.5 text-rose-400 font-semibold';
+        statusEl.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Email sudah digunakan oleh akun @${dup.username} (${dup.name}). Satu email hanya boleh untuk satu akun.`;
+        input.classList.remove('border-white/10');
+        input.classList.add('border-rose-500/80');
+        return;
+      }
+
+      statusEl.className = 'text-[11px] mt-1.5 flex items-center gap-1.5 text-emerald-400 font-medium';
+      statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Format email valid &amp; belum digunakan akun lain (aman disimpan)';
+      input.classList.remove('border-white/10');
+      input.classList.add('border-emerald-500/80');
+    }
+
+    document.getElementById('adminEmailInput')?.addEventListener('input', updateAdminEmailInputStatus);
 
     // Submit simpan / perbarui email PIC oleh Admin
     document.getElementById('btnSubmitAdminUpdateEmail')?.addEventListener('click', async () => {
@@ -12699,8 +12729,13 @@
       }
 
       if (!targetUser) return showAlert('Pilih akun PIC terlebih dahulu.', true);
-      if (!newEmail || !newEmail.includes('@') || !newEmail.includes('.')) {
-        return showAlert('Format email tidak valid. Masukkan email lengkap seperti nama@telecom.ops', true);
+      if (!newEmail || !isValidEmailAddress(newEmail)) {
+        return showAlert('Format email tidak valid. Masukkan alamat email yang benar (contoh: nama@iconpln.co.id atau nama@gmail.com).', true);
+      }
+
+      const dup = checkEmailDuplicate(newEmail, targetUser);
+      if (dup) {
+        return showAlert(`Email '${newEmail}' sudah digunakan oleh akun @${dup.username} (${dup.name}). Satu email hanya boleh digunakan untuk satu akun.`, true);
       }
 
       const curAdmin = state.currentUser?.username || 'admin';
@@ -12733,6 +12768,7 @@
 
         await loadAdminEmailPICList();
         await loadAdminUserList();
+        updateAdminEmailInputStatus();
       } catch (err) {
         showAlert(err.message || 'Gagal menyimpan email', true);
         showToast(err.message || 'Gagal menyimpan email', 'error');

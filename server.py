@@ -1443,12 +1443,23 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             self.send_error_json("Username dan email wajib diisi.", 400)
             return
 
-        if '@' not in email or '.' not in email:
-            self.send_error_json("Format email tidak valid (harus mengandung @ dan domain).", 400)
+        import re
+        EMAIL_REGEX = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+        if not re.match(EMAIL_REGEX, email) or len(email) < 6 or '.' not in email.split('@')[-1] or len(email.split('@')[-1].split('.')[-1]) < 2:
+            self.send_error_json("Format email tidak valid. Masukkan alamat email yang benar (contoh: nama@iconpln.co.id atau nama@gmail.com).", 400)
             return
 
         conn = get_db()
         cursor = conn.cursor()
+
+        # Check duplicate email on another user
+        cursor.execute("SELECT id, username, full_name FROM users WHERE LOWER(email) = ? AND LOWER(username) != ?", (email, username))
+        dup = cursor.fetchone()
+        if dup:
+            conn.close()
+            dup_name = dup['full_name'] or dup['username']
+            self.send_error_json(f"Email '{email}' sudah digunakan oleh akun @{dup['username']} ({dup_name}). Satu email hanya boleh untuk satu akun.", 400)
+            return
 
         cursor.execute("SELECT id, full_name, password_hash FROM users WHERE LOWER(username) = ?", (username,))
         user_row = cursor.fetchone()
