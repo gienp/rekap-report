@@ -8780,9 +8780,14 @@
         showToast(data.message || 'Perubahan berhasil disimpan ke database!');
         document.getElementById('modalQuickEdit').style.display = 'none';
 
-        // Persist mutation locally and to Google Cloud Firestore
+        // Persist mutation locally and to Supabase Cloud PostgreSQL
         persistUpdateRecord(type, id, payload);
         const colName = type === 'collo' ? 'collo_records' : (type === 'sitac' ? 'sitac_records' : 'gangguan_records');
+        if (window.SupabaseManager && typeof window.SupabaseManager.updateRecord === 'function') {
+          window.SupabaseManager.updateRecord(colName, id, payload).catch(err => {
+            console.warn('Supabase async sync notice:', err);
+          });
+        }
         if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
           window.FirebaseManager.updateRecord(colName, String(id), payload).catch(err => {
             console.warn('Firestore async sync notice:', err);
@@ -9695,9 +9700,12 @@
 
       showToast(json.message || 'Data berhasil dihapus!');
 
-      // Persist deletion locally and sync to Firestore
+      // Persist deletion locally and sync to Supabase & Firestore
       persistDeleteRecord(type, id);
       const colName = type === 'collo' ? 'collo_records' : (type === 'sitac' ? 'sitac_records' : 'gangguan_records');
+      if (window.SupabaseManager && typeof window.SupabaseManager.deleteRecord === 'function') {
+        window.SupabaseManager.deleteRecord(colName, id).catch(() => {});
+      }
       if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
         window.FirebaseManager.deleteRecord(colName, String(id)).catch(() => {});
       }
@@ -14245,7 +14253,14 @@
 
       try {
         let registerRes = null;
-        if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
+        if (window.SupabaseManager && typeof window.SupabaseManager.adminCreateUser === 'function') {
+          try {
+            registerRes = await window.SupabaseManager.adminCreateUser({ username, password, full_name, pic_code, role });
+          } catch (sbErr) {
+            console.warn('Supabase create user notice:', sbErr.message);
+          }
+        }
+        if (!registerRes && window.FirebaseManager && window.FirebaseManager.isConfigured()) {
           try {
             registerRes = await window.FirebaseManager.registerUser({ username, password, full_name, pic_code, role });
           } catch (fbErr) {
@@ -14266,8 +14281,8 @@
         }
 
         alertBox.className = 'p-2.5 rounded-lg text-xs bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 block';
-        alertBox.textContent = registerRes.message || 'Akun baru berhasil ditambahkan ke Firestore!';
-        showToast(`Akun '${full_name}' (@${username}) berhasil didaftarkan ke Firestore!`);
+        alertBox.textContent = registerRes.message || 'Akun baru berhasil ditambahkan ke Supabase PostgreSQL!';
+        showToast(`Akun '${full_name}' (@${username}) berhasil didaftarkan ke Supabase PostgreSQL!`);
 
         document.getElementById('formDbAddUser').reset();
         await fetchDatabaseOverview();
@@ -14314,41 +14329,46 @@
   }
 
   // =========================================================================
-  // DATABASE OVERVIEW HELPERS (FIRESTORE INTEGRATED)
+  // DATABASE OVERVIEW HELPERS (SUPABASE POSTGRESQL INTEGRATED)
   // =========================================================================
   let dbOverviewData = null;
 
   async function fetchDatabaseOverview() {
     try {
-      if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
+      // 1. Prioritaskan Supabase Cloud PostgreSQL
+      if (window.SupabaseManager && typeof window.SupabaseManager.fetchCollection === 'function') {
         try {
-          const users = await window.FirebaseManager.fetchCollection('users');
-          const sitac = await window.FirebaseManager.fetchCollection('sitac_records');
-          const gangguan = await window.FirebaseManager.fetchCollection('gangguan_records');
-          const collo = await window.FirebaseManager.fetchCollection('collo_records');
+          const [users, sitac, gangguan, collo] = await Promise.all([
+            window.SupabaseManager.fetchCollection('users').catch(() => []),
+            window.SupabaseManager.fetchCollection('sitac_records').catch(() => []),
+            window.SupabaseManager.fetchCollection('gangguan_records').catch(() => []),
+            window.SupabaseManager.fetchCollection('collo_records').catch(() => [])
+          ]);
 
           dbOverviewData = {
             success: true,
             database_info: {
-              file: "Google Cloud Firestore",
+              file: "Supabase Cloud PostgreSQL",
               size_mb: "Cloud Managed",
-              status: "Connected (Firestore)"
+              status: "Connected (Supabase Cloud)",
+              storage_type: "PostgreSQL 15 (Singapore/Tokyo)"
             },
             tables: [
-              { name: "users", label: "Pengguna / PIC Accounts (Firestore)", count: users.length, description: "Koleksi Users di Cloud Firestore" },
-              { name: "sitac_records", label: "Monitoring SITAC & Perizinan", count: sitac.length, description: "Koleksi SITAC di Cloud Firestore" },
-              { name: "gangguan_records", label: "Tiket Gangguan Darurat", count: gangguan.length, description: "Koleksi Gangguan di Cloud Firestore" },
-              { name: "collo_records", label: "Aset Colocation & Finansial", count: collo.length, description: "Koleksi Collo di Cloud Firestore" }
+              { name: "users", label: "Pengguna / PIC Accounts", count: (users || []).length, description: "Tabel Akun & Hak Akses di Supabase PostgreSQL" },
+              { name: "sitac_records", label: "Monitoring SITAC & Perizinan", count: (sitac || []).length, description: "Tabel Data Perizinan SITAC di Supabase PostgreSQL" },
+              { name: "gangguan_records", label: "Tiket Gangguan Darurat", count: (gangguan || []).length, description: "Tabel Tiket Gangguan di Supabase PostgreSQL" },
+              { name: "collo_records", label: "Aset Colocation & Finansial", count: (collo || []).length, description: "Tabel Colocation Aset di Supabase PostgreSQL" }
             ],
-            users: users
+            users: users || []
           };
           renderDbOverviewUI();
           return;
-        } catch (fbErr) {
-          console.warn('Fallback to REST API for db overview:', fbErr);
+        } catch (sbErr) {
+          console.warn('Fallback from Supabase overview:', sbErr);
         }
       }
 
+      // 2. Fallback to REST API SQLite
       const res = await fetch('/api/database/overview');
       if (!res.ok) throw new Error('Gagal mengambil overview database');
       const data = await res.json();
@@ -14368,8 +14388,19 @@
     if (database_info) {
       const dbInfoFile = document.getElementById('dbInfoFile');
       const dbInfoSize = document.getElementById('dbInfoSize');
-      if (dbInfoFile) dbInfoFile.textContent = database_info.file || 'telecom_portal.db';
-      if (dbInfoSize) dbInfoSize.textContent = `${database_info.size_mb || 2.5} MB`;
+      const dbInfoStatus = document.getElementById('dbInfoStatus');
+      const dbInfoStorageType = document.getElementById('dbInfoStorageType');
+      if (dbInfoFile) dbInfoFile.textContent = database_info.file || 'Supabase Cloud PostgreSQL';
+      if (dbInfoSize) {
+        const sz = database_info.size_mb;
+        dbInfoSize.textContent = (typeof sz === 'number') ? `${sz} MB` : (sz || 'Cloud Managed');
+      }
+      if (dbInfoStatus) {
+        dbInfoStatus.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span> Status: ${database_info.status || 'Connected (Supabase Cloud)'}`;
+      }
+      if (dbInfoStorageType && database_info.storage_type) {
+        dbInfoStorageType.textContent = database_info.storage_type;
+      }
     }
 
     let totalRecordsSum = 0;
@@ -14517,17 +14548,30 @@
   async function fetchAuditLogs() {
     const timeline = document.getElementById('auditLogTimeline');
     if (timeline) {
-      timeline.innerHTML = '<div class="text-center p-6 text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Memuat audit log dari Cloud Firestore...</div>';
+      timeline.innerHTML = '<div class="text-center p-6 text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Memuat audit log dari Supabase Cloud...</div>';
     }
 
     try {
+      if (window.SupabaseManager && typeof window.SupabaseManager.fetchCollection === 'function') {
+        try {
+          const logs = await window.SupabaseManager.fetchCollection('audit_logs');
+          if (logs && Array.isArray(logs) && logs.length > 0) {
+            logs.sort((a, b) => (b.time_str || '').localeCompare(a.time_str || ''));
+            cachedAuditLogs = logs;
+            renderAuditLogsUI(logs);
+            return;
+          }
+        } catch (sbErr) {
+          console.warn('Fallback from Supabase audit logs:', sbErr);
+        }
+      }
       if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
         const logs = await window.FirebaseManager.fetchCollection('audit_logs');
         logs.sort((a, b) => (b.time_str || '').localeCompare(a.time_str || ''));
         cachedAuditLogs = logs;
         renderAuditLogsUI(logs);
       } else {
-        if (timeline) timeline.innerHTML = '<div class="text-center p-6 text-slate-400">Firebase Firestore tidak aktif.</div>';
+        if (timeline) timeline.innerHTML = '<div class="text-center p-6 text-slate-400">Database cloud log tidak aktif.</div>';
       }
     } catch (e) {
       if (timeline) timeline.innerHTML = `<div class="text-center p-6 text-rose-400">Gagal memuat log: ${e.message}</div>`;

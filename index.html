@@ -68,8 +68,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- High-Priority Preloads for Instant Master Dataset & Application Engine -->
-  <link rel="preload" href="sitac_collo_data.js?v=1029.1330" as="script">
-  <link rel="preload" href="app.js?v=1029.1330" as="script">
+  <link rel="preload" href="sitac_collo_data.js?v=1029.1340" as="script">
+  <link rel="preload" href="app.js?v=1029.1340" as="script">
 
   <!-- Custom Portal Stylesheet -->
   <link rel="stylesheet" href="styles.css?v=12.29">
@@ -4314,7 +4314,7 @@
     </div>
   </div>
 
-  <!-- MODAL AKSES & MANAJEMEN DATABASE (DATABASE & FIRESTORE EXPLORER) -->
+  <!-- MODAL AKSES & MANAJEMEN DATABASE (SUPABASE POSTGRESQL & SQLITE EXPLORER) -->
   <div id="modalDatabaseViewer" class="portal-modal-overlay" style="display: none;">
     <div class="modal-card max-w-3xl w-full mx-4 overflow-hidden flex flex-col max-h-[90vh]">
       <!-- Header -->
@@ -4402,25 +4402,25 @@
         <div id="dbTabPanelTables" class="db-tab-panel hidden space-y-4">
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div class="p-4 rounded-xl bg-slate-900/60 border border-white/10">
-              <div class="text-slate-400 text-[11px]">Database File</div>
-              <div class="font-bold text-slate-100 text-sm mt-0.5" id="dbInfoFile">telecom_portal.db</div>
-              <div class="text-[10px] text-emerald-400 mt-1 font-semibold flex items-center gap-1">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span> Status: Active (SQLite 3)
+              <div class="text-slate-400 text-[11px]">Database File / Engine</div>
+              <div class="font-bold text-slate-100 text-sm mt-0.5 truncate" id="dbInfoFile">Supabase Cloud PostgreSQL</div>
+              <div class="text-[10px] text-emerald-400 mt-1 font-semibold flex items-center gap-1" id="dbInfoStatus">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span> Status: Connected (Supabase Cloud)
               </div>
             </div>
             <div class="p-4 rounded-xl bg-slate-900/60 border border-white/10">
-              <div class="text-slate-400 text-[11px]">Ukuran File Database</div>
-              <div class="font-bold text-cyan-400 text-base mt-0.5" id="dbInfoSize">2.50 MB</div>
-              <div class="text-[10px] text-slate-400 mt-1">Direct Local Storage</div>
+              <div class="text-slate-400 text-[11px]">Tipe Penyimpanan</div>
+              <div class="font-bold text-cyan-400 text-base mt-0.5" id="dbInfoSize">Cloud Managed</div>
+              <div class="text-[10px] text-slate-400 mt-1" id="dbInfoStorageType">PostgreSQL 15 (Singapore/Tokyo)</div>
             </div>
             <div class="p-4 rounded-xl bg-slate-900/60 border border-white/10">
               <div class="text-slate-400 text-[11px]">Total Record Tersimpan</div>
-              <div class="font-bold text-indigo-400 text-base mt-0.5" id="dbInfoTotalRecords">1,724 Data</div>
+              <div class="font-bold text-indigo-400 text-base mt-0.5" id="dbInfoTotalRecords">3,047 Data</div>
               <div class="text-[10px] text-slate-400 mt-1">Di 4 Tabel Utama</div>
             </div>
           </div>
 
-          <h4 class="font-bold text-slate-200 text-xs pt-2">Daftar Tabel Database SQLite:</h4>
+          <h4 class="font-bold text-slate-200 text-xs pt-2" id="dbTablesTitle">Daftar Tabel Database Supabase PostgreSQL:</h4>
           <div id="dbTablesGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <!-- Table cards injected dynamically -->
           </div>
@@ -4601,10 +4601,10 @@
   </nav>
 
   <!-- 1. Master Dataset & Fallback Engine (Immediate Priority for Instant First Paint) -->
-  <script src="sitac_collo_data.js?v=1029.1330"></script>
+  <script src="sitac_collo_data.js?v=1029.1340"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=1029.1330"></script>
+  <script src="app.js?v=1029.1340"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>
