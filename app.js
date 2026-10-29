@@ -2753,12 +2753,12 @@
     if (hasOrig && hasTerm) {
       return `
         <div class="flex flex-col gap-0.5 max-w-[240px] text-[11px] leading-tight">
-          <div class="flex items-center gap-1.5 truncate" title="Originating: ${escapeHtml(orig)}">
-            <span class="badge-cyan px-1 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider shrink-0">Orig</span>
+          <div class="flex items-center gap-1.5 truncate" title="Originating (Asal): ${escapeHtml(orig)}">
+            <span class="badge-cyan px-1 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider shrink-0 flex items-center gap-1"><i class="fa-solid fa-tower-broadcast text-[8px]"></i> Orig</span>
             <span class="truncate font-medium">${escapeHtml(orig)}</span>
           </div>
-          <div class="flex items-center gap-1.5 truncate opacity-80" title="Terminating: ${escapeHtml(term)}">
-            <span class="badge-amber px-1 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider shrink-0">Term</span>
+          <div class="flex items-center gap-1.5 truncate opacity-80" title="Terminating (Tujuan): ${escapeHtml(term)}">
+            <span class="badge-amber px-1 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider shrink-0 flex items-center gap-1"><i class="fa-solid fa-location-dot text-[8px]"></i> Term</span>
             <span class="truncate">${escapeHtml(term)}</span>
           </div>
         </div>
@@ -2767,8 +2767,8 @@
     if (hasTerm) {
       return `
         <div class="flex flex-col gap-0.5 max-w-[240px] text-xs">
-          <div class="flex items-center gap-1.5 truncate" title="Terminating: ${escapeHtml(term)}">
-            <span class="badge-amber px-1 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider shrink-0">Term</span>
+          <div class="flex items-center gap-1.5 truncate" title="Terminating (Tujuan): ${escapeHtml(term)}">
+            <span class="badge-amber px-1 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider shrink-0 flex items-center gap-1"><i class="fa-solid fa-location-dot text-[8px]"></i> Term</span>
             <span class="truncate">${escapeHtml(term)}</span>
           </div>
         </div>
@@ -2777,8 +2777,8 @@
     if (hasOrig) {
       return `
         <div class="flex flex-col gap-0.5 max-w-[240px] text-xs">
-          <div class="flex items-center gap-1.5 truncate" title="Originating: ${escapeHtml(orig)}">
-            <span class="badge-cyan px-1 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider shrink-0">Orig</span>
+          <div class="flex items-center gap-1.5 truncate" title="Originating (Asal): ${escapeHtml(orig)}">
+            <span class="badge-cyan px-1 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider shrink-0 flex items-center gap-1"><i class="fa-solid fa-tower-broadcast text-[8px]"></i> Orig</span>
             <span class="truncate font-medium">${escapeHtml(orig)}</span>
           </div>
         </div>
@@ -8024,23 +8024,33 @@
               <div class="text-[11px] text-slate-400 mt-0.5">Pengelola: <strong class="text-slate-200">${escapeHtml(l.pengelola || '-')}</strong></div>
             </div>
             <div class="p-2.5 rounded-lg bg-slate-900/80 border border-white/10 space-y-2">
-              <div class="flex items-start gap-2">
-                <span class="w-4 h-4 rounded-sm bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 flex items-center justify-center text-[10px] font-bold mt-0.5 shrink-0">A</span>
+              <div class="flex items-start gap-2.5">
+                <span class="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 flex items-center justify-center text-xs mt-0.5 shrink-0 shadow-sm" title="Originating (Titik Asal)">
+                  <i class="fa-solid fa-tower-broadcast"></i>
+                </span>
                 <div class="min-w-0 flex-1">
-                  <div class="text-[9px] uppercase tracking-wider text-cyan-400 font-semibold">Originating (Asal)</div>
-                  <div class="text-slate-200 text-xs font-medium break-words leading-tight" title="${escapeHtml(orig.raw || '')}">${escapeHtml(orig.label || orig.raw)}</div>
+                  <div class="text-[9px] uppercase tracking-wider text-cyan-400 font-bold flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block animate-pulse"></span>
+                    <span>Originating (Asal)</span>
+                  </div>
+                  <div class="text-slate-100 text-xs font-semibold break-words leading-tight mt-0.5" title="${escapeHtml(orig.raw || '')}">${escapeHtml(orig.label || orig.raw)}</div>
                 </div>
               </div>
-              <div class="flex items-center gap-2 pl-1.5 my-1 text-slate-500 text-[10px]">
-                <div class="w-0.5 h-3 bg-cyan-500/30 ml-1"></div>
-                <i class="fa-solid fa-arrow-down text-cyan-400 text-xs"></i>
-                <span class="text-[10px] text-slate-400 font-medium">Jalur Transmisi Sirkuit</span>
+              <div class="flex items-center gap-2 pl-3 my-1 text-slate-500 text-[10px]">
+                <div class="w-0.5 h-3.5 bg-gradient-to-b from-cyan-400 to-emerald-400 rounded-full ml-0.5 opacity-60"></div>
+                <i class="fa-solid fa-arrow-down text-cyan-400 text-[10px]"></i>
+                <span class="text-[10px] text-slate-400 font-medium tracking-wide">Jalur Transmisi Sirkuit</span>
               </div>
-              <div class="flex items-start gap-2">
-                <span class="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center text-[10px] font-bold mt-0.5 shrink-0">B</span>
+              <div class="flex items-start gap-2.5">
+                <span class="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center text-xs mt-0.5 shrink-0 shadow-sm" title="Terminating (Titik Tujuan)">
+                  <i class="fa-solid fa-location-dot"></i>
+                </span>
                 <div class="min-w-0 flex-1">
-                  <div class="text-[9px] uppercase tracking-wider text-emerald-400 font-semibold">Terminating (Tujuan)</div>
-                  <div class="text-slate-200 text-xs font-medium break-words leading-tight" title="${escapeHtml(term.raw || '')}">${escapeHtml(term.label || term.raw)}</div>
+                  <div class="text-[9px] uppercase tracking-wider text-emerald-400 font-bold flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
+                    <span>Terminating (Tujuan)</span>
+                  </div>
+                  <div class="text-slate-100 text-xs font-semibold break-words leading-tight mt-0.5" title="${escapeHtml(term.raw || '')}">${escapeHtml(term.label || term.raw)}</div>
                 </div>
               </div>
             </div>
@@ -8080,7 +8090,7 @@
           });
         });
 
-        // Originating marker (Point A: Square/Diamond Cyan)
+        // Originating marker (Titik Asal: Cyan)
         const origKey = `${orig.lat.toFixed(4)},${orig.lng.toFixed(4)}`;
         if (!origCounts[origKey]) {
           origCounts[origKey] = true;
@@ -8092,11 +8102,11 @@
             opacity: 1,
             fillOpacity: 0.95
           });
-          origMarker.bindTooltip(`<strong>Titik A (Originating)</strong>: ${escapeHtml(orig.label || orig.raw)}`, { direction: 'top' });
+          origMarker.bindTooltip(`<div class="font-sans text-xs"><strong><i class="fa-solid fa-tower-broadcast text-cyan-400 mr-1"></i> Originating (Asal)</strong><br><span class="text-slate-300">${escapeHtml(orig.label || orig.raw)}</span></div>`, { direction: 'top' });
           mapCircuitsLayer.addLayer(origMarker);
         }
 
-        // Terminating marker (Point B: Circle Emerald)
+        // Terminating marker (Titik Tujuan: Emerald)
         const termKey = `${term.lat.toFixed(4)},${term.lng.toFixed(4)}`;
         if (!termCounts[termKey]) {
           termCounts[termKey] = true;
@@ -8108,7 +8118,7 @@
             opacity: 1,
             fillOpacity: 0.95
           });
-          termMarker.bindTooltip(`<strong>Titik B (Terminating)</strong>: ${escapeHtml(term.label || term.raw)}`, { direction: 'top' });
+          termMarker.bindTooltip(`<div class="font-sans text-xs"><strong><i class="fa-solid fa-location-dot text-emerald-400 mr-1"></i> Terminating (Tujuan)</strong><br><span class="text-slate-300">${escapeHtml(term.label || term.raw)}</span></div>`, { direction: 'top' });
           mapCircuitsLayer.addLayer(termMarker);
         }
 
@@ -9523,7 +9533,7 @@
           ${pelangganDetailHtml}
           <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2 overflow-hidden min-w-0"><span class="text-slate-500 uppercase block truncate">Masa Berlaku</span><span class="font-mono text-slate-200 text-xs sm:text-sm truncate block">${rec.start_date || '-'} s/d ${rec.end_date || '-'} (Sisa ${rec.sisa_hari !== undefined && rec.sisa_hari !== null ? rec.sisa_hari : '-'} Hari)</span></div>
           ${rec.site ? `<div class="p-2.5 bg-slate-900 rounded border border-emerald-500/25 col-span-2 flex items-center justify-between overflow-hidden min-w-0"><span class="text-emerald-400 uppercase text-[10px] font-semibold flex items-center gap-1.5 shrink-0"><i class="fa-solid fa-server"></i> Site / Titik Jaringan</span><span class="font-bold text-slate-100 text-xs truncate max-w-[65%]" title="${escapeHtml(rec.site)}">${escapeHtml(rec.site)}</span></div>` : ''}
-          <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2 overflow-hidden min-w-0"><span class="text-slate-500 uppercase block truncate">Originating / Terminating</span><span class="text-slate-200 text-xs truncate block" title="${escapeHtml(rec.originating || '-')} &rarr; ${escapeHtml(rec.terminating || '-')}">${escapeHtml(rec.originating || '-')} &rarr; ${escapeHtml(rec.terminating || '-')}</span></div>
+          <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2 overflow-hidden min-w-0"><span class="text-slate-500 uppercase block truncate">Originating / Terminating</span><span class="text-slate-200 text-xs truncate flex items-center gap-1.5" title="${escapeHtml(rec.originating || '-')} &rarr; ${escapeHtml(rec.terminating || '-')}"><i class="fa-solid fa-tower-broadcast text-cyan-400 text-[10px]"></i> ${escapeHtml(rec.originating || '-')} <i class="fa-solid fa-arrow-right text-slate-500 text-[9px]"></i> <i class="fa-solid fa-location-dot text-emerald-400 text-[10px]"></i> ${escapeHtml(rec.terminating || '-')}</span></div>
           <div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2 overflow-hidden min-w-0"><span class="text-slate-500 uppercase block truncate">Admin & Kontak</span><span class="text-slate-200 text-xs truncate block" title="PIC Admin: ${escapeHtml(rec.pic_admin || '-')} | Rekanan: ${escapeHtml(rec.pic_rekanan || '-')} (${escapeHtml(rec.telp || '-')})">PIC Admin: ${escapeHtml(rec.pic_admin || '-')} | Rekanan: ${escapeHtml(rec.pic_rekanan || '-')} (${escapeHtml(rec.telp || '-')})</span></div>
           ${rec.keterangan ? `<div class="p-2.5 bg-slate-900 rounded border border-white/5 col-span-2 overflow-hidden min-w-0"><span class="text-slate-500 uppercase block truncate">Catatan / Keterangan</span><span class="text-slate-300 text-xs">${escapeHtml(rec.keterangan)}</span></div>` : ''}
           ${renderPhotoBuktiSection(rec, type, id)}
