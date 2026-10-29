@@ -1326,7 +1326,7 @@
           const firstDay = new Date(curYear, curMonth - 1, 1);
           const lastDay = new Date(curYear, curMonth, 0);
           return { start: firstDay.toISOString().slice(0, 10), end: lastDay.toISOString().slice(0, 10) };
-        } else if (['2024', '2025', '2026'].includes(preset)) {
+        } else if (/^\d{4}$/.test(preset)) {
           return { start: `${preset}-01-01`, end: `${preset}-12-31`, year: parseInt(preset, 10) };
         }
         return null;
@@ -1570,14 +1570,14 @@
       };
     }
 
-    // 12. Rekap Efisiensi
+    // 12. Rekap Efisiensi (Dihitung dinamis dari sitacList agar tahun baru otomatis masuk)
     if (path === '/api/rekap-efisiensi') {
-      let yearlyData = (rekapEff && rekapEff.length > 0) ? rekapEff : null;
-      if (!yearlyData || yearlyData.length === 0) {
+      let yearlyData = null;
+      if (Array.isArray(sitacList) && sitacList.length > 0) {
         const yMap = {};
         sitacList.forEach(s => {
           const y = Number(s.tahun) || (s.date_dispos ? parseInt(String(s.date_dispos).substring(0, 4), 10) : 0) || (s.date_pa ? parseInt(String(s.date_pa).substring(0, 4), 10) : 0);
-          if (!y || y < 2024) return;
+          if (!y || y < 2020) return;
           if (!yMap[y]) {
             yMap[y] = { tahun: y, total_disposisi: 0, ada_biaya: 0, tidak_ada_biaya: 0, nilai_awal: 0, nilai_akhir: 0, efisiensi_rupiah: 0, efisiensi_persen: 0 };
           }
@@ -1595,6 +1595,9 @@
         yearlyData.forEach(y => {
           y.efisiensi_persen = y.nilai_awal > 0 ? Number((y.efisiensi_rupiah / y.nilai_awal * 100).toFixed(2)) : 0;
         });
+      }
+      if (!yearlyData || yearlyData.length === 0) {
+        yearlyData = (rekapEff && rekapEff.length > 0) ? rekapEff : [];
       }
 
       const regionsDef = [
@@ -5670,6 +5673,33 @@
     });
   }
 
+  function syncYearDropdownOptions(dropdownId, records) {
+    const select = document.getElementById(dropdownId);
+    if (!select) return;
+    const currentVal = select.value || 'ALL';
+    const recs = Array.isArray(records) && records.length > 0 
+      ? records 
+      : (window.SITAC_COLLO_DATA?.sitac_records || state?.sitac?.data || []);
+
+    const yearSet = new Set([2024, 2025, 2026]);
+    recs.forEach(s => {
+      const y = Number(s.tahun) || (s.date_dispos ? parseInt(String(s.date_dispos).substring(0, 4), 10) : 0);
+      if (y && y >= 2020) yearSet.add(y);
+    });
+
+    const sortedYears = Array.from(yearSet).sort((a, b) => b - a);
+    let html = '<option value="ALL">Semua Tahun</option>';
+    sortedYears.forEach(y => {
+      html += `<option value="${y}">${y}</option>`;
+    });
+    select.innerHTML = html;
+    if (sortedYears.includes(Number(currentVal)) || currentVal === 'ALL') {
+      select.value = currentVal;
+    } else {
+      select.value = 'ALL';
+    }
+  }
+
   function updateYearDropdownSelection(dropdownId, presets) {
     const select = document.getElementById(dropdownId);
     if (!select) return;
@@ -5679,7 +5709,7 @@
     if (existingMulti) existingMulti.remove();
 
     const active = String(presets || 'ALL').split(',').map(s => s.trim()).filter(Boolean);
-    const years = active.filter(p => ['2024', '2025', '2026'].includes(p)).sort();
+    const years = active.filter(p => /^\d{4}$/.test(p)).sort();
 
     if (active.length === 0 || active.includes('ALL')) {
       select.value = 'ALL';
@@ -5865,6 +5895,7 @@
         const curRegion = finalRegion;
         syncRegionalTabButtons('sitacRegionTabs', curRegion);
         syncDatePresetButtons('sitacDatePresets', finalDatePreset);
+        syncYearDropdownOptions('sitacFilterYear');
         updateYearDropdownSelection('sitacFilterYear', finalDatePreset);
 
         const selectedList = String(curRegion).split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
@@ -6244,14 +6275,14 @@
       } else if (p === 'LAST_MONTH') {
         start = new Date(curYear, curMonth - 1, 1).toISOString().slice(0, 10);
         end = new Date(curYear, curMonth, 0).toISOString().slice(0, 10);
-      } else if (['2024', '2025', '2026'].includes(p)) {
+      } else if (/^\d{4}$/.test(p)) {
         start = `${p}-01-01`;
         end = `${p}-12-31`;
       }
 
       state.colleagues.startDate = start;
       state.colleagues.endDate = end;
-      if (['2024', '2025', '2026'].includes(p)) {
+      if (/^\d{4}$/.test(p)) {
         state.colleagues.year = p;
       } else {
         state.colleagues.year = 'ALL';
@@ -6351,6 +6382,7 @@
         const curRegion = finalRegion;
         syncRegionalTabButtons('colleaguesRegionTabs', curRegion);
         syncDatePresetButtons('colleaguesDatePresets', finalDatePreset);
+        syncYearDropdownOptions('colleaguesFilterYear');
         updateYearDropdownSelection('colleaguesFilterYear', finalDatePreset);
 
         const selectedList = String(curRegion).split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
@@ -6680,7 +6712,7 @@
         const val = e.target.value;
         if (val === 'ALL') {
           applyColleaguesDatePreset('ALL');
-        } else if (['2024', '2025', '2026'].includes(val)) {
+        } else if (/^\d{4}$/.test(val)) {
           applyColleaguesDatePreset(val);
         } else if (val.includes(',')) {
           applyColleaguesDatePreset(val);
@@ -7118,9 +7150,22 @@
       const rawRows = Array.isArray(payload) ? payload : (payload.yearly || []);
       const regionalRows = Array.isArray(payload) ? [] : (payload.regional || []);
 
-      // Pastikan urutan selalu kronologis dari 2024 ke 2026 (Ascending)
+      // Pastikan urutan selalu kronologis (Ascending)
       const rows = (rawRows || []).slice().sort((a, b) => Number(a.tahun) - Number(b.tahun));
       state.efisiensi = rows;
+
+      // Update dynamic year range in Title and Badge
+      const years = rows.map(r => Number(r.tahun)).filter(y => y > 0).sort((a, b) => a - b);
+      if (years.length > 0) {
+        const minYear = years[0];
+        const maxYear = years[years.length - 1];
+        const rangeText = minYear === maxYear ? `(Tahun ${minYear})` : `(Tahun ${minYear} – ${maxYear})`;
+        const badgeText = minYear === maxYear ? `${minYear}` : `${minYear} – ${maxYear}`;
+        const titleEl = document.getElementById('efisiensiYearTitleSpan');
+        if (titleEl) titleEl.textContent = rangeText;
+        const badgeEl = document.getElementById('efisiensiChartBadge');
+        if (badgeEl) badgeEl.textContent = badgeText;
+      }
 
       const tbody = document.getElementById('rekapEfisiensiTableBody');
       if (tbody) {
@@ -12924,14 +12969,14 @@
         } else if (p === 'LAST_MONTH') {
           start = new Date(curYear, curMonth - 1, 1).toISOString().slice(0, 10);
           end = new Date(curYear, curMonth, 0).toISOString().slice(0, 10);
-        } else if (['2024', '2025', '2026'].includes(p)) {
+        } else if (/^\d{4}$/.test(p)) {
           start = `${p}-01-01`;
           end = `${p}-12-31`;
         }
 
         state.sitac.startDate = start;
         state.sitac.endDate = end;
-        if (['2024', '2025', '2026'].includes(p)) {
+        if (/^\d{4}$/.test(p)) {
           state.sitac.year = p;
         } else {
           state.sitac.year = 'ALL';
@@ -13022,7 +13067,7 @@
       const val = e.target.value;
       if (val === 'ALL') {
         applySitacDatePreset('ALL');
-      } else if (['2024', '2025', '2026'].includes(val)) {
+      } else if (/^\d{4}$/.test(val)) {
         applySitacDatePreset(val);
       } else if (val.includes(',')) {
         applySitacDatePreset(val);

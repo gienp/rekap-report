@@ -68,8 +68,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- High-Priority Preloads for Instant Master Dataset & Application Engine -->
-  <link rel="preload" href="sitac_collo_data.js?v=1029.0959" as="script">
-  <link rel="preload" href="app.js?v=1029.0959" as="script">
+  <link rel="preload" href="sitac_collo_data.js?v=1029.1045" as="script">
+  <link rel="preload" href="app.js?v=1029.1045" as="script">
 
   <!-- Custom Portal Stylesheet -->
   <link rel="stylesheet" href="styles.css?v=12.27">
@@ -2315,7 +2315,7 @@
                 <i class="fa-solid fa-scale-balanced text-amber-400"></i>
                 <span>Komparasi Biaya Permintaan Awal vs Realisasi Akhir</span>
               </div>
-              <span class="pbi-visual-badge">2024 - 2026</span>
+              <span class="pbi-visual-badge" id="efisiensiChartBadge">2024 - 2026</span>
             </div>
             <div class="p-4 h-[280px]">
               <canvas id="chartEfisiensiCompare"></canvas>
@@ -2341,7 +2341,7 @@
           <div class="panel-header flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 class="panel-title"><i class="fa-solid fa-coins text-amber-400 mr-2"></i>Rekapitulasi Efisiensi Biaya
-                Perizinan (Tahun 2024 - 2026)</h3>
+                Perizinan <span id="efisiensiYearTitleSpan">(Tahun 2024 - 2026)</span></h3>
               <p class="text-xs text-slate-400">Perbandingan perizinan berbiaya vs tanpa biaya (Zero Cost) hasil
                 negosiasi tim SITAC.</p>
             </div>
@@ -4582,10 +4582,10 @@
   </nav>
 
   <!-- 1. Master Dataset & Fallback Engine (Immediate Priority for Instant First Paint) -->
-  <script src="sitac_collo_data.js?v=1029.0959"></script>
+  <script src="sitac_collo_data.js?v=1029.1045"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=1029.0959"></script>
+  <script src="app.js?v=1029.1045"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>
