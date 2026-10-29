@@ -1646,7 +1646,8 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.85rem 1.15rem;
+  gap: 1.25rem;
+  padding: 0.95rem 1.25rem;
   border-bottom: 1px solid var(--border-subtle);
   background: rgba(255, 255, 255, 0.02);
 }
@@ -1654,21 +1655,29 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 .pbi-visual-title {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8rem;
+  gap: 0.65rem;
+  font-size: 0.82rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   color: var(--text-main);
+  flex: 1;
+  min-width: 0;
+  line-height: 1.4;
 }
 
 .pbi-visual-badge {
   font-size: 0.68rem;
-  padding: 0.15rem 0.5rem;
+  padding: 0.25rem 0.75rem;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-muted);
-  font-weight: 500;
+  background: rgba(6, 182, 212, 0.12);
+  color: var(--color-cyan);
+  border: 1px solid rgba(6, 182, 212, 0.25);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .pbi-gauge-container {
@@ -4449,33 +4458,41 @@ select:focus {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 0.75rem;
+  gap: 1.5rem;
+  padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--border-subtle);
-  margin-bottom: 0.25rem;
+  background: rgba(255, 255, 255, 0.02);
+  margin-bottom: 0;
+  min-height: 52px;
 }
 
 .pbi-visual-title {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.65rem;
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--text-main);
   font-family: 'Outfit', sans-serif !important;
   letter-spacing: -0.01em;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.4;
 }
 
 .pbi-visual-badge {
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.06em;
-  padding: 0.2rem 0.65rem;
+  padding: 0.25rem 0.75rem;
   border-radius: 999px;
   background: rgba(6, 182, 212, 0.12);
   color: var(--color-cyan);
   border: 1px solid rgba(6, 182, 212, 0.25);
   text-transform: uppercase;
   white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 /* Premium KPI card design */
