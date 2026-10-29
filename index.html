@@ -68,8 +68,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- High-Priority Preloads for Instant Master Dataset & Application Engine -->
-  <link rel="preload" href="sitac_collo_data.js?v=1029.1636" as="script">
-  <link rel="preload" href="app.js?v=1029.1636" as="script">
+  <link rel="preload" href="sitac_collo_data.js?v=1029.1643" as="script">
+  <link rel="preload" href="app.js?v=1029.1643" as="script">
 
   <!-- Custom Portal Stylesheet -->
   <link rel="stylesheet" href="styles.css?v=12.33">
@@ -4107,21 +4107,13 @@
             </div>
 
             <div>
-              <div class="flex items-center justify-between mb-1">
-                <label class="form-label text-xs text-slate-300 font-semibold block">Alamat Email Baru / Tambahan
-                  *</label>
-                <button type="button" id="btnAdminEmailAutoSuggest"
-                  class="text-[11px] text-cyan-400 hover:text-cyan-300 font-semibold hidden hover:underline">
-                  <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Gunakan Saran Otomatis
-                </button>
-              </div>
+              <label class="form-label text-xs text-slate-300 font-semibold block mb-1">Alamat Email Baru / Tambahan *</label>
               <div class="relative">
                 <i class="fa-solid fa-envelope absolute left-3 top-2.5 text-slate-500 text-xs"></i>
                 <input type="email" id="adminEmailInput"
                   class="filter-input w-full pl-8 pr-3 py-2 text-xs rounded-lg bg-slate-900 border border-white/10 text-white font-mono"
                   placeholder="misal: nama@telecom.ops atau email aktif">
               </div>
-              <p id="adminEmailSuggestHint" class="text-[10px] text-slate-400 mt-1 hidden"></p>
             </div>
 
             <div class="pt-1 text-right">
@@ -4618,10 +4610,10 @@
   </nav>
 
   <!-- 1. Master Dataset & Fallback Engine (Immediate Priority for Instant First Paint) -->
-  <script src="sitac_collo_data.js?v=1029.1636"></script>
+  <script src="sitac_collo_data.js?v=1029.1643"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=1029.1636"></script>
+  <script src="app.js?v=1029.1643"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>

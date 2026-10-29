@@ -12190,10 +12190,6 @@
       });
       const emailCard = document.getElementById('adminEmailSelectedCard');
       if (emailCard) emailCard.classList.add('hidden');
-      const emailSuggest = document.getElementById('btnAdminEmailAutoSuggest');
-      if (emailSuggest) emailSuggest.classList.add('hidden');
-      const emailHint = document.getElementById('adminEmailSuggestHint');
-      if (emailHint) emailHint.classList.add('hidden');
 
       window.switchAdminTab('pending');
     });
@@ -12657,13 +12653,9 @@
       const cardCurrentEmail = document.getElementById('adminEmailCardCurrentEmail');
       const cardStatusBadge = document.getElementById('adminEmailCardStatusBadge');
       const emailInput = document.getElementById('adminEmailInput');
-      const btnSuggest = document.getElementById('btnAdminEmailAutoSuggest');
-      const hintEl = document.getElementById('adminEmailSuggestHint');
 
       if (!val) {
         if (card) card.classList.add('hidden');
-        if (btnSuggest) btnSuggest.classList.add('hidden');
-        if (hintEl) hintEl.classList.add('hidden');
         if (emailInput) emailInput.value = '';
         return;
       }
@@ -12688,29 +12680,6 @@
 
       if (emailInput) {
         emailInput.value = email;
-      }
-
-      const suggested = name.trim().toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/).join('.') + '@telecom.ops';
-      if (btnSuggest) {
-        btnSuggest.classList.remove('hidden');
-      }
-      if (hintEl) {
-        hintEl.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles mr-1 text-cyan-400"></i> Saran email otomatis: <span class="font-mono text-cyan-300">${suggested}</span>`;
-        hintEl.classList.remove('hidden');
-      }
-    });
-
-    // Auto-suggest email dari nama PIC yang dipilih
-    document.getElementById('btnAdminEmailAutoSuggest')?.addEventListener('click', () => {
-      const select = document.getElementById('adminEmailTargetUser');
-      const opt = select?.selectedOptions[0];
-      const name = opt?.getAttribute('data-name') || select?.value;
-      if (!name) return;
-      const suggested = name.trim().toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/).join('.') + '@telecom.ops';
-      const emailInput = document.getElementById('adminEmailInput');
-      if (emailInput) {
-        emailInput.value = suggested;
-        emailInput.focus();
       }
     });
 
