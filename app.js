@@ -1361,7 +1361,64 @@
         });
       }
 
-      // Calculate region_stats over scopedSitac (respecting other filters)
+      // Filter Year (if not date-range scoped)
+      if (!startDate && !endDate && year && year !== 'ALL') {
+        const selectedYears = String(year).split(',').map(y => y.trim()).filter(Boolean);
+        if (selectedYears.length > 0 && !selectedYears.includes('ALL')) {
+          scopedSitac = scopedSitac.filter(s => selectedYears.includes(String(s.tahun)));
+        }
+      }
+
+      // Filter Range Harga Biaya Final (Kelipatan 5 Juta & Kustom)
+      if (pricePreset !== 'ALL' || minPrice !== null || maxPrice !== null) {
+        scopedSitac = scopedSitac.filter(s => {
+          const cost = Number(s.biaya_final) || 0;
+          if (pricePreset === 'ZERO') return cost === 0 && s.is_berbiaya != 1;
+          if (pricePreset === 'BERBIAYA') return cost > 0 || s.is_berbiaya == 1;
+          if (pricePreset === '0_5M' || pricePreset === 'UNDER_5M') return cost > 0 && cost <= 5000000;
+          if (pricePreset === '5M_10M') return cost >= 5000000 && cost <= 10000000;
+          if (pricePreset === '10M_15M') return cost > 10000000 && cost <= 15000000;
+          if (pricePreset === '15M_20M') return cost > 15000000 && cost <= 20000000;
+          if (pricePreset === '20M_25M') return cost > 20000000 && cost <= 25000000;
+          if (pricePreset === '25M_30M') return cost > 25000000 && cost <= 30000000;
+          if (pricePreset === '30M_35M') return cost > 30000000 && cost <= 35000000;
+          if (pricePreset === '35M_40M') return cost > 35000000 && cost <= 40000000;
+          if (pricePreset === '40M_45M') return cost > 40000000 && cost <= 45000000;
+          if (pricePreset === '45M_50M') return cost > 45000000 && cost <= 50000000;
+          if (pricePreset === 'OVER_50M') return cost > 50000000;
+          if (minPrice !== null && !isNaN(minPrice) && cost < minPrice) return false;
+          if (maxPrice !== null && !isNaN(maxPrice) && cost > maxPrice) return false;
+          return true;
+        });
+      }
+
+      // Filter PIC
+      if (pic !== 'ALL' && (!isPicLapangan || allowAllTeam)) {
+        const pLower = pic.toLowerCase();
+        scopedSitac = scopedSitac.filter(s => {
+          const sPic = formatPicName(s.pic_perijinan || '').toLowerCase();
+          return sPic === pLower || (s.pic_perijinan && s.pic_perijinan.toLowerCase() === pLower);
+        });
+      }
+
+      // Filter Aging
+      if (aging !== 'ALL') {
+        if (aging === 'green') scopedSitac = scopedSitac.filter(s => s.durasi_hari <= 7);
+        else if (aging === 'yellow') scopedSitac = scopedSitac.filter(s => s.durasi_hari > 7 && s.durasi_hari <= 14);
+        else if (aging === 'red') scopedSitac = scopedSitac.filter(s => s.durasi_hari > 14);
+      }
+
+      // Filter Search
+      if (search) {
+        scopedSitac = scopedSitac.filter(s =>
+          (s.no_pa || '').toLowerCase().includes(search) ||
+          (s.pelanggan || '').toLowerCase().includes(search) ||
+          (s.terminating || '').toLowerCase().includes(search) ||
+          (s.pic_perijinan || '').toLowerCase().includes(search)
+        );
+      }
+
+      // Calculate region_stats over scopedSitac (reflecting Price, PIC, Year, Aging, Search, and Date filters)
       const regionStats = {
         ALL: { count: 0, berbiaya: 0, zerocost: 0, biaya_awal: 0, biaya_final: 0, efisiensi_rupiah: 0, efisiensi_persen: 0 },
         JAKPUSEL: { count: 0, berbiaya: 0, zerocost: 0, biaya_awal: 0, biaya_final: 0, efisiensi_rupiah: 0, efisiensi_persen: 0 },
@@ -1402,6 +1459,7 @@
         regionStats[k].efisiensi_persen = aw > 0 ? Number((ef / aw * 100).toFixed(2)) : 0;
       });
 
+      // Filter by Region
       let preStatusFiltered = scopedSitac;
       if (region && region !== 'ALL') {
         const selectedRegions = String(region).split(',').map(r => r.trim().toUpperCase()).filter(Boolean);
@@ -1411,55 +1469,6 @@
             return selectedRegions.includes(rCode);
           });
         }
-      }
-      if (pic !== 'ALL' && (!isPicLapangan || allowAllTeam)) {
-        const pLower = pic.toLowerCase();
-        preStatusFiltered = preStatusFiltered.filter(s => {
-          const sPic = formatPicName(s.pic_perijinan || '').toLowerCase();
-          return sPic === pLower || (s.pic_perijinan && s.pic_perijinan.toLowerCase() === pLower);
-        });
-      }
-      if (!startDate && !endDate && year && year !== 'ALL') {
-        const selectedYears = String(year).split(',').map(y => y.trim()).filter(Boolean);
-        if (selectedYears.length > 0 && !selectedYears.includes('ALL')) {
-          preStatusFiltered = preStatusFiltered.filter(s => selectedYears.includes(String(s.tahun)));
-        }
-      }
-      if (aging !== 'ALL') {
-        if (aging === 'green') preStatusFiltered = preStatusFiltered.filter(s => s.durasi_hari <= 7);
-        else if (aging === 'yellow') preStatusFiltered = preStatusFiltered.filter(s => s.durasi_hari > 7 && s.durasi_hari <= 14);
-        else if (aging === 'red') preStatusFiltered = preStatusFiltered.filter(s => s.durasi_hari > 14);
-      }
-      if (search) {
-        preStatusFiltered = preStatusFiltered.filter(s =>
-          (s.no_pa || '').toLowerCase().includes(search) ||
-          (s.pelanggan || '').toLowerCase().includes(search) ||
-          (s.terminating || '').toLowerCase().includes(search) ||
-          (s.pic_perijinan || '').toLowerCase().includes(search)
-        );
-      }
-
-      // Filter Range Harga Biaya Final (Kelipatan 5 Juta & Kustom)
-      if (pricePreset !== 'ALL' || minPrice !== null || maxPrice !== null) {
-        preStatusFiltered = preStatusFiltered.filter(s => {
-          const cost = Number(s.biaya_final) || 0;
-          if (pricePreset === 'ZERO') return cost === 0 && s.is_berbiaya != 1;
-          if (pricePreset === 'BERBIAYA') return cost > 0 || s.is_berbiaya == 1;
-          if (pricePreset === '0_5M' || pricePreset === 'UNDER_5M') return cost > 0 && cost <= 5000000;
-          if (pricePreset === '5M_10M') return cost >= 5000000 && cost <= 10000000;
-          if (pricePreset === '10M_15M') return cost > 10000000 && cost <= 15000000;
-          if (pricePreset === '15M_20M') return cost > 15000000 && cost <= 20000000;
-          if (pricePreset === '20M_25M') return cost > 20000000 && cost <= 25000000;
-          if (pricePreset === '25M_30M') return cost > 25000000 && cost <= 30000000;
-          if (pricePreset === '30M_35M') return cost > 30000000 && cost <= 35000000;
-          if (pricePreset === '35M_40M') return cost > 35000000 && cost <= 40000000;
-          if (pricePreset === '40M_45M') return cost > 40000000 && cost <= 45000000;
-          if (pricePreset === '45M_50M') return cost > 45000000 && cost <= 50000000;
-          if (pricePreset === 'OVER_50M') return cost > 50000000;
-          if (minPrice !== null && !isNaN(minPrice) && cost < minPrice) return false;
-          if (maxPrice !== null && !isNaN(maxPrice) && cost > maxPrice) return false;
-          return true;
-        });
       }
 
       const counts = { ALL: preStatusFiltered.length, Finish: 0, Ongoing: 0, Hold: 0, Cancel: 0 };
