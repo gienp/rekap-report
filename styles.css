@@ -225,11 +225,12 @@ h4,
 .section-dropdown-btn .section-chevron {
   font-size: 0.65rem;
   color: var(--text-dim);
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: rotate(180deg);
 }
 
 .nav-section-group.collapsed .section-dropdown-btn .section-chevron {
-  transform: rotate(-90deg);
+  transform: rotate(0deg);
 }
 
 .nav-section-group .section-items {
@@ -624,28 +625,6 @@ html[data-target-view="view-webgis"] .nav-item[data-view="view-webgis"] {
   border-color: rgba(6, 182, 212, 0.3) !important;
 }
 
-/* Zero-flicker accordion auto-expand */
-html[data-target-view^="view-collo-"] #groupCollo.collapsed .section-items {
-  display: flex !important;
-}
-html[data-target-view^="view-collo-"] #groupCollo.collapsed .section-chevron {
-  transform: rotate(0deg) !important;
-}
-
-html[data-target-view="view-sitac-pa"] #groupSitac.collapsed .section-items,
-html[data-target-view="view-sitac-colleagues"] #groupSitac.collapsed .section-items,
-html[data-target-view="view-efisiensi"] #groupSitac.collapsed .section-items,
-html[data-target-view="view-pic-matrix"] #groupSitac.collapsed .section-items,
-html[data-target-view="view-webgis"] #groupSitac.collapsed .section-items {
-  display: flex !important;
-}
-html[data-target-view="view-sitac-pa"] #groupSitac.collapsed .section-chevron,
-html[data-target-view="view-sitac-colleagues"] #groupSitac.collapsed .section-chevron,
-html[data-target-view="view-efisiensi"] #groupSitac.collapsed .section-chevron,
-html[data-target-view="view-pic-matrix"] #groupSitac.collapsed .section-chevron,
-html[data-target-view="view-webgis"] #groupSitac.collapsed .section-chevron {
-  transform: rotate(0deg) !important;
-}
 
 .kpi-card {
   background: rgba(15, 23, 42, 0.75);
