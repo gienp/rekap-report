@@ -1605,7 +1605,7 @@
         { code: 'JAKUTIM', name: 'JAKUTIM', desc: 'Jakarta Utara dan Jakarta Timur' },
         { code: 'BODEBEK', name: 'BODEBEK', desc: 'Bogor, Depok, dan Bekasi' },
         { code: 'JAKBAR', name: 'Jakbar', desc: 'Jakarta Barat' },
-        { code: 'BANTEN', name: 'Banten', desc: 'Banten (Serang, Cilegon, Pandeglang, Lebak)' },
+        { code: 'BANTEN', name: 'Banten', desc: 'Banten' },
         { code: 'TANGERANG', name: 'Tangerang', desc: 'Tangerang (Kota Tangerang, Tangsel, Kab Tangerang)' }
       ];
       const regionalEff = regionsDef.map(reg => {
@@ -6140,7 +6140,7 @@
           JAKUTIM: 'Jakarta Utara & Jakarta Timur',
           BODEBEK: 'Bogor, Depok, dan Bekasi',
           JAKBAR: 'Jakarta Barat',
-          BANTEN: 'Banten (Serang, Cilegon, Pandeglang, Lebak)',
+          BANTEN: 'Banten',
           TANGERANG: 'Kota Tangerang, Tangerang Selatan, Kab Tangerang'
         };
         if (elScopeDesc) {
@@ -10647,7 +10647,7 @@
       JAKUTIM: 'Jakarta Utara & Jakarta Timur',
       BODEBEK: 'Bogor, Depok, dan Bekasi',
       JAKBAR: 'Jakarta Barat',
-      BANTEN: 'Banten (Serang, Cilegon, Pandeglang, Lebak)',
+      BANTEN: 'Banten',
       TANGERANG: 'Kota Tangerang, Tangerang Selatan, Kab Tangerang'
     };
     const regionName = scopeLabels[finalRegion] || finalRegion;

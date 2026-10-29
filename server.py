@@ -2596,7 +2596,7 @@ class TelecomPortalAPIHandler(SimpleHTTPRequestHandler):
             {'code': 'JAKUTIM', 'name': 'JAKUTIM', 'desc': 'Jakarta Utara dan Jakarta Timur'},
             {'code': 'BODEBEK', 'name': 'BODEBEK', 'desc': 'Bogor, Depok, dan Bekasi'},
             {'code': 'JAKBAR', 'name': 'Jakbar', 'desc': 'Jakarta Barat'},
-            {'code': 'BANTEN', 'name': 'Banten', 'desc': 'Banten (Serang, Cilegon, Pandeglang, Lebak)'},
+            {'code': 'BANTEN', 'name': 'Banten', 'desc': 'Banten'},
             {'code': 'TANGERANG', 'name': 'Tangerang', 'desc': 'Tangerang (Kota Tangerang, Tangsel, Kab Tangerang)'}
         ]
 
