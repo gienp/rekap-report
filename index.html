@@ -68,8 +68,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- High-Priority Preloads for Instant Master Dataset & Application Engine -->
-  <link rel="preload" href="sitac_collo_data.js?v=1029.1620" as="script">
-  <link rel="preload" href="app.js?v=1029.1620" as="script">
+  <link rel="preload" href="sitac_collo_data.js?v=1029.1632" as="script">
+  <link rel="preload" href="app.js?v=1029.1632" as="script">
 
   <!-- Custom Portal Stylesheet -->
   <link rel="stylesheet" href="styles.css?v=12.33">
@@ -1448,6 +1448,24 @@
                 <!-- Rendered dynamically -->
               </tbody>
             </table>
+          </div>
+          <!-- Alerts Pagination Bar -->
+          <div class="table-pagination flex-wrap gap-2 p-4 border-t border-white/5">
+            <div class="flex items-center gap-3">
+              <div class="text-xs text-slate-400" id="alertsPaginationInfo">Memuat sirkuit...</div>
+              <select id="alertsPageSizeSelect" class="filter-select text-xs w-28" title="Jumlah data per halaman">
+                <option value="25">25 / hal</option>
+                <option value="50" selected>50 / hal</option>
+                <option value="100">100 / hal</option>
+                <option value="200">200 / hal</option>
+                <option value="ALL">Semua Data</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="alertsPrevPageBtn" class="btn btn-secondary btn-sm"><i class="fa-solid fa-chevron-left"></i> Prev</button>
+              <div class="text-xs px-2.5 py-1 rounded bg-slate-800 text-cyan-400 font-semibold" id="alertsPageIndicator">Hal 1 / 1</div>
+              <button id="alertsNextPageBtn" class="btn btn-secondary btn-sm">Next <i class="fa-solid fa-chevron-right"></i></button>
+            </div>
           </div>
         </div>
       </section>
@@ -4606,10 +4624,10 @@
   </nav>
 
   <!-- 1. Master Dataset & Fallback Engine (Immediate Priority for Instant First Paint) -->
-  <script src="sitac_collo_data.js?v=1029.1620"></script>
+  <script src="sitac_collo_data.js?v=1029.1632"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=1029.1620"></script>
+  <script src="app.js?v=1029.1632"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>

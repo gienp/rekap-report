@@ -1856,6 +1856,8 @@
       category: 'CRITICAL',
       status: 'ACTIVE',
       search: '',
+      page: 1,
+      pageSize: 50,
       data: []
     },
 
@@ -5568,60 +5570,103 @@
       const catLabel = category === 'ALL' ? 'SEMUA STATUS KONTRAK' : category;
       document.getElementById('alertTableTitle').textContent = `Daftar Kontrak: ${catLabel} [${statusLabel}] (${(json.data || []).length} sirkuit)`;
 
-      // Table Body
-      const tbody = document.getElementById('alertTableBody');
-      if (tbody) {
-        const sliceData = (json.data || []).slice(0, 200);
-        const rowspanMap = computeRowspanMap(sliceData, 'pengelola');
-        let html = '';
-        sliceData.forEach((c, idx) => {
-          let pengelolaTd = '';
-          if (rowspanMap[idx] > 0) {
-            const span = rowspanMap[idx];
-            const isMerged = span > 1;
-            pengelolaTd = `
-              <td${span > 1 ? ` rowspan="${span}"` : ''} class="${isMerged ? 'cell-merged align-middle' : ''}">
-                <strong class="text-slate-100 block">${escapeHtml(c.pengelola || '-')}</strong>
-              </td>
-            `;
-          }
-          const isNonActive = c.status && c.status !== 'ACTIVE';
-          html += `
-            <tr class="${isNonActive ? 'opacity-75 bg-slate-900/30' : ''}">
-              <td class="text-xs text-slate-500">${idx + 1}</td>
-              ${pengelolaTd}
-              <td>
-                ${formatPelangganCell(c.pelanggan)}
-                ${isNonActive ? `<span class="badge-pill bg-amber-500/20 text-amber-300 text-[10px] ml-1 font-semibold">${escapeHtml(c.status)}</span>` : ''}
-              </td>
-              <td>${formatSoCell(c.sid, c.no_so)}</td>
-              <td>${c.end_date || '-'}</td>
-              <td class="text-center font-bold font-mono">${c.sisa_hari} Hari</td>
-              <td class="text-center">${getAlertBadge(c.alert_category, c.sisa_hari)}</td>
-              <td class="font-mono text-xs">${escapeHtml(c.spp || c.po_baru || c.ref_spp || '-')}</td>
-              <td>
-                <span class="badge-pill bg-slate-800 text-slate-300 text-xs">${escapeHtml(c.proses_admin || 'Running')}</span>
-              </td>
-              <td><strong>${escapeHtml(c.pic_admin || '-')}</strong></td>
-              <td class="text-center">
-                <div class="flex items-center justify-center gap-1.5">
-                  <button class="btn-action btn-wa-dispatch text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-500/40" data-type="collo-alert" data-id="${c.id}" title="Kirim Pengingat WhatsApp"><i class="fa-brands fa-whatsapp text-sm"></i></button>
-                  <button class="btn-action btn-view-detail" data-type="collo" data-id="${c.id}" title="Lihat Detail"><i class="fa-solid fa-eye text-cyan-400"></i></button>
-                  <button class="btn-action btn-quick-edit" data-type="collo" data-id="${c.id}" title="Edit Data Sirkuit"><i class="fa-solid fa-pen-to-square"></i></button>
-                  <button class="btn-action btn-delete-row text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 hover:border-rose-500/40" data-type="collo" data-id="${c.id}" title="Hapus Data"><i class="fa-solid fa-trash-can"></i></button>
-                </div>
-              </td>
-            </tr>
-          `;
-        });
-        tbody.innerHTML = html;
-      }
+      // Save full dataset and render paginated table
+      state.alerts.data = json.data || [];
+      renderAlertsTablePage();
 
       renderAlertsCharts(json);
 
     } catch (e) {
       console.error(e);
     }
+  }
+
+  function renderAlertsTablePage() {
+    const data = state.alerts.data || [];
+    const totalItems = data.length;
+    const pageSize = state.alerts.pageSize === 'ALL' ? totalItems : (Number(state.alerts.pageSize) || 50);
+    const totalPages = pageSize > 0 ? Math.max(1, Math.ceil(totalItems / pageSize)) : 1;
+
+    if (state.alerts.page > totalPages) state.alerts.page = totalPages;
+    if (state.alerts.page < 1) state.alerts.page = 1;
+
+    const startIdx = state.alerts.pageSize === 'ALL' ? 0 : (state.alerts.page - 1) * pageSize;
+    const endIdx = state.alerts.pageSize === 'ALL' ? totalItems : Math.min(startIdx + pageSize, totalItems);
+    const sliceData = data.slice(startIdx, endIdx);
+
+    // Update pagination controls
+    const infoEl = document.getElementById('alertsPaginationInfo');
+    if (infoEl) {
+      if (totalItems === 0) {
+        infoEl.textContent = 'Tidak ada sirkuit yang sesuai filter';
+      } else {
+        infoEl.textContent = `Menampilkan ${startIdx + 1} - ${endIdx} dari ${totalItems.toLocaleString('id-ID')} sirkuit`;
+      }
+    }
+
+    const pageIndicator = document.getElementById('alertsPageIndicator');
+    if (pageIndicator) {
+      pageIndicator.textContent = `Hal ${state.alerts.page} / ${totalPages}`;
+    }
+
+    const prevBtn = document.getElementById('alertsPrevPageBtn');
+    if (prevBtn) prevBtn.disabled = state.alerts.page <= 1;
+
+    const nextBtn = document.getElementById('alertsNextPageBtn');
+    if (nextBtn) nextBtn.disabled = state.alerts.page >= totalPages;
+
+    const tbody = document.getElementById('alertTableBody');
+    if (!tbody) return;
+
+    if (sliceData.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-slate-400">Tidak ada data sirkuit ditemukan</td></tr>`;
+      return;
+    }
+
+    const rowspanMap = computeRowspanMap(sliceData, 'pengelola');
+    let html = '';
+    sliceData.forEach((c, idx) => {
+      let pengelolaTd = '';
+      if (rowspanMap[idx] > 0) {
+        const span = rowspanMap[idx];
+        const isMerged = span > 1;
+        pengelolaTd = `
+          <td${span > 1 ? ` rowspan="${span}"` : ''} class="${isMerged ? 'cell-merged align-middle' : ''}">
+            <strong class="text-slate-100 block">${escapeHtml(c.pengelola || '-')}</strong>
+          </td>
+        `;
+      }
+      const isNonActive = c.status && c.status !== 'ACTIVE';
+      const rowNumber = startIdx + idx + 1;
+      html += `
+        <tr class="${isNonActive ? 'opacity-75 bg-slate-900/30' : ''}">
+          <td class="text-xs text-slate-500 font-mono">${rowNumber}</td>
+          ${pengelolaTd}
+          <td>
+            ${formatPelangganCell(c.pelanggan)}
+            ${isNonActive ? `<span class="badge-pill bg-amber-500/20 text-amber-300 text-[10px] ml-1 font-semibold">${escapeHtml(c.status)}</span>` : ''}
+          </td>
+          <td>${formatSoCell(c.sid, c.no_so)}</td>
+          <td>${c.end_date || '-'}</td>
+          <td class="text-center font-bold font-mono">${c.sisa_hari} Hari</td>
+          <td class="text-center">${getAlertBadge(c.alert_category, c.sisa_hari)}</td>
+          <td class="font-mono text-xs">${escapeHtml(c.spp || c.po_baru || c.ref_spp || '-')}</td>
+          <td>
+            <span class="badge-pill bg-slate-800 text-slate-300 text-xs">${escapeHtml(c.proses_admin || 'Running')}</span>
+          </td>
+          <td><strong>${escapeHtml(c.pic_admin || '-')}</strong></td>
+          <td class="text-center">
+            <div class="flex items-center justify-center gap-1.5">
+              <button class="btn-action btn-wa-dispatch text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-500/40" data-type="collo-alert" data-id="${c.id}" title="Kirim Pengingat WhatsApp"><i class="fa-brands fa-whatsapp text-sm"></i></button>
+              <button class="btn-action btn-view-detail" data-type="collo" data-id="${c.id}" title="Lihat Detail"><i class="fa-solid fa-eye text-cyan-400"></i></button>
+              <button class="btn-action btn-quick-edit" data-type="collo" data-id="${c.id}" title="Edit Data Sirkuit"><i class="fa-solid fa-pen-to-square"></i></button>
+              <button class="btn-action btn-delete-row text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 hover:border-rose-500/40" data-type="collo" data-id="${c.id}" title="Hapus Data"><i class="fa-solid fa-trash-can"></i></button>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+    tbody.innerHTML = html;
   }
 
   function renderAlertsCharts(json) {
@@ -13155,6 +13200,7 @@
           b.classList.toggle('active', (b.getAttribute('data-alert-cat') || '').toUpperCase() === targetCat.toUpperCase());
         });
         state.alerts.category = targetCat;
+        state.alerts.page = 1;
         const catSelect = document.getElementById('alertCategoryFilter');
         if (catSelect) catSelect.value = targetCat;
         loadAlertsData();
@@ -13165,6 +13211,7 @@
     alertCategorySelect?.addEventListener('change', (e) => {
       const targetCat = e.target.value;
       state.alerts.category = targetCat;
+      state.alerts.page = 1;
       document.querySelectorAll('.alert-filter-card').forEach(b => {
         b.classList.toggle('active', (b.getAttribute('data-alert-cat') || '').toUpperCase() === targetCat.toUpperCase());
       });
@@ -13177,6 +13224,7 @@
       clearTimeout(alertTimer);
       alertTimer = setTimeout(() => {
         state.alerts.search = e.target.value;
+        state.alerts.page = 1;
         loadAlertsData();
       }, 300);
     });
@@ -13184,7 +13232,33 @@
     const alertStatusSelect = document.getElementById('alertStatusFilter');
     alertStatusSelect?.addEventListener('change', (e) => {
       state.alerts.status = e.target.value;
+      state.alerts.page = 1;
       loadAlertsData();
+    });
+
+    document.getElementById('alertsPrevPageBtn')?.addEventListener('click', () => {
+      if (state.alerts.page > 1) {
+        state.alerts.page--;
+        renderAlertsTablePage();
+        scrollTableToTop('#view-collo-alerts .pbi-visual-card');
+      }
+    });
+
+    document.getElementById('alertsNextPageBtn')?.addEventListener('click', () => {
+      const totalItems = (state.alerts.data || []).length;
+      const pageSize = state.alerts.pageSize === 'ALL' ? totalItems : (Number(state.alerts.pageSize) || 50);
+      const totalPages = Math.max(1, Math.ceil(totalItems / (pageSize || 1)));
+      if (state.alerts.page < totalPages) {
+        state.alerts.page++;
+        renderAlertsTablePage();
+        scrollTableToTop('#view-collo-alerts .pbi-visual-card');
+      }
+    });
+
+    document.getElementById('alertsPageSizeSelect')?.addEventListener('change', (e) => {
+      state.alerts.pageSize = e.target.value === 'ALL' ? 'ALL' : Number(e.target.value);
+      state.alerts.page = 1;
+      renderAlertsTablePage();
     });
 
     // 7. View 5 (SITAC) Controls
