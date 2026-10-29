@@ -430,7 +430,6 @@ def export_db_to_static_files(conn):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
     with open(JS_PATH, 'w', encoding='utf-8') as f:
-        f.write('// Auto-generated static master dataset\n')
         f.write('window.SITAC_COLLO_DATA = ')
         json.dump(data, f, ensure_ascii=False)
         f.write(';\nwindow.PORTAL_DATASET = window.SITAC_COLLO_DATA;\n')
