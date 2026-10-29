@@ -892,15 +892,24 @@
         } else {
           const yEffMap = {};
           sitacList.forEach(s => {
-            const y = s.tahun || (s.date_pa ? parseInt(s.date_pa.substring(0, 4), 10) : 0);
+            const y = Number(s.tahun) || (s.date_dispos ? parseInt(String(s.date_dispos).substring(0, 4), 10) : 0) || (s.date_pa ? parseInt(String(s.date_pa).substring(0, 4), 10) : 0);
             if (y && y >= 2024) {
-              if (!yEffMap[y]) yEffMap[y] = { tahun: y, nilai_awal: 0, nilai_akhir: 0, efisiensi_rupiah: 0 };
-              yEffMap[y].nilai_awal += Number(s.biaya_permintaan_awal) || 0;
-              yEffMap[y].nilai_akhir += Number(s.biaya_final) || 0;
-              yEffMap[y].efisiensi_rupiah += Number(s.efisiensi_rupiah) || 0;
+              if (!yEffMap[y]) yEffMap[y] = { tahun: y, total_disposisi: 0, ada_biaya: 0, tidak_ada_biaya: 0, nilai_awal: 0, nilai_akhir: 0, efisiensi_rupiah: 0, efisiensi_persen: 0 };
+              yEffMap[y].total_disposisi++;
+              const bAwal = Number(s.biaya_permintaan_awal) || 0;
+              const bFinal = Number(s.biaya_final) || 0;
+              const bEff = Number(s.efisiensi_rupiah) || Math.max(0, bAwal - bFinal);
+              const isCost = bAwal > 0 || bFinal > 0 || s.is_berbiaya == 1;
+              if (isCost) yEffMap[y].ada_biaya++; else yEffMap[y].tidak_ada_biaya++;
+              yEffMap[y].nilai_awal += bAwal;
+              yEffMap[y].nilai_akhir += bFinal;
+              yEffMap[y].efisiensi_rupiah += bEff;
             }
           });
           curRekapEff = Object.values(yEffMap).sort((a, b) => a.tahun - b.tahun);
+          curRekapEff.forEach(r => {
+            r.efisiensi_persen = r.nilai_awal > 0 ? Number((r.efisiensi_rupiah / r.nilai_awal * 100).toFixed(2)) : 0;
+          });
         }
       }
 
@@ -1528,6 +1537,31 @@
 
     // 12. Rekap Efisiensi
     if (path === '/api/rekap-efisiensi') {
+      let yearlyData = (rekapEff && rekapEff.length > 0) ? rekapEff : null;
+      if (!yearlyData || yearlyData.length === 0) {
+        const yMap = {};
+        sitacList.forEach(s => {
+          const y = Number(s.tahun) || (s.date_dispos ? parseInt(String(s.date_dispos).substring(0, 4), 10) : 0) || (s.date_pa ? parseInt(String(s.date_pa).substring(0, 4), 10) : 0);
+          if (!y || y < 2024) return;
+          if (!yMap[y]) {
+            yMap[y] = { tahun: y, total_disposisi: 0, ada_biaya: 0, tidak_ada_biaya: 0, nilai_awal: 0, nilai_akhir: 0, efisiensi_rupiah: 0, efisiensi_persen: 0 };
+          }
+          yMap[y].total_disposisi++;
+          const bAwal = Number(s.biaya_permintaan_awal) || 0;
+          const bFinal = Number(s.biaya_final) || 0;
+          const bEff = Number(s.efisiensi_rupiah) || Math.max(0, bAwal - bFinal);
+          const isCost = bAwal > 0 || bFinal > 0 || s.is_berbiaya == 1;
+          if (isCost) yMap[y].ada_biaya++; else yMap[y].tidak_ada_biaya++;
+          yMap[y].nilai_awal += bAwal;
+          yMap[y].nilai_akhir += bFinal;
+          yMap[y].efisiensi_rupiah += bEff;
+        });
+        yearlyData = Object.values(yMap).sort((a, b) => a.tahun - b.tahun);
+        yearlyData.forEach(y => {
+          y.efisiensi_persen = y.nilai_awal > 0 ? Number((y.efisiensi_rupiah / y.nilai_awal * 100).toFixed(2)) : 0;
+        });
+      }
+
       const regionsDef = [
         { code: 'JAKPUSEL', name: 'JAKPUSEL', desc: 'Jakarta Pusat dan Jakarta Selatan' },
         { code: 'JAKUTIM', name: 'JAKUTIM', desc: 'Jakarta Utara dan Jakarta Timur' },
@@ -1559,7 +1593,7 @@
         };
       });
       return {
-        yearly: rekapEff,
+        yearly: yearlyData,
         regional: regionalEff
       };
     }

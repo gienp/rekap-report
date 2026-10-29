@@ -22,6 +22,7 @@ import json
 import sqlite3
 import datetime
 import subprocess
+import urllib.request
 import openpyxl
 
 if sys.platform == 'win32':
@@ -354,11 +355,75 @@ def export_db_to_static_files(conn):
     cols = [col[0] for col in c.description]
     gangguan_recs = [dict(zip(cols, row)) for row in c.fetchall()]
 
+    # Recalculate rekap_efisiensi from sitac_records
+    c.execute('''
+        SELECT 
+            tahun, 
+            COUNT(*) as total_disposisi,
+            SUM(CASE WHEN is_berbiaya = 1 OR biaya_permintaan_awal > 0 OR biaya_final > 0 THEN 1 ELSE 0 END) as ada_biaya,
+            SUM(CASE WHEN is_berbiaya = 0 AND biaya_permintaan_awal = 0 AND biaya_final = 0 THEN 1 ELSE 0 END) as tidak_ada_biaya,
+            SUM(biaya_permintaan_awal) as nilai_awal,
+            SUM(biaya_final) as nilai_akhir,
+            SUM(efisiensi_rupiah) as efisiensi_rupiah
+        FROM sitac_records
+        WHERE tahun >= 2024
+        GROUP BY tahun
+        ORDER BY tahun ASC
+    ''')
+    eff_cols = [col[0] for col in c.description]
+    rekap_eff_rows = []
+    for r in c.fetchall():
+        d = dict(zip(eff_cols, r))
+        eff_pct = round((d['efisiensi_rupiah'] / d['nilai_awal'] * 100), 2) if d['nilai_awal'] > 0 else 0.0
+        d['efisiensi_persen'] = eff_pct
+        rekap_eff_rows.append(d)
+        c.execute('''
+            INSERT INTO rekap_efisiensi (tahun, total_disposisi, ada_biaya, tidak_ada_biaya, nilai_awal, nilai_akhir, efisiensi_rupiah, efisiensi_persen)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(tahun) DO UPDATE SET
+                total_disposisi = excluded.total_disposisi,
+                ada_biaya = excluded.ada_biaya,
+                tidak_ada_biaya = excluded.tidak_ada_biaya,
+                nilai_awal = excluded.nilai_awal,
+                nilai_akhir = excluded.nilai_akhir,
+                efisiensi_rupiah = excluded.efisiensi_rupiah,
+                efisiensi_persen = excluded.efisiensi_persen
+        ''', (d['tahun'], d['total_disposisi'], d['ada_biaya'], d['tidak_ada_biaya'], d['nilai_awal'], d['nilai_akhir'], d['efisiensi_rupiah'], d['efisiensi_persen']))
+    conn.commit()
+
+    # Sync rekap_efisiensi to Supabase
+    cfg_path = os.path.join(BASE_DIR, "db_config.json")
+    if os.path.isfile(cfg_path):
+        try:
+            with open(cfg_path, 'r', encoding='utf-8') as f:
+                cfg = json.load(f)
+            sb_url = cfg.get("SUPABASE_URL")
+            sb_key = cfg.get("SUPABASE_ANON_KEY")
+            if sb_url and sb_key and rekap_eff_rows:
+                url = f"{sb_url}/rest/v1/rekap_efisiensi"
+                headers = {
+                    'apikey': sb_key,
+                    'Authorization': f"Bearer {sb_key}",
+                    'Content-Type': 'application/json',
+                    'Prefer': 'resolution=merge-duplicates'
+                }
+                data_b = json.dumps(rekap_eff_rows).encode('utf-8')
+                req = urllib.request.Request(url, data=data_b, headers=headers, method='POST')
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    pass
+                print(f"Successfully synced rekap_efisiensi ({len(rekap_eff_rows)} rows) to Supabase!")
+        except Exception as sb_e:
+            print(f"Supabase rekap_efisiensi notice: {sb_e}")
+
     data = {
         "generated_at": datetime.datetime.now().isoformat(),
         "sitac_records": sitac_recs,
         "collo_records": collo_recs,
-        "gangguan_records": gangguan_recs
+        "gangguan_records": gangguan_recs,
+        "rekap_efisiensi": rekap_eff_rows,
+        "summary": {
+            "rekap_efisiensi": rekap_eff_rows
+        }
     }
 
     with open(JSON_PATH, 'w', encoding='utf-8') as f:
