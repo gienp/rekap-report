@@ -5720,19 +5720,95 @@
   // =========================================================================
   // VIEW 5: MONITORING PERIZINAN PROYEK PA (MODUL B)
   // =========================================================================
+  function getSystemAvailableYears(records) {
+    const curYear = new Date().getFullYear();
+    const yearSet = new Set([2024, 2025, 2026, curYear]);
+
+    // Automatically expand up to current year if system calendar advances
+    if (curYear > 2026) {
+      for (let y = 2026; y <= curYear; y++) {
+        yearSet.add(y);
+      }
+    }
+
+    // Scan all datasets (SITAC, Colleagues, Collo, Gangguan)
+    const sources = [
+      records,
+      window.SITAC_COLLO_DATA?.sitac_records,
+      window.SITAC_COLLO_DATA?.collo_records,
+      window.SITAC_COLLO_DATA?.gangguan_records,
+      state?.sitac?.data,
+      state?.colleagues?.data
+    ];
+
+    sources.forEach(list => {
+      if (Array.isArray(list)) {
+        list.forEach(item => {
+          if (!item) return;
+          const candidates = [item.tahun, item.date_dispos, item.date_close, item.start_date, item.created_at];
+          candidates.forEach(val => {
+            if (!val) return;
+            const str = String(val).trim();
+            const m = str.match(/\b(202\d|203\d)\b/);
+            if (m) {
+              const yr = parseInt(m[1], 10);
+              if (yr >= 2020 && yr <= 2040) yearSet.add(yr);
+            }
+          });
+        });
+      }
+    });
+
+    return Array.from(yearSet).sort((a, b) => b - a);
+  }
+  window.getSystemAvailableYears = getSystemAvailableYears;
+
+  function syncPresetYearSelect(selectId, activeYear) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    const sortedYears = getSystemAvailableYears();
+    const curVal = activeYear !== undefined ? String(activeYear).trim() : (select.value || '');
+
+    let html = `<option value="">📅 Pilih Tahun ▾</option>`;
+    sortedYears.forEach(y => {
+      const isSel = curVal === String(y);
+      html += `<option value="${y}" ${isSel ? 'selected' : ''}>Tahun ${y}</option>`;
+    });
+    select.innerHTML = html;
+
+    if (curVal && /^\d{4}$/.test(curVal) && sortedYears.includes(Number(curVal))) {
+      select.value = String(curVal);
+      select.classList.add('active');
+    } else {
+      select.value = '';
+      select.classList.remove('active');
+    }
+  }
+  window.syncPresetYearSelect = syncPresetYearSelect;
+
   function syncDatePresetButtons(containerId, presetValue) {
     const container = document.getElementById(containerId);
     if (!container) return;
     const selected = String(presetValue || 'ALL').split(',').map(s => s.trim()).filter(Boolean);
     const isAll = selected.length === 0 || selected.includes('ALL');
+    const isYear = selected.some(s => /^\d{4}$/.test(s));
+    const yearVal = selected.find(s => /^\d{4}$/.test(s)) || '';
+
     container.querySelectorAll('.sitac-date-preset-btn').forEach(btn => {
       const code = btn.getAttribute('data-preset') || 'ALL';
       if (isAll) {
         btn.classList.toggle('active', code === 'ALL');
+      } else if (isYear) {
+        btn.classList.remove('active');
       } else {
         btn.classList.toggle('active', selected.includes(code));
       }
     });
+
+    const yearSelect = container.querySelector('.sitac-date-preset-select');
+    if (yearSelect) {
+      syncPresetYearSelect(yearSelect.id, isYear ? yearVal : '');
+    }
   }
 
   function setupDatePresetsMultiSelect(containerId, onFilterChange) {
@@ -5750,9 +5826,19 @@
           // Reset to Semua
           specificBtns.forEach(b => b.classList.remove('active'));
           allBtn?.classList.add('active');
+          const yearSelect = container.querySelector('.sitac-date-preset-select');
+          if (yearSelect) {
+            yearSelect.value = '';
+            yearSelect.classList.remove('active');
+          }
           onFilterChange('ALL');
         } else {
           allBtn?.classList.remove('active');
+          const yearSelect = container.querySelector('.sitac-date-preset-select');
+          if (yearSelect) {
+            yearSelect.value = '';
+            yearSelect.classList.remove('active');
+          }
 
           if (btn.classList.contains('active')) {
             // Already active -> toggle OFF (unselect)
@@ -5780,17 +5866,8 @@
     const select = document.getElementById(dropdownId);
     if (!select) return;
     const currentVal = select.value || 'ALL';
-    const recs = Array.isArray(records) && records.length > 0 
-      ? records 
-      : (window.SITAC_COLLO_DATA?.sitac_records || state?.sitac?.data || []);
+    const sortedYears = getSystemAvailableYears(records);
 
-    const yearSet = new Set([2024, 2025, 2026]);
-    recs.forEach(s => {
-      const y = Number(s.tahun) || (s.date_dispos ? parseInt(String(s.date_dispos).substring(0, 4), 10) : 0);
-      if (y && y >= 2020) yearSet.add(y);
-    });
-
-    const sortedYears = Array.from(yearSet).sort((a, b) => b - a);
     let html = '<option value="ALL">Semua Tahun</option>';
     sortedYears.forEach(y => {
       html += `<option value="${y}">${y}</option>`;
@@ -6840,6 +6917,15 @@
         applyColleaguesDatePreset(presetCodes);
       });
 
+      document.getElementById('colleaguesYearPresetSelect')?.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (val && /^\d{4}$/.test(val)) {
+          applyColleaguesDatePreset(val);
+        } else {
+          applyColleaguesDatePreset('ALL');
+        }
+      });
+
       // Apply Custom Date Range
       document.getElementById('btnApplyColleaguesDate')?.addEventListener('click', () => {
         const start = document.getElementById('colleaguesStartDate')?.value || '';
@@ -6861,6 +6947,12 @@
         state.colleagues.dateField = field;
         state.colleagues.datePreset = 'CUSTOM';
         state.colleagues.year = 'ALL';
+
+        const yrSel = document.getElementById('colleaguesYearPresetSelect');
+        if (yrSel) {
+          yrSel.value = '';
+          yrSel.classList.remove('active');
+        }
 
         document.querySelectorAll('#colleaguesDatePresets .sitac-date-preset-btn').forEach(btn => {
           btn.classList.remove('active');
@@ -13146,6 +13238,15 @@
       applySitacDatePreset(presetCodes);
     });
 
+    document.getElementById('sitacYearPresetSelect')?.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (val && /^\d{4}$/.test(val)) {
+        applySitacDatePreset(val);
+      } else {
+        applySitacDatePreset('ALL');
+      }
+    });
+
     // Custom Date Range: Filter button
     document.getElementById('btnApplySitacDate')?.addEventListener('click', () => {
       const start = document.getElementById('sitacStartDate')?.value || '';
@@ -13167,6 +13268,12 @@
       state.sitac.dateField = field;
       state.sitac.datePreset = 'CUSTOM';
       state.sitac.year = 'ALL';
+
+      const yrSel = document.getElementById('sitacYearPresetSelect');
+      if (yrSel) {
+        yrSel.value = '';
+        yrSel.classList.remove('active');
+      }
 
       document.querySelectorAll('#sitacDatePresets .sitac-date-preset-btn').forEach(btn => {
         btn.classList.remove('active');

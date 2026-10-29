@@ -68,11 +68,11 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- High-Priority Preloads for Instant Master Dataset & Application Engine -->
-  <link rel="preload" href="sitac_collo_data.js?v=1029.1121" as="script">
-  <link rel="preload" href="app.js?v=1029.1121" as="script">
+  <link rel="preload" href="sitac_collo_data.js?v=1029.1237" as="script">
+  <link rel="preload" href="app.js?v=1029.1237" as="script">
 
   <!-- Custom Portal Stylesheet -->
-  <link rel="stylesheet" href="styles.css?v=12.28">
+  <link rel="stylesheet" href="styles.css?v=12.29">
 
   <!-- ZERO-FLICKER VIEW PERSISTENCE SYNC (ELIMINATES PAGE REFRESH FLASH) -->
   <script>
@@ -1552,15 +1552,9 @@
                 <button type="button" class="sitac-date-preset-btn" data-preset="LAST_MONTH">
                   <span>Bulan Lalu</span>
                 </button>
-                <button type="button" class="sitac-date-preset-btn" data-preset="2026">
-                  <span>2026</span>
-                </button>
-                <button type="button" class="sitac-date-preset-btn" data-preset="2025">
-                  <span>2025</span>
-                </button>
-                <button type="button" class="sitac-date-preset-btn" data-preset="2024">
-                  <span>2024</span>
-                </button>
+                <select id="sitacYearPresetSelect" class="sitac-date-preset-select" title="Filter Berdasarkan Tahun">
+                  <option value="">📅 Pilih Tahun ▾</option>
+                </select>
               </div>
 
               <!-- Date Pickers & Actions -->
@@ -2023,15 +2017,9 @@
                 <button type="button" class="sitac-date-preset-btn" data-preset="LAST_MONTH">
                   <span>Bulan Lalu</span>
                 </button>
-                <button type="button" class="sitac-date-preset-btn" data-preset="2026">
-                  <span>2026</span>
-                </button>
-                <button type="button" class="sitac-date-preset-btn" data-preset="2025">
-                  <span>2025</span>
-                </button>
-                <button type="button" class="sitac-date-preset-btn" data-preset="2024">
-                  <span>2024</span>
-                </button>
+                <select id="colleaguesYearPresetSelect" class="sitac-date-preset-select" title="Filter Berdasarkan Tahun">
+                  <option value="">📅 Pilih Tahun ▾</option>
+                </select>
               </div>
 
               <!-- Date Pickers & Actions -->
@@ -4665,10 +4653,10 @@
   </nav>
 
   <!-- 1. Master Dataset & Fallback Engine (Immediate Priority for Instant First Paint) -->
-  <script src="sitac_collo_data.js?v=1029.1121"></script>
+  <script src="sitac_collo_data.js?v=1029.1237"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=1029.1121"></script>
+  <script src="app.js?v=1029.1237"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>
