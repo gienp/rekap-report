@@ -162,8 +162,10 @@
             </div>
             <div class="min-w-0 flex-1 leading-tight">
               <div class="flex items-center gap-1.5">
-                <span class="font-bold text-slate-100 text-xs truncate group-hover:text-cyan-300 transition-colors" id="sidebarUserNameDisplay">Administrator</span>
-                <i class="fa-solid fa-chevron-down text-[9px] text-slate-400 group-hover:text-cyan-400 transition-transform" id="sidebarUserChevron"></i>
+                <span class="font-bold text-slate-100 text-xs truncate group-hover:text-cyan-300 transition-colors"
+                  id="sidebarUserNameDisplay">Administrator</span>
+                <i class="fa-solid fa-chevron-down text-[9px] text-slate-400 group-hover:text-cyan-400 transition-transform"
+                  id="sidebarUserChevron"></i>
               </div>
               <div class="text-[9px] uppercase tracking-wider text-cyan-400 font-semibold mt-0.5"
                 id="sidebarUserRoleDisplay">ADMIN</div>
@@ -190,37 +192,55 @@
         <!-- Dropdown Menu Alat & Administrasi (Terintegrasi di Tampilan User dengan Animasi Halus) -->
         <div id="sidebarUserDropdownMenu"
           class="absolute left-0 right-0 top-full mt-1.5 p-1.5 rounded-xl bg-slate-900/95 border border-white/10 shadow-2xl backdrop-blur-xl z-[100] space-y-0.5">
-          <div class="px-2 py-1 text-[10px] uppercase tracking-wider font-bold text-slate-400 flex items-center justify-between border-b border-white/5 mb-1">
-            <span class="flex items-center gap-1.5"><i class="fa-solid fa-sliders text-cyan-400"></i> Alat &amp; Akun</span>
+          <div
+            class="px-2 py-1 text-[10px] uppercase tracking-wider font-bold text-slate-400 flex items-center justify-between border-b border-white/5 mb-1">
+            <span class="flex items-center gap-1.5"><i class="fa-solid fa-sliders text-cyan-400"></i> Alat &amp;
+              Akun</span>
             <span class="text-cyan-400 text-[9px] font-mono" id="sidebarDropdownRoleLabel">AKUN</span>
           </div>
-          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition" type="button" id="btnOpenChangePassword">
+          <button
+            class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition"
+            type="button" id="btnOpenChangePassword">
             <i class="fa-solid fa-key text-slate-400 w-4 text-center"></i>
             <span>Ganti Password Akun</span>
           </button>
-          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center justify-between transition" type="button" id="btnOpenUpdateEmail">
+          <button
+            class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center justify-between transition"
+            type="button" id="btnOpenUpdateEmail">
             <div class="flex items-center gap-2.5">
               <i class="fa-solid fa-envelope text-cyan-400 w-4 text-center"></i>
               <span>Email Pemulihan</span>
             </div>
-            <span id="myEmailMissingBadge" class="hidden text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">Belum Ada</span>
+            <span id="myEmailMissingBadge"
+              class="hidden text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">Belum
+              Ada</span>
           </button>
-          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center justify-between transition admin-only" type="button" id="btnOpenAdminUsers">
+          <button
+            class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center justify-between transition admin-only"
+            type="button" id="btnOpenAdminUsers">
             <div class="flex items-center gap-2.5">
               <i class="fa-solid fa-users-gear text-amber-400 w-4 text-center"></i>
               <span>Kelola Akun PIC (Admin)</span>
             </div>
-            <span id="toolsPendingUserBadge" class="hidden text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold shrink-0">0 Baru</span>
+            <span id="toolsPendingUserBadge"
+              class="hidden text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold shrink-0">0
+              Baru</span>
           </button>
-          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition admin-only" type="button" id="btnOpenImportExcel">
+          <button
+            class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition admin-only"
+            type="button" id="btnOpenImportExcel">
             <i class="fa-solid fa-file-import text-emerald-400 w-4 text-center"></i>
             <span>Import Bulk Excel</span>
           </button>
-          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition admin-only" type="button" id="btnOpenAuditLogs">
+          <button
+            class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition admin-only"
+            type="button" id="btnOpenAuditLogs">
             <i class="fa-solid fa-clock-rotate-left text-cyan-400 w-4 text-center"></i>
             <span>Riwayat Aktivitas Log</span>
           </button>
-          <button class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition admin-only" type="button" id="btnOpenDatabaseViewer">
+          <button
+            class="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2.5 transition admin-only"
+            type="button" id="btnOpenDatabaseViewer">
             <i class="fa-solid fa-database text-indigo-400 w-4 text-center"></i>
             <span>Akses &amp; Explorer DB</span>
           </button>
@@ -1018,8 +1038,9 @@
                 <i class="fa-solid fa-file-excel text-emerald-400"></i>
                 <span>Excel</span>
               </button>
-              <button type="button" class="btn btn-secondary text-xs flex items-center gap-1.5 text-rose-400 hover:text-rose-300" id="btnExportColloPdf"
-                title="Cetak Data Colocation Terfilter ke PDF">
+              <button type="button"
+                class="btn btn-secondary text-xs flex items-center gap-1.5 text-rose-400 hover:text-rose-300"
+                id="btnExportColloPdf" title="Cetak Data Colocation Terfilter ke PDF">
                 <i class="fa-solid fa-file-pdf"></i>
                 <span>PDF</span>
               </button>
@@ -1724,9 +1745,12 @@
               </select>
 
               <!-- Filter Range Harga Biaya Final (Kelipatan 5 Juta & Kustom) -->
-              <div class="flex items-center gap-1.5 bg-slate-900/90 px-2.5 py-1 rounded-lg border border-white/10" id="sitacPriceRangeWrap">
+              <div class="flex items-center gap-1.5 bg-slate-900/90 px-2.5 py-1 rounded-lg border border-white/10"
+                id="sitacPriceRangeWrap">
                 <span class="text-[10px] font-bold text-amber-400">Rp</span>
-                <select id="sitacPricePreset" class="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer" title="Filter rentang biaya realisasi (kelipatan 5 juta)">
+                <select id="sitacPricePreset"
+                  class="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer"
+                  title="Filter rentang biaya realisasi (kelipatan 5 juta)">
                   <option value="ALL" class="bg-slate-900 text-white">Semua Biaya</option>
                   <option value="ZERO" class="bg-slate-900 text-white">Rp 0 (Bebas Biaya / Zero Cost)</option>
                   <option value="BERBIAYA" class="bg-slate-900 text-white">Semua Berbiaya (&gt; Rp 0)</option>
@@ -1741,19 +1765,27 @@
                   <option value="40M_45M" class="bg-slate-900 text-white">Rp 40 Jt - Rp 45 Jt</option>
                   <option value="45M_50M" class="bg-slate-900 text-white">Rp 45 Jt - Rp 50 Jt</option>
                   <option value="OVER_50M" class="bg-slate-900 text-white">&gt; Rp 50 Juta</option>
-                  <option value="CUSTOM" class="bg-slate-900 text-amber-300 font-bold">&#9998; Rentang Khusus (Min - Maks)...</option>
+                  <option value="CUSTOM" class="bg-slate-900 text-amber-300 font-bold">&#9998; Rentang Khusus (Min -
+                    Maks)...</option>
                 </select>
                 <div id="sitacCustomPriceInputs" class="hidden items-center gap-1.5 pl-2 border-l border-white/10">
                   <div class="flex items-center gap-1">
                     <span class="text-[10px] text-slate-400">Min:</span>
-                    <input type="number" id="sitacMinPrice" placeholder="0" min="0" step="5000000" class="bg-slate-950/90 text-amber-300 font-mono text-xs px-2 py-0.5 rounded border border-white/10 w-24 focus:outline-none focus:border-amber-400" title="Biaya Minimal (kelipatan 5 juta)">
+                    <input type="number" id="sitacMinPrice" placeholder="0" min="0" step="5000000"
+                      class="bg-slate-950/90 text-amber-300 font-mono text-xs px-2 py-0.5 rounded border border-white/10 w-24 focus:outline-none focus:border-amber-400"
+                      title="Biaya Minimal (kelipatan 5 juta)">
                   </div>
                   <div class="flex items-center gap-1">
                     <span class="text-[10px] text-slate-400">s/d:</span>
-                    <input type="number" id="sitacMaxPrice" placeholder="50.000.000" min="0" step="5000000" class="bg-slate-950/90 text-amber-300 font-mono text-xs px-2 py-0.5 rounded border border-white/10 w-28 focus:outline-none focus:border-amber-400" title="Biaya Maksimal (kelipatan 5 juta)">
+                    <input type="number" id="sitacMaxPrice" placeholder="50.000.000" min="0" step="5000000"
+                      class="bg-slate-950/90 text-amber-300 font-mono text-xs px-2 py-0.5 rounded border border-white/10 w-28 focus:outline-none focus:border-amber-400"
+                      title="Biaya Maksimal (kelipatan 5 juta)">
                   </div>
-                  <button type="button" id="btnApplySitacPrice" class="btn btn-primary text-[10px] py-1 px-2.5 font-bold shadow-sm" title="Terapkan Filter Range Harga">Terapkan</button>
-                  <button type="button" id="btnResetSitacPrice" class="text-slate-400 hover:text-white text-xs p-1" title="Reset filter harga"><i class="fa-solid fa-rotate-left"></i></button>
+                  <button type="button" id="btnApplySitacPrice"
+                    class="btn btn-primary text-[10px] py-1 px-2.5 font-bold shadow-sm"
+                    title="Terapkan Filter Range Harga">Terapkan</button>
+                  <button type="button" id="btnResetSitacPrice" class="text-slate-400 hover:text-white text-xs p-1"
+                    title="Reset filter harga"><i class="fa-solid fa-rotate-left"></i></button>
                 </div>
               </div>
             </div>
@@ -1772,8 +1804,9 @@
                 <i class="fa-solid fa-file-excel text-emerald-400"></i>
                 <span class="hidden sm:inline">Excel</span>
               </button>
-              <button type="button" class="btn btn-secondary text-xs flex items-center gap-1.5 text-rose-400 hover:text-rose-300" id="btnExportSitacPdf"
-                title="Cetak Data SITAC Terfilter ke PDF">
+              <button type="button"
+                class="btn btn-secondary text-xs flex items-center gap-1.5 text-rose-400 hover:text-rose-300"
+                id="btnExportSitacPdf" title="Cetak Data SITAC Terfilter ke PDF">
                 <i class="fa-solid fa-file-pdf"></i>
                 <span class="hidden sm:inline">PDF</span>
               </button>
@@ -2158,7 +2191,8 @@
               <i class="fa-solid fa-magnifying-glass search-icon"></i>
               <input type="text" id="colleaguesSearchInput" class="filter-input"
                 placeholder="Cari No PA, Pelanggan, PIC, Lokasi...">
-              <button type="button" id="btnClearColleaguesSearch" class="btn-clear-search hidden" title="Hapus pencarian">
+              <button type="button" id="btnClearColleaguesSearch" class="btn-clear-search hidden"
+                title="Hapus pencarian">
                 <i class="fa-solid fa-xmark"></i>
               </button>
             </div>
@@ -2184,9 +2218,12 @@
               </select>
 
               <!-- Filter Range Harga Biaya Final (Monitoring Tim SITAC - Kelipatan 5 Juta & Kustom) -->
-              <div class="flex items-center gap-1.5 bg-slate-900/90 px-2.5 py-1 rounded-lg border border-white/10" id="colleaguesPriceRangeWrap">
+              <div class="flex items-center gap-1.5 bg-slate-900/90 px-2.5 py-1 rounded-lg border border-white/10"
+                id="colleaguesPriceRangeWrap">
                 <span class="text-[10px] font-bold text-amber-400">Rp</span>
-                <select id="colleaguesPricePreset" class="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer" title="Filter rentang biaya realisasi (kelipatan 5 juta)">
+                <select id="colleaguesPricePreset"
+                  class="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer"
+                  title="Filter rentang biaya realisasi (kelipatan 5 juta)">
                   <option value="ALL" class="bg-slate-900 text-white">Semua Biaya</option>
                   <option value="ZERO" class="bg-slate-900 text-white">Rp 0 (Bebas Biaya / Zero Cost)</option>
                   <option value="BERBIAYA" class="bg-slate-900 text-white">Semua Berbiaya (&gt; Rp 0)</option>
@@ -2201,19 +2238,27 @@
                   <option value="40M_45M" class="bg-slate-900 text-white">Rp 40 Jt - Rp 45 Jt</option>
                   <option value="45M_50M" class="bg-slate-900 text-white">Rp 45 Jt - Rp 50 Jt</option>
                   <option value="OVER_50M" class="bg-slate-900 text-white">&gt; Rp 50 Juta</option>
-                  <option value="CUSTOM" class="bg-slate-900 text-amber-300 font-bold">&#9998; Rentang Khusus (Min - Maks)...</option>
+                  <option value="CUSTOM" class="bg-slate-900 text-amber-300 font-bold">&#9998; Rentang Khusus (Min -
+                    Maks)...</option>
                 </select>
                 <div id="colleaguesCustomPriceInputs" class="hidden items-center gap-1.5 pl-2 border-l border-white/10">
                   <div class="flex items-center gap-1">
                     <span class="text-[10px] text-slate-400">Min:</span>
-                    <input type="number" id="colleaguesMinPrice" placeholder="0" min="0" step="5000000" class="bg-slate-950/90 text-amber-300 font-mono text-xs px-2 py-0.5 rounded border border-white/10 w-24 focus:outline-none focus:border-amber-400" title="Biaya Minimal (kelipatan 5 juta)">
+                    <input type="number" id="colleaguesMinPrice" placeholder="0" min="0" step="5000000"
+                      class="bg-slate-950/90 text-amber-300 font-mono text-xs px-2 py-0.5 rounded border border-white/10 w-24 focus:outline-none focus:border-amber-400"
+                      title="Biaya Minimal (kelipatan 5 juta)">
                   </div>
                   <div class="flex items-center gap-1">
                     <span class="text-[10px] text-slate-400">s/d:</span>
-                    <input type="number" id="colleaguesMaxPrice" placeholder="50.000.000" min="0" step="5000000" class="bg-slate-950/90 text-amber-300 font-mono text-xs px-2 py-0.5 rounded border border-white/10 w-28 focus:outline-none focus:border-amber-400" title="Biaya Maksimal (kelipatan 5 juta)">
+                    <input type="number" id="colleaguesMaxPrice" placeholder="50.000.000" min="0" step="5000000"
+                      class="bg-slate-950/90 text-amber-300 font-mono text-xs px-2 py-0.5 rounded border border-white/10 w-28 focus:outline-none focus:border-amber-400"
+                      title="Biaya Maksimal (kelipatan 5 juta)">
                   </div>
-                  <button type="button" id="btnApplyColleaguesPrice" class="btn btn-primary text-[10px] py-1 px-2.5 font-bold shadow-sm" title="Terapkan Filter Range Harga">Terapkan</button>
-                  <button type="button" id="btnResetColleaguesPrice" class="text-slate-400 hover:text-white text-xs p-1" title="Reset filter harga"><i class="fa-solid fa-rotate-left"></i></button>
+                  <button type="button" id="btnApplyColleaguesPrice"
+                    class="btn btn-primary text-[10px] py-1 px-2.5 font-bold shadow-sm"
+                    title="Terapkan Filter Range Harga">Terapkan</button>
+                  <button type="button" id="btnResetColleaguesPrice" class="text-slate-400 hover:text-white text-xs p-1"
+                    title="Reset filter harga"><i class="fa-solid fa-rotate-left"></i></button>
                 </div>
               </div>
             </div>
@@ -2224,7 +2269,8 @@
                 <i class="fa-solid fa-file-excel text-emerald-400"></i>
                 <span class="hidden sm:inline">Excel</span>
               </button>
-              <button type="button" class="btn btn-secondary text-xs flex items-center gap-1.5 text-rose-400 hover:text-rose-300"
+              <button type="button"
+                class="btn btn-secondary text-xs flex items-center gap-1.5 text-rose-400 hover:text-rose-300"
                 id="btnExportColleaguesPdf" title="Cetak Data Tim SITAC Terfilter ke PDF">
                 <i class="fa-solid fa-file-pdf"></i>
                 <span class="hidden sm:inline">PDF</span>
@@ -2351,7 +2397,8 @@
                 <i class="fa-solid fa-file-arrow-down text-amber-400"></i>
                 <span>CSV</span>
               </button>
-              <button id="btnExportEfisiensiPdf" class="btn btn-secondary text-xs flex items-center gap-1.5 text-rose-400 hover:text-rose-300"
+              <button id="btnExportEfisiensiPdf"
+                class="btn btn-secondary text-xs flex items-center gap-1.5 text-rose-400 hover:text-rose-300"
                 title="Cetak Rekap Efisiensi ke PDF">
                 <i class="fa-solid fa-file-pdf"></i>
                 <span>PDF</span>
@@ -2680,8 +2727,34 @@
             </div>
             <div>
               <label class="form-label">PIC SITAC *</label>
-              <input type="text" name="pic_perijinan" class="filter-input w-full text-xs" required
-                placeholder="Nama PIC SITAC">
+              <div class="space-y-1.5">
+                <select id="selectAddSitacPic" name="pic_perijinan" class="filter-select w-full text-xs font-medium"
+                  required>
+                  <option value="" disabled selected>Pilih PIC SITAC</option>
+                  <option value="Harlan Zaelani">Harlan Zaelani</option>
+                  <option value="Budi Rodiyah">Budi Rodiyah</option>
+                  <option value="Edi Swargaloka">Edi Swargaloka</option>
+                  <option value="Muhamad Abusopian">Muhamad Abusopian</option>
+                  <option value="Muhidin Shelay">Muhidin Shelay</option>
+                  <option value="Brian Ariyanto">Brian Ariyanto</option>
+                  <option value="Zulhadi Syahril">Zulhadi Syahril</option>
+                  <option value="Yudiansyah">Yudiansyah</option>
+                  <option value="Agih Gahara">Agih Gahara</option>
+                  <option value="Hairul Aswan">Hairul Aswan</option>
+                  <option value="__CUSTOM__">➕ Kustomisasi...</option>
+                </select>
+                <div id="wrapperCustomSitacPic" class="hidden">
+                  <div class="relative">
+                    <input type="text" id="inputCustomSitacPic" class="filter-input w-full text-xs pr-7"
+                      placeholder="Ketik nama PIC baru / kustomisasi..." autocomplete="off">
+                    <button type="button" id="btnCancelCustomSitacPic"
+                      class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-400 text-xs"
+                      title="Batal & kembali ke dropdown">
+                      <i class="fa-solid fa-xmark"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
             <div>
               <label class="form-label">Progress Status</label>
@@ -4084,7 +4157,8 @@
             <h3 class="font-bold text-base text-slate-100 flex items-center gap-2">
               <span>Riwayat Aktivitas & Audit Log</span>
               <span
-                class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30">Log Sistem Real-Time</span>
+                class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30">Log
+                Sistem Real-Time</span>
             </h3>
             <p class="text-xs text-slate-400">Catatan histori login, perubahan status, input data, dan aktivitas
               sistem
@@ -4165,8 +4239,11 @@
 
         <div>
           <div class="flex items-center justify-between mb-1">
-            <label class="form-label text-xs text-slate-300 font-semibold block">Pilih File Excel (.xlsx / .xls / .csv) *</label>
-            <button type="button" id="btnCancelImportFileLabel" class="hidden text-xs text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1 transition px-2 py-0.5 rounded hover:bg-rose-500/10 cursor-pointer" title="Batalkan pilihan file">
+            <label class="form-label text-xs text-slate-300 font-semibold block">Pilih File Excel (.xlsx / .xls / .csv)
+              *</label>
+            <button type="button" id="btnCancelImportFileLabel"
+              class="hidden text-xs text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1 transition px-2 py-0.5 rounded hover:bg-rose-500/10 cursor-pointer"
+              title="Batalkan pilihan file">
               <i class="fa-solid fa-xmark"></i> Batalkan File
             </button>
           </div>
@@ -4182,8 +4259,10 @@
             </button>
 
             <i class="fa-solid fa-file-excel text-emerald-400 text-3xl mb-2" id="importFileIcon"></i>
-            <div class="font-bold text-slate-200 text-xs" id="importFileNameLabel">Klik atau tarik file Excel ke sini</div>
-            <div class="text-[11px] text-slate-400 mt-0.5" id="importFileHint">Mendukung format .xlsx, .xls, .csv otomatis dipetakan</div>
+            <div class="font-bold text-slate-200 text-xs" id="importFileNameLabel">Klik atau tarik file Excel ke sini
+            </div>
+            <div class="text-[11px] text-slate-400 mt-0.5" id="importFileHint">Mendukung format .xlsx, .xls, .csv
+              otomatis dipetakan</div>
           </div>
           <input type="file" id="importExcelFileInput" accept=".xlsx,.xls,.csv" class="hidden">
         </div>
@@ -4201,12 +4280,16 @@
             <div class="flex items-center gap-2 text-[11px]">
               <span id="importPreviewDupBadge"
                 class="hidden px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
-                <i class="fa-solid fa-triangle-exclamation mr-1"></i> <span id="importPreviewDupCount">0</span> Sudah Ada di Web
+                <i class="fa-solid fa-triangle-exclamation mr-1"></i> <span id="importPreviewDupCount">0</span> Sudah
+                Ada di Web
               </span>
-              <span id="importPreviewNewBadge" class="hidden px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+              <span id="importPreviewNewBadge"
+                class="hidden px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
                 <i class="fa-solid fa-circle-plus mr-1"></i> <span id="importPreviewNewCount">0</span> Data Baru
               </span>
-              <button type="button" id="btnCancelImportPreview" class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 hover:text-rose-100 border border-rose-500/30 font-semibold flex items-center gap-1.5 transition cursor-pointer" title="Batalkan dan hapus file yang dipilih">
+              <button type="button" id="btnCancelImportPreview"
+                class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 hover:text-rose-100 border border-rose-500/30 font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                title="Batalkan dan hapus file yang dipilih">
                 <i class="fa-solid fa-xmark"></i> Batal Upload
               </button>
             </div>
@@ -4589,7 +4672,8 @@
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"
+    defer></script>
 
   <!-- 3. Supabase Cloud PostgreSQL Client & Integration Engine -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

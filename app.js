@@ -2345,6 +2345,88 @@
     }
     return s;
   }
+  window.formatPicName = formatPicName;
+
+  function getSitacPicOptions(selectedVal) {
+    const defaultPics = [
+      'Harlan Zaelani',
+      'Budi Rodiyah',
+      'Edi Swargaloka',
+      'Muhamad Abusopian',
+      'Muhidin Shelay',
+      'Brian Ariyanto',
+      'Zulhadi Syahril',
+      'Yudiansyah',
+      'Agih Gahara',
+      'Hairul Aswan'
+    ];
+    const allUnique = new Set(defaultPics);
+    const records = (window.SITAC_COLLO_DATA?.sitac_records || []).concat(state.sitac?.data || []);
+    records.forEach(r => {
+      const p = (r.pic_perijinan || '').trim();
+      if (p && p !== '-' && p !== 'null' && p !== 'undefined') {
+        const fmt = formatPicName(p);
+        if (fmt && fmt !== '-') allUnique.add(fmt);
+        else allUnique.add(p);
+      }
+    });
+
+    const picList = Array.from(allUnique);
+    const selNorm = selectedVal ? (formatPicName(selectedVal) !== '-' ? formatPicName(selectedVal) : selectedVal) : '';
+    const isCustom = selNorm && !picList.includes(selNorm) && selNorm !== '__CUSTOM__';
+
+    let html = `<option value="" disabled ${!selNorm ? 'selected' : ''}>-- Pilih PIC SITAC --</option>`;
+    picList.forEach(p => {
+      const isSel = selNorm === p;
+      html += `<option value="${escapeHtml(p)}" ${isSel ? 'selected' : ''}>${escapeHtml(p)}</option>`;
+    });
+
+    if (isCustom) {
+      html += `<option value="${escapeHtml(selNorm)}" selected>${escapeHtml(selNorm)} (Kustom)</option>`;
+    }
+    html += `<option value="__CUSTOM__">➕ Kustomisasi (Ketik Nama Baru...)</option>`;
+    return html;
+  }
+  window.getSitacPicOptions = getSitacPicOptions;
+
+  function setupPicDropdownWithCustom(selectEl, wrapperEl, inputEl, cancelBtn) {
+    if (!selectEl || !wrapperEl || !inputEl) return;
+
+    selectEl.addEventListener('change', () => {
+      if (selectEl.value === '__CUSTOM__') {
+        selectEl.removeAttribute('name');
+        selectEl.required = false;
+        wrapperEl.classList.remove('hidden');
+        inputEl.setAttribute('name', 'pic_perijinan');
+        inputEl.required = true;
+        inputEl.value = '';
+        inputEl.focus();
+      } else {
+        wrapperEl.classList.add('hidden');
+        inputEl.removeAttribute('name');
+        inputEl.required = false;
+        inputEl.value = '';
+        selectEl.setAttribute('name', 'pic_perijinan');
+        selectEl.required = true;
+      }
+    });
+
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        wrapperEl.classList.add('hidden');
+        inputEl.removeAttribute('name');
+        inputEl.required = false;
+        inputEl.value = '';
+        selectEl.setAttribute('name', 'pic_perijinan');
+        selectEl.required = true;
+        selectEl.value = '';
+        selectEl.focus();
+      });
+    }
+  }
+  window.setupPicDropdownWithCustom = setupPicDropdownWithCustom;
 
   function normalizePengelolaName(name) {
     if (!name) return '';
@@ -8267,15 +8349,35 @@
       const rec = (state.sitac.data || []).find(s => s.id == id) || (window.SITAC_COLLO_DATA?.sitac_records || []).find(s => s.id == id) || {};
       title.textContent = `Update Penugasan SITAC #${id}`;
       sub.textContent = isLapangan ? 'Perbarui progress pengerjaan lapangan, titik GPS, dan catatan operasional' : 'Perbarui progress pengerjaan lapangan, titik GPS, dan realisasi biaya final';
+      const curPic = formatPicName(rec.pic_perijinan || '');
+      const picOptionsHtml = getSitacPicOptions(curPic !== '-' ? curPic : (rec.pic_perijinan || ''));
       container.innerHTML = `
-        <div>
-          <label class="form-label">Progress Pengerjaan *</label>
-          <select name="progress" class="filter-select w-full text-xs font-semibold">
-            <option value="Finish" ${rec.progress === 'Finish' ? 'selected' : ''}>Finish</option>
-            <option value="Ongoing" ${rec.progress === 'Ongoing' ? 'selected' : ''}>Ongoing</option>
-            <option value="Hold" ${rec.progress === 'Hold' ? 'selected' : ''}>Hold</option>
-            <option value="Cancel" ${rec.progress === 'Cancel' ? 'selected' : ''}>Cancel</option>
-          </select>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="form-label">Progress Pengerjaan *</label>
+            <select name="progress" class="filter-select w-full text-xs font-semibold">
+              <option value="Finish" ${rec.progress === 'Finish' ? 'selected' : ''}>Finish</option>
+              <option value="Ongoing" ${rec.progress === 'Ongoing' ? 'selected' : ''}>Ongoing</option>
+              <option value="Hold" ${rec.progress === 'Hold' ? 'selected' : ''}>Hold</option>
+              <option value="Cancel" ${rec.progress === 'Cancel' ? 'selected' : ''}>Cancel</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">PIC SITAC</label>
+            <div class="space-y-1.5">
+              <select id="quickEditSitacPicSelect" name="pic_perijinan" class="filter-select w-full text-xs font-medium" ${isLapangan ? 'disabled title="Identitas PIC terkunci"' : ''}>
+                ${picOptionsHtml}
+              </select>
+              <div id="wrapperQuickEditCustomSitacPic" class="hidden">
+                <div class="relative">
+                  <input type="text" id="quickEditCustomSitacPicInput" class="filter-input w-full text-xs pr-7" placeholder="Ketik nama PIC baru / kustom..." autocomplete="off">
+                  <button type="button" id="btnCancelQuickEditCustomSitacPic" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-400 text-xs" title="Batal & kembali ke dropdown">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Section: Titik Koordinat Lokasi Spasial (WebGIS Pin) -->
@@ -8361,6 +8463,13 @@
           </div>
         </div>
       `;
+
+      setupPicDropdownWithCustom(
+        container.querySelector('#quickEditSitacPicSelect'),
+        container.querySelector('#wrapperQuickEditCustomSitacPic'),
+        container.querySelector('#quickEditCustomSitacPicInput'),
+        container.querySelector('#btnCancelQuickEditCustomSitacPic')
+      );
 
       const btnGps = container.querySelector('#btnGetGpsQuickEditSitac');
       const latIn = container.querySelector('#quickEditSitacLat');
@@ -8699,6 +8808,20 @@
         form.reset();
         const cancelBtn = form.querySelector('button[id^="btnCancelAdd"]');
         if (cancelBtn) cancelBtn.classList.add('hidden');
+        const customWrapper = form.querySelector('#wrapperCustomSitacPic');
+        if (customWrapper) customWrapper.classList.add('hidden');
+        const customInp = form.querySelector('#inputCustomSitacPic');
+        if (customInp) {
+          customInp.removeAttribute('name');
+          customInp.required = false;
+          customInp.value = '';
+        }
+        const selectPic = form.querySelector('#selectAddSitacPic');
+        if (selectPic) {
+          selectPic.setAttribute('name', 'pic_perijinan');
+          selectPic.required = true;
+          selectPic.value = '';
+        }
         const helpText = form.querySelector('span[id$="FotoHelpText"]');
         if (helpText) {
           if (endpoint === 'collo') {
@@ -13550,7 +13673,40 @@
       if (m) {
         m.style.display = 'flex';
         // Auto-fill & lock PIC name if field technician is logged in
-        if (modalId === 'modalAddGangguan' || modalId === 'modalAddSitac') {
+        if (modalId === 'modalAddSitac') {
+          const picSelect = m.querySelector('#selectAddSitacPic');
+          const picWrapper = m.querySelector('#wrapperCustomSitacPic');
+          const picCustom = m.querySelector('#inputCustomSitacPic');
+          if (picSelect) {
+            let defVal = '';
+            if (state.currentUser?.role === 'lapangan') {
+              defVal = state.currentUser.full_name || state.activeTechnician || 'Teknisi Lapangan';
+            } else if (state.activeTechnician && state.activeTechnician !== 'Admin') {
+              defVal = state.activeTechnician;
+            }
+            picSelect.innerHTML = getSitacPicOptions(defVal);
+            if (picWrapper) picWrapper.classList.add('hidden');
+            if (picCustom) {
+              picCustom.value = '';
+              picCustom.removeAttribute('name');
+              picCustom.required = false;
+            }
+            picSelect.setAttribute('name', 'pic_perijinan');
+            picSelect.required = true;
+
+            if (state.currentUser?.role === 'lapangan') {
+              picSelect.disabled = true;
+              picSelect.style.opacity = '0.85';
+              picSelect.style.cursor = 'not-allowed';
+              picSelect.title = 'Identitas PIC terkunci otomatis sesuai akun sesi Anda';
+            } else {
+              picSelect.disabled = false;
+              picSelect.style.opacity = '1';
+              picSelect.style.cursor = 'pointer';
+              picSelect.title = '';
+            }
+          }
+        } else if (modalId === 'modalAddGangguan') {
           const picInput = m.querySelector('input[name="pic_perijinan"]');
           if (picInput) {
             if (state.currentUser?.role === 'lapangan') {
@@ -13674,6 +13830,12 @@
     // 14. Add Forms Submissions
     document.getElementById('formAddGangguan')?.addEventListener('submit', (e) => handleAddFormSubmit(e, 'gangguan'));
     document.getElementById('formAddSitac')?.addEventListener('submit', (e) => handleAddFormSubmit(e, 'sitac'));
+    setupPicDropdownWithCustom(
+      document.getElementById('selectAddSitacPic'),
+      document.getElementById('wrapperCustomSitacPic'),
+      document.getElementById('inputCustomSitacPic'),
+      document.getElementById('btnCancelCustomSitacPic')
+    );
     document.getElementById('formAddCollo')?.addEventListener('submit', (e) => handleAddFormSubmit(e, 'collo'));
 
     // 14b. GPS Geolocation & Smart Paste Parser for modalAddSitac
