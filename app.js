@@ -14458,7 +14458,7 @@
   }
 
   window.switchDbTab = function(tabName) {
-    ['users', 'tables', 'firestore', 'adduser'].forEach(t => {
+    ['users', 'tables', 'adduser'].forEach(t => {
       const btnName = `dbTab${t.charAt(0).toUpperCase() + t.slice(1)}`;
       const panelName = `dbTabPanel${t.charAt(0).toUpperCase() + t.slice(1)}`;
       const btn = document.getElementById(btnName);

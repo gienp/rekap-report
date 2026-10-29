@@ -68,8 +68,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- High-Priority Preloads for Instant Master Dataset & Application Engine -->
-  <link rel="preload" href="sitac_collo_data.js?v=1029.1320" as="script">
-  <link rel="preload" href="app.js?v=1029.1320" as="script">
+  <link rel="preload" href="sitac_collo_data.js?v=1029.1330" as="script">
+  <link rel="preload" href="app.js?v=1029.1330" as="script">
 
   <!-- Custom Portal Stylesheet -->
   <link rel="stylesheet" href="styles.css?v=12.29">
@@ -4327,11 +4327,8 @@
           <div>
             <h3 class="font-bold text-base text-slate-100 flex items-center gap-2">
               <span>Akses Data & Explorer Database</span>
-              <span
-                class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30"
-                id="dbModalStatusBadge">Google Cloud Firestore</span>
             </h3>
-            <p class="text-xs text-slate-400">Inspeksi data pengguna, koleksi Firestore, dan manajemen akun database
+            <p class="text-xs text-slate-400">Inspeksi data pengguna, status tabel, dan manajemen akun database
             </p>
           </div>
         </div>
@@ -4350,10 +4347,6 @@
         <button id="dbTabTables" class="db-tab-btn" onclick="switchDbTab('tables')">
           <i class="fa-solid fa-table-cells text-indigo-400 mr-1"></i>
           <span>Tabel & Statistik DB</span>
-        </button>
-        <button id="dbTabFirestore" class="db-tab-btn" onclick="switchDbTab('firestore')">
-          <i class="fa-solid fa-cloud text-amber-400 mr-1"></i>
-          <span>Cloud Sync</span>
         </button>
         <button id="dbTabAddUser" class="db-tab-btn" onclick="switchDbTab('adduser')">
           <i class="fa-solid fa-user-plus text-emerald-400 mr-1"></i>
@@ -4433,52 +4426,7 @@
           </div>
         </div>
 
-        <!-- Tab 3: Cloud Firestore Sync -->
-        <div id="dbTabPanelFirestore" class="db-tab-panel hidden space-y-4">
-          <div class="p-4 rounded-xl bg-slate-900/60 border border-cyan-500/20 space-y-3">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <i class="fa-solid fa-cloud-arrow-up text-cyan-400 text-lg"></i>
-                <div>
-                  <div class="font-bold text-slate-100 text-xs">Google Cloud Firestore Database</div>
-                  <div class="text-[11px] text-slate-400">Project ID: <span
-                      class="font-mono text-cyan-300">analytics-f83f5</span></div>
-                </div>
-              </div>
-              <button id="btnTestFirestoreConn" class="btn btn-secondary text-xs">
-                <i class="fa-solid fa-plug mr-1"></i> Tes Koneksi Cloud
-              </button>
-            </div>
-
-            <div id="firestoreStatusAlert"
-              class="p-3 rounded-lg text-xs bg-slate-950/60 border border-white/10 text-slate-300">
-              Klik "Tes Koneksi Cloud" untuk memverifikasi sambungan.
-            </div>
-
-            <div class="pt-2 border-t border-white/10 flex items-center justify-between">
-              <div>
-                <div class="font-bold text-slate-200 text-xs">Sinkronkan Semua Data Lokal ke Cloud</div>
-                <div class="text-[11px] text-slate-400">Unggah data SQLite ke koleksi Firestore secara otomatis</div>
-              </div>
-              <button id="btnSyncFirestore" class="btn btn-primary text-xs bg-cyan-600 hover:bg-cyan-500">
-                <i class="fa-solid fa-rotate mr-1"></i> Sinkronkan Sekarang
-              </button>
-            </div>
-
-            <div id="syncProgressContainer" class="hidden space-y-1 pt-2">
-              <div class="flex justify-between text-[11px] text-cyan-300 font-semibold">
-                <span id="syncProgressLabel">Mengunggah data...</span>
-                <span id="syncProgressPct">0%</span>
-              </div>
-              <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
-                <div id="syncProgressBar" class="h-full bg-cyan-400 transition-all duration-300" style="width: 0%">
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tab 4: Tambah Akun Baru -->
+        <!-- Tab 3: Tambah Akun Baru -->
         <div id="dbTabPanelAddUser" class="db-tab-panel hidden space-y-3.5">
           <form id="formDbAddUser" class="space-y-3">
             <div id="dbAddUserAlert" class="p-2.5 rounded-lg text-xs hidden"></div>
@@ -4653,10 +4601,10 @@
   </nav>
 
   <!-- 1. Master Dataset & Fallback Engine (Immediate Priority for Instant First Paint) -->
-  <script src="sitac_collo_data.js?v=1029.1320"></script>
+  <script src="sitac_collo_data.js?v=1029.1330"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=1029.1320"></script>
+  <script src="app.js?v=1029.1330"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>
