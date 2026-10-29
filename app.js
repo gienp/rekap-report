@@ -5553,22 +5553,15 @@
         b.classList.toggle('active', (b.getAttribute('data-alert-cat') || '').toUpperCase() === (category || 'ALL').toUpperCase());
       });
 
-      // Sync status select dropdown if rendered
-      const statusSelect = document.getElementById('alertStatusFilter');
-      if (statusSelect && statusSelect.value !== status) {
-        statusSelect.value = status;
-      }
-
       // Update Active Badge
-      const statusLabel = status === 'ALL' ? 'Semua Status' : status === 'ACTIVE' ? 'Aktif' : status;
       const badgeActive = document.getElementById('badgeActiveAlertsCount');
       if (badgeActive) {
-        badgeActive.textContent = `${cnt.total || (json.data || []).length} Sirkuit (${statusLabel})`;
+        badgeActive.textContent = `${cnt.total || (json.data || []).length} Sirkuit (Aktif)`;
       }
 
       // Table Title
       const catLabel = category === 'ALL' ? 'SEMUA STATUS KONTRAK' : category;
-      document.getElementById('alertTableTitle').textContent = `Daftar Kontrak: ${catLabel} [${statusLabel}] (${(json.data || []).length} sirkuit)`;
+      document.getElementById('alertTableTitle').textContent = `Daftar Kontrak: ${catLabel} (${(json.data || []).length} sirkuit)`;
 
       // Save full dataset and render paginated table
       state.alerts.data = json.data || [];
@@ -13227,13 +13220,6 @@
         state.alerts.page = 1;
         loadAlertsData();
       }, 300);
-    });
-
-    const alertStatusSelect = document.getElementById('alertStatusFilter');
-    alertStatusSelect?.addEventListener('change', (e) => {
-      state.alerts.status = e.target.value;
-      state.alerts.page = 1;
-      loadAlertsData();
     });
 
     document.getElementById('alertsPrevPageBtn')?.addEventListener('click', () => {
