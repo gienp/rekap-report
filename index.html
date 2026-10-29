@@ -68,8 +68,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- High-Priority Preloads for Instant Master Dataset & Application Engine -->
-  <link rel="preload" href="sitac_collo_data.js?v=1029.1540" as="script">
-  <link rel="preload" href="app.js?v=1029.1540" as="script">
+  <link rel="preload" href="sitac_collo_data.js?v=1029.1548" as="script">
+  <link rel="preload" href="app.js?v=1029.1548" as="script">
 
   <!-- Custom Portal Stylesheet -->
   <link rel="stylesheet" href="styles.css?v=12.31">
@@ -1731,12 +1731,6 @@
                 <option value="yellow">8 - 14 Hari</option>
                 <option value="red">> 14 Hari</option>
               </select>
-              <select id="sitacFilterYear" class="filter-select text-xs flex-1 sm:flex-initial">
-                <option value="ALL">Semua Tahun</option>
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
-                <option value="2024">2024</option>
-              </select>
 
               <!-- Filter Range Harga Biaya Final (Kelipatan 5 Juta & Kustom) -->
               <div class="flex items-center gap-1.5 bg-slate-900/90 px-2.5 py-1 rounded-lg border border-white/10"
@@ -2197,12 +2191,6 @@
                 <option value="green">&le; 7 Hari</option>
                 <option value="yellow">8 - 14 Hari</option>
                 <option value="red">> 14 Hari</option>
-              </select>
-              <select id="colleaguesFilterYear" class="filter-select text-xs flex-1 sm:flex-initial">
-                <option value="ALL">Semua Tahun</option>
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
-                <option value="2024">2024</option>
               </select>
 
               <!-- Filter Range Harga Biaya Final (Monitoring Tim SITAC - Kelipatan 5 Juta & Kustom) -->
@@ -4601,10 +4589,10 @@
   </nav>
 
   <!-- 1. Master Dataset & Fallback Engine (Immediate Priority for Instant First Paint) -->
-  <script src="sitac_collo_data.js?v=1029.1540"></script>
+  <script src="sitac_collo_data.js?v=1029.1548"></script>
 
   <!-- 2. Core Portal Application Engine (Instant Rendering) -->
-  <script src="app.js?v=1029.1540"></script>
+  <script src="app.js?v=1029.1548"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>
