@@ -268,6 +268,48 @@ window.DEFAULT_FIREBASE_CONFIG = {
     const snap = await db.collection(collectionName).get();
     const results = [];
     snap.forEach(doc => results.push({ docId: doc.id, ...doc.data() }));
+
+    // Jika koleksi users, lakukan deduplikasi ketat berdasarkan username
+    if (collectionName === 'users') {
+      const userMap = new Map();
+      const duplicatesToDelete = [];
+      for (const item of results) {
+        const uLower = String(item.username || item.docId.replace(/^user_/, '')).trim().toLowerCase();
+        if (!uLower) continue;
+        if (!userMap.has(uLower)) {
+          userMap.set(uLower, { ...item, username: uLower });
+        } else {
+          const prev = userMap.get(uLower);
+          // Prioritaskan akun yang punya email riil dan id berawalan user_
+          const prevScore = (prev.email ? 2 : 0) + (prev.docId && prev.docId.startsWith('user_') ? 1 : 0);
+          const currScore = (item.email ? 2 : 0) + (item.docId && item.docId.startsWith('user_') ? 1 : 0);
+          if (currScore > prevScore) {
+            if (prev.docId && prev.docId !== item.docId) duplicatesToDelete.push(prev.docId);
+            userMap.set(uLower, { ...prev, ...item, username: uLower });
+          } else {
+            if (item.docId && item.docId !== prev.docId) duplicatesToDelete.push(item.docId);
+            if (!prev.email && item.email) prev.email = item.email;
+          }
+        }
+      }
+
+      // Bersihkan dokumen duplikat kosong dari database Firestore
+      if (duplicatesToDelete.length > 0) {
+        setTimeout(async () => {
+          for (const dId of duplicatesToDelete) {
+            try {
+              console.log(`🧹 [Firestore] Membersihkan doc duplikat user: ${dId}`);
+              await db.collection('users').doc(dId).delete();
+            } catch (err) {
+              console.warn('Gagal menghapus doc duplikat:', dId, err);
+            }
+          }
+        }, 100);
+      }
+
+      return Array.from(userMap.values());
+    }
+
     return results;
   }
 
@@ -1264,6 +1306,19 @@ window.DEFAULT_FIREBASE_CONFIG = {
         created_at: firebase.firestore.FieldValue.serverTimestamp(),
         updated_at: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
+    }
+
+    // Bersihkan dokumen duplikat lain yang memiliki username sama (misalnya doc lama tanpa prefix 'user_')
+    try {
+      const uSnap = await db.collection('users').where('username', '==', uClean).get();
+      for (const d of uSnap.docs) {
+        if (d.id !== `user_${uClean}`) {
+          console.log(`🧹 [Firestore] Menghapus doc duplikat lama: ${d.id}`);
+          await db.collection('users').doc(d.id).delete();
+        }
+      }
+    } catch (cleanErr) {
+      console.warn('Pembersihan duplikat username notice:', cleanErr);
     }
 
     // Attempt local server update as well

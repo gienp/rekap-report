@@ -11912,19 +11912,8 @@
         }).join('');
         const selectReset = document.getElementById('adminResetTargetUser');
         const selectDelete = document.getElementById('adminDeleteTargetUser');
-        const selectEmail = document.getElementById('adminEmailTargetUser');
         if (selectReset) selectReset.innerHTML = `<option value="">-- Pilih Akun Pengguna / PIC --</option>${opts}`;
         if (selectDelete) selectDelete.innerHTML = `<option value="">-- Pilih Akun Pengguna / PIC --</option>${opts}`;
-        if (selectEmail) {
-          const emailOpts = pics.map(p => {
-            const roleTag = (p.role === 'admin') ? '[ADMIN] ' : (p.role === 'sales' ? '[SALES] ' : '[PIC] ');
-            const emailStatus = p.email ? `(${p.email})` : '• [Belum Ada Email]';
-            return `<option value="${p.username}" data-name="${p.full_name || p.username}" data-email="${p.email || ''}">${roleTag}${p.full_name || p.username} (@${p.username}) ${emailStatus}</option>`;
-          }).join('');
-          const curVal = selectEmail.value;
-          selectEmail.innerHTML = `<option value="">-- Pilih Akun Teknisi PIC --</option>${emailOpts}`;
-          if (curVal) selectEmail.value = curVal;
-        }
       } catch (err) {
         console.warn('Gagal memuat daftar PIC dari Firebase:', err);
       }
@@ -12524,7 +12513,24 @@
           }
         }
 
-        const picUsers = users.filter(u => u.status !== 'pending' && u.status !== 'rejected');
+        // Deduplikasi akun PIC berdasarkan username unik
+        const userMap = new Map();
+        for (const u of (users || [])) {
+          if (!u || !u.username) continue;
+          const uname = String(u.username).trim().toLowerCase();
+          const existing = userMap.get(uname);
+          if (!existing) {
+            userMap.set(uname, { ...u, username: uname });
+          } else {
+            // Prioritaskan akun yang sudah memiliki email riil atau update terbaru
+            const keepNewEmail = !existing.email && !!u.email;
+            const keepNewer = u.updated_at && (!existing.updated_at || u.updated_at > existing.updated_at);
+            if (keepNewEmail || keepNewer) {
+              userMap.set(uname, { ...existing, ...u, username: uname });
+            }
+          }
+        }
+        const picUsers = Array.from(userMap.values()).filter(u => u.status !== 'pending' && u.status !== 'rejected');
         picUsers.sort((a, b) => (a.full_name || a.username).localeCompare(b.full_name || b.username));
 
         const withEmailCount = picUsers.filter(u => !!u.email).length;
@@ -12696,18 +12702,28 @@
         return;
       }
 
+      // Cek jika email yang diketik sama persis dengan email yang SUDAH terdaftar di akun ini saat ini
+      const curUserEmail = (targetSelect?.selectedOptions[0]?.getAttribute('data-email') || '').trim().toLowerCase();
+      if (curUserEmail && rawVal === curUserEmail) {
+        statusEl.className = 'text-[11px] mt-1.5 flex items-center gap-1.5 text-cyan-400 font-medium';
+        statusEl.innerHTML = `<i class="fa-solid fa-circle-info"></i> Email ini adalah email aktif akun saat ini (sudah terdaftar pada akun @${curUser}).`;
+        input.classList.remove('border-white/10', 'border-rose-500/80', 'border-amber-500/80', 'border-emerald-500/80');
+        input.classList.add('border-cyan-500/60');
+        return;
+      }
+
       const dup = checkEmailDuplicate(rawVal, curUser);
       if (dup) {
         statusEl.className = 'text-[11px] mt-1.5 flex items-center gap-1.5 text-rose-400 font-semibold';
         statusEl.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Email sudah digunakan oleh akun @${dup.username} (${dup.name}). Satu email hanya boleh untuk satu akun.`;
-        input.classList.remove('border-white/10');
+        input.classList.remove('border-white/10', 'border-amber-500/80', 'border-emerald-500/80', 'border-cyan-500/60');
         input.classList.add('border-rose-500/80');
         return;
       }
 
       statusEl.className = 'text-[11px] mt-1.5 flex items-center gap-1.5 text-emerald-400 font-medium';
-      statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Format email valid &amp; belum digunakan akun lain (aman disimpan)';
-      input.classList.remove('border-white/10');
+      statusEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Format email valid &amp; tersedia (siap disimpan sebagai email baru)';
+      input.classList.remove('border-white/10', 'border-rose-500/80', 'border-amber-500/80', 'border-cyan-500/60');
       input.classList.add('border-emerald-500/80');
     }
 
