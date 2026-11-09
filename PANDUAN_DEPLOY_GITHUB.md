@@ -2,7 +2,7 @@
 
 Panduan ini berisi langkah-langkah untuk melakukan **push source code ke GitHub** dan **mengaktifkan GitHub Pages** agar web portal dapat diakses secara online melalui internet di alamat:
 
-🌐 **`https://gie332.github.io/rekap-report/`**
+🌐 **`https://gienp.github.io/rekap-report/`**
 
 ---
 
@@ -34,7 +34,7 @@ git push origin main
 ```
 
 ### 💡 Jika Muncul Prompt Login GitHub:
-- **Pilihan 1 (Browser Login)**: Jendela browser akan terbuka otomatis dari Git Credential Manager. Klik **"Sign in with your browser"** lalu konfirmasi otorisasi akun GitHub **`gie332`**.
+- **Pilihan 1 (Browser Login)**: Jendela browser akan terbuka otomatis dari Git Credential Manager. Klik **"Sign in with your browser"** lalu konfirmasi otorisasi akun GitHub **`gienp`**.
 - **Pilihan 2 (Personal Access Token / PAT)**: Jika diminta password/token di terminal:
   1. Buka browser: [https://github.com/settings/tokens](https://github.com/settings/tokens)
   2. Klik **Generate new token (classic)**.
@@ -42,7 +42,7 @@ git push origin main
   4. Klik **Generate token**, lalu copy token tersebut (contoh: `ghp_xxxx...`).
   5. Jalankan perintah push dengan token:
      ```powershell
-     git push https://<TOKEN_ANDA>@github.com/gie332/rekap-report.git main
+     git push https://<TOKEN_ANDA>@github.com/gienp/rekap-report.git main
      ```
 
 ---
@@ -52,12 +52,12 @@ git push origin main
 Setelah proses `git push` selesai:
 
 1. Buka halaman pengaturan repositori di browser:
-   👉 **[https://github.com/gie332/rekap-report/settings/pages](https://github.com/gie332/rekap-report/settings/pages)**
+   👉 **[https://github.com/gienp/rekap-report/settings/pages](https://github.com/gienp/rekap-report/settings/pages)**
 2. Pada bagian **"Build and deployment"**:
    - **Source**: Pilih **`GitHub Actions`** (Rekomendasi, karena file workflow `.github/workflows/deploy-pages.yml` sudah kami sediakan).
    - *(Atau jika ingin tanpa Actions, pilih `Deploy from a branch` -> pilih Branch: `main` -> Folder: `/ (root)` -> klik Save).*
 3. Tunggu proses deployment sekitar 1 - 2 menit. Anda dapat memantau prosesnya di tab **Actions**:
-   👉 **[https://github.com/gie332/rekap-report/actions](https://github.com/gie332/rekap-report/actions)**
+   👉 **[https://github.com/gienp/rekap-report/actions](https://github.com/gienp/rekap-report/actions)**
 
 ---
 
@@ -65,7 +65,7 @@ Setelah proses `git push` selesai:
 
 Setelah workflow selesai bertanda centang hijau (✔), web portal Anda sudah live dan siap digunakan di:
 
-👉 **[https://gie332.github.io/rekap-report/](https://gie332.github.io/rekap-report/)**
+👉 **[https://gienp.github.io/rekap-report/](https://gienp.github.io/rekap-report/)**
 
 Portal ini sudah terhubung langsung ke:
 - **Cloud Firestore** & **Supabase PostgreSQL** untuk sinkronisasi realtime dua arah.
