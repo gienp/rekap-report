@@ -339,7 +339,7 @@ window.DEFAULT_FIREBASE_CONFIG = {
 
       const defaultUsers = [
         { username: 'admin', email: 'admin@telecom.ops', password_hash: '921443c5e72aac9f10321d52f095edd5ed04ab8deeca8cd0eb425ad46c135c14', full_name: 'Administrator (Manajemen)', role: 'admin', avatar_icon: 'fa-shield-halved', badge_color: 'cyan', pic_code: '' },
-        { username: 'harlan', email: 'harlan@telecom.ops', password_hash: await hashPwClient('pic123'), full_name: 'Harlan', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'emerald', pic_code: 'Harlan' },
+        { username: 'harlan', email: '', password_hash: await hashPwClient('pic123'), full_name: 'Harlan', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'emerald', pic_code: 'Harlan' },
         { username: 'budi', email: 'budi@telecom.ops', password_hash: await hashPwClient('pic123'), full_name: 'Budi Rodiyah', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'cyan', pic_code: 'Budi' },
         { username: 'edi', email: 'edi@telecom.ops', password_hash: await hashPwClient('pic123'), full_name: 'Edi Swargaloka', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'amber', pic_code: 'Edi' },
         { username: 'abusopian', email: 'abusopian@telecom.ops', password_hash: await hashPwClient('pic123'), full_name: 'M. Abusopian', role: 'lapangan', avatar_icon: 'fa-helmet-safety', badge_color: 'indigo', pic_code: 'Abusopian' },
@@ -527,7 +527,7 @@ window.DEFAULT_FIREBASE_CONFIG = {
         if (passwordMatches) {
           uData = {
             username: resolvedUser,
-            email: `${resolvedUser}@telecom.ops`,
+            email: '',
             full_name: defAcc.full_name,
             role: defAcc.role,
             avatar_icon: defAcc.avatar_icon,
@@ -588,7 +588,7 @@ window.DEFAULT_FIREBASE_CONFIG = {
     return {
       id: docId || `user_${uData.username}`,
       username: uData.username,
-      email: uData.email || `${uData.username}@telecom.ops`,
+      email: uData.email || '',
       full_name: uData.full_name,
       role: uData.role,
       avatar_icon: uData.avatar_icon || (uData.role === 'admin' ? 'fa-shield-halved' : 'fa-helmet-safety'),

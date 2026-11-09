@@ -153,7 +153,7 @@
         const cust = String(r.pelanggan || '').toLowerCase();
         const idStr = String(r.id || '');
         return pa.includes('cross-sync') || cust.includes('cross sync') || cust.includes('uji lintas') ||
-               cust.includes('persistensi cloud') || cust === 'abc' || pa === '0123456789' || idStr.includes('1792462122');
+          cust.includes('persistensi cloud') || cust === 'abc' || pa === '0123456789' || idStr.includes('1792462122');
       };
 
       const validCreatedList = createdList.filter(r => !isTestRecord(r));
@@ -187,95 +187,68 @@
   // Ensures any record added, edited, or deleted on any device (phone/PC)
   // is immediately synchronized in real time across all users' devices.
   // =========================================================================
-  let _cloudSyncActive = false;
+  // =========================================================================
+  // SUPABASE CLOUD POSTGRESQL DATA SYNCHRONIZATION ENGINE
+  // Connects directly to Supabase REST API (Singapore / lujqgwpldwkjxmlxnfij)
+  // Loads live records for Collo, SITAC, Gangguan, and Network Links
+  // =========================================================================
+  let _supabaseSyncDone = false;
 
-  function initRealtimeCloudSync() {
-    if (_cloudSyncActive) return;
-    if (!window.FirebaseManager || !window.FirebaseManager.isConfigured()) return;
+  async function initSupabaseDataSync() {
+    if (_supabaseSyncDone) return;
+    if (!window.SupabaseManager || !window.SupabaseManager.isConfigured()) return;
 
     try {
-      const db = window.FirebaseManager.getDb();
-      if (!db) return;
-      _cloudSyncActive = true;
-      console.log('⚡ [CloudSync] Mengaktifkan sinkronisasi realtime dua arah dengan Cloud Firestore...');
+      console.log('[Supabase Sync] Memuat data terbaru langsung dari Supabase Cloud PostgreSQL...');
+      const dataset = await window.SupabaseManager.fetchFullDataset();
+      if (!dataset) return;
 
-      // Ultra-efficient quota-friendly real-time sync using user_mutations only (limit 20)
-      // Eliminates the expensive full-collection reads (3,000+ reads per reload) that burned the daily Cloud quota
-      db.collection('user_mutations')
-        .orderBy('timestamp', 'desc')
-        .limit(20)
-        .onSnapshot(snapshot => {
-          if (!snapshot) return;
-          const dataRoot = window.SITAC_COLLO_DATA || window.PORTAL_DATASET;
-          if (!dataRoot) return;
+      let updated = false;
+      if (!window.SITAC_COLLO_DATA) window.SITAC_COLLO_DATA = {};
 
-          let mutChanges = false;
-          let newRecordsAdded = 0;
+      if (Array.isArray(dataset.collo_records) && dataset.collo_records.length > 0) {
+        window.SITAC_COLLO_DATA.collo_records = dataset.collo_records;
+        updated = true;
+      }
+      if (Array.isArray(dataset.sitac_records) && dataset.sitac_records.length > 0) {
+        window.SITAC_COLLO_DATA.sitac_records = dataset.sitac_records;
+        updated = true;
+      }
+      if (Array.isArray(dataset.gangguan_records) && dataset.gangguan_records.length > 0) {
+        window.SITAC_COLLO_DATA.gangguan_records = dataset.gangguan_records;
+        updated = true;
+      }
+      if (Array.isArray(dataset.network_links) && dataset.network_links.length > 0) {
+        window.SITAC_COLLO_DATA.network_links = dataset.network_links;
+        updated = true;
+      }
 
-          snapshot.docChanges().forEach(change => {
-            if (change.type !== 'added' && change.type !== 'modified') return;
-            const mut = change.doc.data();
-            const colKey = mut.type === 'sitac' ? 'sitac_records' : (mut.type === 'collo' ? 'collo_records' : 'gangguan_records');
-            const targetList = dataRoot[colKey];
-            if (!Array.isArray(targetList)) return;
+      if (updated) {
+        _supabaseSyncDone = true;
+        window.PORTAL_DATASET = window.SITAC_COLLO_DATA;
+        applyLocalMutationsToDataset();
+        console.log('[Supabase Sync] Data Supabase PostgreSQL berhasil dimuat dan disinkronkan!');
 
-            const recId = String(mut.record_id || (mut.data && mut.data.id) || '');
-
-            if ((mut.action === 'create' || mut.action === 'insert') && (mut.data || mut.record)) {
-              const itemData = mut.data || mut.record;
-              const exists = targetList.some(r => {
-                if (r._firestoreDocId && r._firestoreDocId === change.doc.id) return true;
-                if (mut.type === 'sitac' && r.no_pa && itemData.no_pa) {
-                  return String(r.no_pa).trim().toLowerCase() === String(itemData.no_pa).trim().toLowerCase();
-                }
-                if (mut.type === 'collo' && r.no_so && itemData.no_so) {
-                  return String(r.no_so).trim().toLowerCase() === String(itemData.no_so).trim().toLowerCase();
-                }
-                if (mut.type === 'gangguan' && r.no_tiket && itemData.no_tiket) {
-                  return String(r.no_tiket).trim().toLowerCase() === String(itemData.no_tiket).trim().toLowerCase();
-                }
-                return String(r.id) === String(itemData.id || recId);
-              });
-              if (!exists) {
-                targetList.unshift({ ...itemData, _firestoreDocId: change.doc.id });
-                mutChanges = true;
-                newRecordsAdded++;
-              }
-            } else if (mut.action === 'update' && (mut.updates || mut.data)) {
-              const updates = mut.updates || mut.data;
-              const target = targetList.find(r => 
-                String(r.id) === recId || 
-                (r.no_pa && updates.no_pa && String(r.no_pa).trim().toLowerCase() === String(updates.no_pa).trim().toLowerCase()) || 
-                (r.no_so && updates.no_so && String(r.no_so).trim().toLowerCase() === String(updates.no_so).trim().toLowerCase()) ||
-                (r.no_tiket && updates.no_tiket && String(r.no_tiket).trim().toLowerCase() === String(updates.no_tiket).trim().toLowerCase())
-              );
-              if (target) {
-                Object.assign(target, updates);
-                mutChanges = true;
-              }
-            } else if (mut.action === 'delete') {
-              const idx = targetList.findIndex(r => String(r.id) === recId);
-              if (idx >= 0) {
-                targetList.splice(idx, 1);
-                mutChanges = true;
-              }
-            }
-          });
-
-          if (mutChanges) {
-            invalidateStaticDataCache();
-            triggerViewRefresh('all');
-            if (newRecordsAdded > 0 && typeof showToast === 'function') {
-              showToast(`${newRecordsAdded} data baru diterima dari Cloud!`, 'info');
-            }
-          }
-        }, err => {
-          console.warn('[CloudSync] Mutations listener standby (kuota Cloud tercapai / offline):', err.message || err);
-        });
-
-    } catch (e) {
-      console.warn('[CloudSync] Error in initRealtimeCloudSync:', e);
+        // Refresh UI
+        updateGlobalNavBadges();
+        if (typeof triggerViewRefresh === 'function') {
+          triggerViewRefresh('all');
+        } else {
+          if (state.activeView === 'view-executive') loadExecutiveSummary();
+          else if (state.activeView === 'view-collo-list') loadColloData();
+          else if (state.activeView === 'view-collo-alerts') loadAlertsData();
+          else if (state.activeView === 'view-collo-rev-sharing') loadRevSharingData();
+          else if (state.activeView === 'view-sitac-pa') loadSitacData();
+          else if (state.activeView === 'view-gangguan') loadGangguanData();
+        }
+      }
+    } catch (err) {
+      console.warn('[Supabase Sync] Gagal sinkronisasi dari Supabase:', err);
     }
+  }
+
+  function initRealtimeCloudSync() {
+    initSupabaseDataSync();
   }
 
   function triggerViewRefresh(type) {
@@ -298,7 +271,7 @@
       if (typeof updateMapMarkers === 'function') {
         updateMapMarkers();
       }
-    } catch(err) {
+    } catch (err) {
       console.warn('[CloudSync] triggerViewRefresh notice:', err);
     }
   }
@@ -534,8 +507,8 @@
           target.is_berbiaya = (bAwal > 0 || bFinal > 0) ? 1 : 0;
         }
         persistUpdateRecord('sitac', sitacId, body);
-        if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
-          window.FirebaseManager.updateRecord('sitac_records', String(sitacId), body).catch(() => {});
+        if (window.SupabaseManager && typeof window.SupabaseManager.updateRecord === 'function') {
+          window.SupabaseManager.updateRecord('sitac_records', sitacId, body).catch(e => console.warn('[Supabase update notice]:', e));
         }
         return { success: true, message: `SITAC #${sitacId} berhasil diperbarui (Tersimpan Permanen)` };
       }
@@ -549,8 +522,8 @@
       if (target) {
         Object.assign(target, body);
         persistUpdateRecord('collo', colloId, body);
-        if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
-          window.FirebaseManager.updateRecord('collo_records', String(colloId), body).catch(() => {});
+        if (window.SupabaseManager && typeof window.SupabaseManager.updateRecord === 'function') {
+          window.SupabaseManager.updateRecord('collo_records', colloId, body).catch(e => console.warn('[Supabase update notice]:', e));
         }
         return { success: true, message: `Data Link #${colloId} berhasil diperbarui (Tersimpan Permanen)` };
       }
@@ -564,8 +537,8 @@
       if (target) {
         Object.assign(target, body);
         persistUpdateRecord('gangguan', gangguanId, body);
-        if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
-          window.FirebaseManager.updateRecord('gangguan_records', String(gangguanId), body).catch(() => {});
+        if (window.SupabaseManager && typeof window.SupabaseManager.updateRecord === 'function') {
+          window.SupabaseManager.updateRecord('gangguan_records', gangguanId, body).catch(e => console.warn('[Supabase update notice]:', e));
         }
         return { success: true, message: `Tiket #${gangguanId} berhasil diperbarui (Tersimpan Permanen)` };
       }
@@ -579,8 +552,8 @@
       const idx = sitacList.findIndex(s => s.id === sitacId);
       if (idx >= 0) sitacList.splice(idx, 1);
       persistDeleteRecord('sitac', sitacId);
-      if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
-        window.FirebaseManager.deleteRecord('sitac_records', String(sitacId)).catch(() => {});
+      if (window.SupabaseManager && typeof window.SupabaseManager.deleteRecord === 'function') {
+        window.SupabaseManager.deleteRecord('sitac_records', sitacId).catch(e => console.warn('[Supabase delete notice]:', e));
       }
       return { success: true, message: `Disposisi SITAC #${sitacId} berhasil dihapus!` };
     }
@@ -591,8 +564,8 @@
       const idx = colloList.findIndex(c => c.id === colloId);
       if (idx >= 0) colloList.splice(idx, 1);
       persistDeleteRecord('collo', colloId);
-      if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
-        window.FirebaseManager.deleteRecord('collo_records', String(colloId)).catch(() => {});
+      if (window.SupabaseManager && typeof window.SupabaseManager.deleteRecord === 'function') {
+        window.SupabaseManager.deleteRecord('collo_records', colloId).catch(e => console.warn('[Supabase delete notice]:', e));
       }
       return { success: true, message: `Sirkuit Link #${colloId} berhasil dihapus!` };
     }
@@ -603,8 +576,8 @@
       const idx = gangguanList.findIndex(g => g.id === gangguanId);
       if (idx >= 0) gangguanList.splice(idx, 1);
       persistDeleteRecord('gangguan', gangguanId);
-      if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
-        window.FirebaseManager.deleteRecord('gangguan_records', String(gangguanId)).catch(() => {});
+      if (window.SupabaseManager && typeof window.SupabaseManager.deleteRecord === 'function') {
+        window.SupabaseManager.deleteRecord('gangguan_records', gangguanId).catch(e => console.warn('[Supabase delete notice]:', e));
       }
       return { success: true, message: `Tiket gangguan #${gangguanId} berhasil dihapus!` };
     }
@@ -642,8 +615,8 @@
       };
       sitacList.unshift(newRec);
       persistNewRecord('sitac', newRec);
-      if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
-        window.FirebaseManager.addRecord('sitac_records', newRec).catch(() => {});
+      if (window.SupabaseManager && typeof window.SupabaseManager.addRecord === 'function') {
+        window.SupabaseManager.addRecord('sitac_records', newRec).catch(e => console.warn('[Supabase add notice]:', e));
       }
       return { success: true, message: 'Disposisi SITAC baru berhasil ditambahkan (Tersimpan Permanen)', id: newRec.id, record: newRec };
     }
@@ -656,7 +629,7 @@
       const margin_pct = rev_sewa > 0 ? Number(((margin_rp / rev_sewa) * 100).toFixed(1)) : 0;
       const pct = Number(body.rev_sharing_pct || 0);
       const biaya_share = (pct > 0 && rev_sewa > 0) ? Math.round(rev_sewa * (pct / 100)) : 0;
-      
+
       let sisa_hari = 999;
       let alert_cat = "SAFE";
       let alert_label = "Aman";
@@ -675,7 +648,7 @@
           } else {
             alert_cat = "SAFE"; alert_label = `Sisa ${sisa_hari} Hari`; alert_color = "green";
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       const newRec = {
@@ -714,8 +687,8 @@
       };
       colloList.unshift(newRec);
       persistNewRecord('collo', newRec);
-      if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
-        window.FirebaseManager.addRecord('collo_records', newRec).catch(() => {});
+      if (window.SupabaseManager && typeof window.SupabaseManager.addRecord === 'function') {
+        window.SupabaseManager.addRecord('collo_records', newRec).catch(e => console.warn('[Supabase add notice]:', e));
       }
       return { success: true, message: 'Link sewa baru berhasil ditambahkan (Tersimpan Permanen)', id: newRec.id, record: newRec };
     }
@@ -739,8 +712,8 @@
       };
       gangguanList.unshift(newRec);
       persistNewRecord('gangguan', newRec);
-      if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
-        window.FirebaseManager.addRecord('gangguan_records', newRec).catch(() => {});
+      if (window.SupabaseManager && typeof window.SupabaseManager.addRecord === 'function') {
+        window.SupabaseManager.addRecord('gangguan_records', newRec).catch(e => console.warn('[Supabase add notice]:', e));
       }
       return { success: true, message: 'Tiket gangguan darurat berhasil ditambahkan (Tersimpan Permanen)', id: newRec.id, record: newRec };
     }
@@ -1818,7 +1791,7 @@
       const saved = localStorage.getItem('telecom_portal_active_view');
       const fromSaved = resolveViewIdFromHash(saved);
       if (fromSaved) return fromSaved;
-    } catch (e) {}
+    } catch (e) { }
     return 'view-executive';
   }
 
@@ -1940,7 +1913,7 @@
 
   const destroyChart = (key) => {
     if (charts[key]) {
-      try { charts[key].destroy(); } catch (e) {}
+      try { charts[key].destroy(); } catch (e) { }
       charts[key] = null;
     }
   };
@@ -1948,16 +1921,16 @@
   // ── CORPORATE ENTERPRISE CHART THEME (PLN ICON PLUS) ────────────────────────
   // Professional corporate palette aligned with enterprise operations
   const CHART_PALETTE = {
-    cyan:    '#0284C7', // PLN Corporate Blue
-    purple:  '#6366F1', // Indigo / Enterprise Accent
-    amber:   '#F59E0B', // Corporate Amber / Gold
-    rose:    '#EF4444', // Clean Enterprise Red
+    cyan: '#0284C7', // PLN Corporate Blue
+    purple: '#6366F1', // Indigo / Enterprise Accent
+    amber: '#F59E0B', // Corporate Amber / Gold
+    rose: '#EF4444', // Clean Enterprise Red
     emerald: '#10B981', // Clean Emerald Green
-    orange:  '#F97316', // Corporate Orange
-    green:   '#059669', // Deep Forest Green
-    slate:   '#64748B', // Neutral Slate Gray
-    pink:    '#EC4899', // Professional Rose
-    sky:     '#38BDF8', // Sky Blue Accent
+    orange: '#F97316', // Corporate Orange
+    green: '#059669', // Deep Forest Green
+    slate: '#64748B', // Neutral Slate Gray
+    pink: '#EC4899', // Professional Rose
+    sky: '#38BDF8', // Sky Blue Accent
   };
   const PALETTE_ORDER = ['cyan', 'purple', 'amber', 'rose', 'emerald', 'orange', 'green', 'slate', 'pink', 'sky'];
   const getPaletteColors = (n) => PALETTE_ORDER.slice(0, n).map(k => CHART_PALETTE[k]);
@@ -1966,10 +1939,10 @@
   const makeGradient = (ctx, colorHex, alphaTop = 0.28, alphaBot = 0.02) => {
     const h = ctx.canvas.offsetHeight || 220;
     const g = ctx.createLinearGradient(0, 0, 0, h);
-    const hex = colorHex.replace('#','');
-    const r = parseInt(hex.substr(0,2),16);
-    const gr = parseInt(hex.substr(2,2),16);
-    const b = parseInt(hex.substr(4,2),16);
+    const hex = colorHex.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16);
+    const gr = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
     g.addColorStop(0, `rgba(${r},${gr},${b},${alphaTop})`);
     g.addColorStop(1, `rgba(${r},${gr},${b},${alphaBot})`);
     return g;
@@ -1977,29 +1950,29 @@
 
   const getChartTheme = () => {
     const isDark = state.theme === 'dark';
-    const textColor      = isDark ? '#94a3b8' : '#475569';
-    const titleColor     = isDark ? '#f8fafc' : '#0f172a';
-    const gridColor      = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)';
-    const tooltipBg      = isDark ? 'rgba(15, 23, 42, 0.96)' : 'rgba(255, 255, 255, 0.98)';
-    const tooltipBorder  = isDark ? 'rgba(2, 132, 199, 0.35)' : 'rgba(2, 132, 199, 0.25)';
-    const tooltipText    = isDark ? '#f8fafc' : '#0f172a';
-    const donutBorder    = isDark ? 'transparent' : '#ffffff';
+    const textColor = isDark ? '#94a3b8' : '#475569';
+    const titleColor = isDark ? '#f8fafc' : '#0f172a';
+    const gridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)';
+    const tooltipBg = isDark ? 'rgba(15, 23, 42, 0.96)' : 'rgba(255, 255, 255, 0.98)';
+    const tooltipBorder = isDark ? 'rgba(2, 132, 199, 0.35)' : 'rgba(2, 132, 199, 0.25)';
+    const tooltipText = isDark ? '#f8fafc' : '#0f172a';
+    const donutBorder = isDark ? 'transparent' : '#ffffff';
     const donutBorderWidth = isDark ? 0 : 2;
 
     // Global Chart.js defaults — set once per theme switch
-    Chart.defaults.font.family = "'DM Sans', sans-serif";
-    Chart.defaults.font.size   = 11;
-    Chart.defaults.color       = textColor;
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    Chart.defaults.font.size = 11;
+    Chart.defaults.color = textColor;
     Chart.defaults.borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
 
     // Scale border & grid defaults — eliminates harsh black axis lines in light mode
     if (Chart.defaults.scale) {
       if (Chart.defaults.scale.border) {
         Chart.defaults.scale.border.display = false;
-        Chart.defaults.scale.border.color   = 'transparent';
+        Chart.defaults.scale.border.color = 'transparent';
       }
       if (Chart.defaults.scale.grid) {
-        Chart.defaults.scale.grid.color      = gridColor;
+        Chart.defaults.scale.grid.color = gridColor;
         Chart.defaults.scale.grid.drawBorder = false;
       }
     }
@@ -2010,23 +1983,23 @@
       Chart.defaults.elements.arc.borderWidth = donutBorderWidth;
     }
 
-    Chart.defaults.plugins.tooltip.backgroundColor   = tooltipBg;
-    Chart.defaults.plugins.tooltip.borderColor       = tooltipBorder;
-    Chart.defaults.plugins.tooltip.borderWidth       = 1;
-    Chart.defaults.plugins.tooltip.titleColor        = titleColor;
-    Chart.defaults.plugins.tooltip.bodyColor         = tooltipText;
-    Chart.defaults.plugins.tooltip.padding           = 10;
-    Chart.defaults.plugins.tooltip.cornerRadius      = 10;
-    Chart.defaults.plugins.tooltip.titleFont         = { family: "'Outfit', sans-serif", weight: '700', size: 12 };
-    Chart.defaults.plugins.tooltip.bodyFont          = { family: "'Inter', sans-serif", size: 11 };
-    Chart.defaults.plugins.tooltip.displayColors     = true;
-    Chart.defaults.plugins.tooltip.boxPadding        = 4;
+    Chart.defaults.plugins.tooltip.backgroundColor = tooltipBg;
+    Chart.defaults.plugins.tooltip.borderColor = tooltipBorder;
+    Chart.defaults.plugins.tooltip.borderWidth = 1;
+    Chart.defaults.plugins.tooltip.titleColor = titleColor;
+    Chart.defaults.plugins.tooltip.bodyColor = tooltipText;
+    Chart.defaults.plugins.tooltip.padding = 10;
+    Chart.defaults.plugins.tooltip.cornerRadius = 10;
+    Chart.defaults.plugins.tooltip.titleFont = { family: "'Inter', sans-serif", weight: '700', size: 12 };
+    Chart.defaults.plugins.tooltip.bodyFont = { family: "'Inter', sans-serif", size: 11 };
+    Chart.defaults.plugins.tooltip.displayColors = true;
+    Chart.defaults.plugins.tooltip.boxPadding = 4;
     Chart.defaults.plugins.legend.labels.usePointStyle = true;
-    Chart.defaults.plugins.legend.labels.pointStyle    = 'circle';
-    Chart.defaults.plugins.legend.labels.padding       = 16;
-    Chart.defaults.plugins.legend.labels.font          = { family: "'Inter', sans-serif", size: 11 };
-    Chart.defaults.animation.duration                 = 600;
-    Chart.defaults.animation.easing                   = 'easeInOutQuart';
+    Chart.defaults.plugins.legend.labels.pointStyle = 'circle';
+    Chart.defaults.plugins.legend.labels.padding = 16;
+    Chart.defaults.plugins.legend.labels.font = { family: "'Inter', sans-serif", size: 11 };
+    Chart.defaults.animation.duration = 600;
+    Chart.defaults.animation.easing = 'easeInOutQuart';
 
     return {
       isDark, textColor, titleColor, gridColor,
@@ -2249,9 +2222,9 @@
 
     // 3. DISTINCT DISTRICTS & LOCALITIES
     const tngAreas = [
-      'TANGERANG', 'TANGGERANG', 'CIPUTAT', 'PAMULANG', 'SERPONG', 'BSD', 'KARAWACI', 
-      'CIKUPA', 'BALARAJA', 'LEGOK', 'TIGARAKSA', 'CURUG', 'KELAPA DUA', 
-      'CILEDUG', 'KARANG TENGAH', 'PONDOK AREN', 'PUSPITEK', 'PUSPIPTEK', 
+      'TANGERANG', 'TANGGERANG', 'CIPUTAT', 'PAMULANG', 'SERPONG', 'BSD', 'KARAWACI',
+      'CIKUPA', 'BALARAJA', 'LEGOK', 'TIGARAKSA', 'CURUG', 'KELAPA DUA',
+      'CILEDUG', 'KARANG TENGAH', 'PONDOK AREN', 'PUSPITEK', 'PUSPIPTEK',
       'ALAM SUTERA', 'GADING SERPONG', 'PAGEDANGAN', 'FORESTA', 'DIKLAT PEMDA',
       'CISAUK', 'CISOKA', 'PANONGAN', 'PASAR KEMIS', 'PS KEMIS', 'PS. KEMIS',
       'RAJEG', 'SEPATAN', 'TELUKNAGA', 'PAKUHAJI', 'MAUK', 'KRONJO', 'SOLEAR', 'SUKAMULYA', 'SINDANG JAYA'
@@ -2265,19 +2238,19 @@
     }
 
     const jkbAreas = [
-      'KALIDERES', 'CENGKARENG', 'GROGOL', 'KEBON JERUK', 'KB. JERUK', 'PALMERAH', 
-      'KEMBANGAN', 'TAMBORA', 'TAMAN SARI', 'KAPUK', 'PEGADUNGAN', 'MERUYA', 'JOGLO', 
-      'KEDOYA', 'TOMANG', 'SLIPI', 'JEMBATAN BESI', 'DAAN MOGOT', 'GLODOK', 'BINUS', 
+      'KALIDERES', 'CENGKARENG', 'GROGOL', 'KEBON JERUK', 'KB. JERUK', 'PALMERAH',
+      'KEMBANGAN', 'TAMBORA', 'TAMAN SARI', 'KAPUK', 'PEGADUNGAN', 'MERUYA', 'JOGLO',
+      'KEDOYA', 'TOMANG', 'SLIPI', 'JEMBATAN BESI', 'DAAN MOGOT', 'GLODOK', 'BINUS',
       'RAWA BUAYA', 'SEMANAN', 'JEMB. LIMA', 'JEMBATAN LIMA', 'ANGKE', 'ROXY', 'TAMAN PALEM', 'PURI INDAH', 'GREEN GARDEN'
     ];
     if (has(jkbAreas)) return 'JAKBAR';
 
     const jpsAreas = [
-      'SUDIRMAN', 'THAMRIN', 'KUNINGAN', 'TEBET', 'SETIABUDI', 'MAMPANG', 'PANCORAN', 
-      'PASAR MINGGU', 'PESANGGRAHAN', 'JAGAKARSA', 'BLOK M', 
-      'GATOT SUBROTO', 'CENTENNIAL TOWER', 'INTILAND TOWER', 'GRAND INDONESIA', 'KALIBATA', 
-      'MEDAN MERDEKA', 'PERMATA HIJAU', 'PETUKANGAN', 'KARET', 'RASUNA SAID', 'SENAYAN', 
-      'SCBD', 'BINTARO SEKTOR', 'PEJATEN', 'MANGGARAI', 'CASABLANCA', 'KEMANG', 'LEBAK BULUS', 
+      'SUDIRMAN', 'THAMRIN', 'KUNINGAN', 'TEBET', 'SETIABUDI', 'MAMPANG', 'PANCORAN',
+      'PASAR MINGGU', 'PESANGGRAHAN', 'JAGAKARSA', 'BLOK M',
+      'GATOT SUBROTO', 'CENTENNIAL TOWER', 'INTILAND TOWER', 'GRAND INDONESIA', 'KALIBATA',
+      'MEDAN MERDEKA', 'PERMATA HIJAU', 'PETUKANGAN', 'KARET', 'RASUNA SAID', 'SENAYAN',
+      'SCBD', 'BINTARO SEKTOR', 'PEJATEN', 'MANGGARAI', 'CASABLANCA', 'KEMANG', 'LEBAK BULUS',
       'CIPETE', 'TANJUNG BARAT', 'JCC', 'M.T HARYONO', 'CAWANG', 'JAMSOSTEK', 'CEMPAKA MAS',
       'GAMBIR', 'MENTENG', 'TANAH ABANG', 'SENEN', 'CEMPAKA PUTIH', 'JOHAR BARU', 'KEMAYORAN', 'SAWAH BESAR',
       'LAPANGAN BANTENG', 'PASAR BARU', 'PS. BARU', 'PS BARU', 'JUANDA', 'VETERAN', 'MONAS', 'SALEMBA', 'RAWASARI', 'PEJOMPONGAN', 'BENHIL', 'BENDUNGAN HILIR',
@@ -2287,19 +2260,19 @@
     if (has(jpsAreas)) return 'JAKPUSEL';
 
     const jutAreas = [
-      'PRIOK', 'TANJUNG PRIOK', 'KOJA', 'KELAPA GADING', 'PADEMANGAN', 'PENJARINGAN', 
-      'SUNTER', 'ANCOL', 'PLUIT', 'MARUNDA', 'MATRAMAN', 'DUREN SAWIT', 'KRAMAT JATI', 'MAKASAR', 
-      'PASAR REBO', 'CIRACAS', 'CIPAYUNG', 'CAKUNG', 'RAWAMANGUN', 'RAMBUTAN', 'CIBUBUR', 'TMII', 
-      'RAWA MALANG', 'CILILITAN', 'KAMPUNG RAMBUTAN', 'PONDOK KOPI', 'KLENDER', 'PONDOK KELAPA', 
+      'PRIOK', 'TANJUNG PRIOK', 'KOJA', 'KELAPA GADING', 'PADEMANGAN', 'PENJARINGAN',
+      'SUNTER', 'ANCOL', 'PLUIT', 'MARUNDA', 'MATRAMAN', 'DUREN SAWIT', 'KRAMAT JATI', 'MAKASAR',
+      'PASAR REBO', 'CIRACAS', 'CIPAYUNG', 'CAKUNG', 'RAWAMANGUN', 'RAMBUTAN', 'CIBUBUR', 'TMII',
+      'RAWA MALANG', 'CILILITAN', 'KAMPUNG RAMBUTAN', 'PONDOK KOPI', 'KLENDER', 'PONDOK KELAPA',
       'HALIM', 'PULO GEBANG', 'UJUNG MENTENG', 'SEMPER', 'PEGANGSAAN', 'PINANG RANTI'
     ];
     if (has(jutAreas)) return 'JAKUTIM';
 
     const bdbAreas = [
-      'CIAWI', 'BOJONG GEDE', 'GUNUNG PUTRI', 'CILEUNGSI', 'SAWANGAN', 'CIMANGGIS', 
-      'SUKMAJAYA', 'BEJI', 'LIMO', 'TAPOS', 'CILODONG', 'TAMBUN', 'CIBITUNG', 'HARAPAN INDAH', 
-      'JATIASIH', 'HARAPAN JAYA', 'JATIMAKMUR', 'JATIMULYA', 'GANDUL', 'PLN GANDUL', 
-      'MUSTIKA JAYA', 'MM2100', 'GIIC', 'DELTAMAS', 'JONGGOL', 'BOJONG SARI', 'BABAKAN MADANG', 
+      'CIAWI', 'BOJONG GEDE', 'GUNUNG PUTRI', 'CILEUNGSI', 'SAWANGAN', 'CIMANGGIS',
+      'SUKMAJAYA', 'BEJI', 'LIMO', 'TAPOS', 'CILODONG', 'TAMBUN', 'CIBITUNG', 'HARAPAN INDAH',
+      'JATIASIH', 'HARAPAN JAYA', 'JATIMAKMUR', 'JATIMULYA', 'GANDUL', 'PLN GANDUL',
+      'MUSTIKA JAYA', 'MM2100', 'GIIC', 'DELTAMAS', 'JONGGOL', 'BOJONG SARI', 'BABAKAN MADANG',
       'CITRA INDAH', 'SUMMARECON BEKASI', 'JABABEKA', 'EJIP', 'LIPPO CIKARANG', 'KARAWANG', 'RADAR AURI'
     ];
     if (has(bdbAreas)) return 'BODEBEK';
@@ -2386,7 +2359,7 @@
     if (isCustom) {
       html += `<option value="${escapeHtml(selNorm)}" selected>${escapeHtml(selNorm)} (Kustom)</option>`;
     }
-    html += `<option value="__CUSTOM__">➕ Kustomisasi (Ketik Nama Baru...)</option>`;
+    html += `<option value="__CUSTOM__">Kustomisasi (Ketik Nama Baru...)</option>`;
     return html;
   }
   window.getSitacPicOptions = getSitacPicOptions;
@@ -2599,9 +2572,9 @@
     const cleanPhone = rawNumber.startsWith('0') ? '62' + rawNumber.slice(1) : rawNumber;
     const greeting = 'Halo Admin Telecom Portal,';
     const body = `Saya ingin konfirmasi pendaftaran akun PIC baru:\n` +
-                 `• Nama Lengkap: ${fullName || '-'}\n` +
-                 `• Username: @${username || '-'}\n\n` +
-                 `Mohon bantuannya untuk persetujuan (approval) akun agar saya dapat segera masuk dan bertugas. Terima kasih!`;
+      `• Nama Lengkap: ${fullName || '-'}\n` +
+      `• Username: @${username || '-'}\n\n` +
+      `Mohon bantuannya untuk persetujuan (approval) akun agar saya dapat segera masuk dan bertugas. Terima kasih!`;
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(greeting + '\n\n' + body)}`;
   }
 
@@ -2645,8 +2618,8 @@
     }
 
     const remainingCount = totalTenants - 1;
-    const badgeText = remainingCount > 0 
-      ? `+${remainingCount} lainnya` 
+    const badgeText = remainingCount > 0
+      ? `+${remainingCount} lainnya`
       : `${rawItems.length}× link`;
 
     const popoverPayload = encodeURIComponent(JSON.stringify({
@@ -2704,7 +2677,7 @@
       .map(s => s.trim().replace(/^\d+[\.\)]\s*/, ''))
       .filter(Boolean);
     const primarySo = rawSo[0] || (primarySid ? '-' : '-');
-    
+
     if (rawSo.length <= 1) {
       return `
         ${sidHtml}
@@ -2911,6 +2884,7 @@
     initTableScrollNavigation();
     initWhatsAppModalListeners();
     initGlobalSearch();
+    initSupabaseDataSync();
   }
 
   // =========================================================================
@@ -2935,7 +2909,7 @@
       const data = await res.json();
       contractAlertData.counts = data.counts || { total: 0, critical: 0, warning: 0, expired: 0 };
       contractAlertData.items = data.items || [];
-      
+
       // STRICT: Notifikasi HANYA untuk user yang SUDAH LOGIN dan memiliki role 'admin'!
       // Pada laman login (belum login) atau user PIC lapangan, sembunyikan semua peringatan.
       const isAdmin = !!(state.currentUser && state.currentUser.role === 'admin');
@@ -3423,11 +3397,11 @@
       // Also trigger browser desktop notification if permitted (Admin only)
       if ('Notification' in window && Notification.permission === 'granted') {
         try {
-          new Notification('🔔 Peringatan Jatuh Tempo Kontrak (≤ 3 Bulan)', {
+          new Notification('Peringatan Jatuh Tempo Kontrak (≤ 3 Bulan)', {
             body: `Terdapat ${contractAlertData.counts.total} kontrak sirkuit yang belum diperbaharui hari ini (${todayStr}). Harap lakukan perpanjangan sewa!`,
             icon: '/favicon.ico'
           });
-        } catch (e) {}
+        } catch (e) { }
       }
     }
   }
@@ -3520,7 +3494,7 @@
     // Request notification permission if supported
     if ('Notification' in window && Notification.permission === 'default') {
       setTimeout(() => {
-        try { Notification.requestPermission(); } catch (e) {}
+        try { Notification.requestPermission(); } catch (e) { }
       }, 5000);
     }
   }
@@ -3563,10 +3537,10 @@
           { username: 'zulhadi', full_name: 'Zulhadi Syahril', badge_color: 'blue' }
         ];
       }
-      
+
       const container = document.getElementById('loginPicChips');
       if (!container) return;
-      
+
       let html = '';
       pics.forEach(p => {
         const shortName = p.full_name ? p.full_name.split(' ')[0] : p.username;
@@ -3654,7 +3628,7 @@
     document.getElementById('topbarUserProfile')?.classList.remove('hidden');
     document.getElementById('btnLogout')?.classList.remove('hidden');
     document.getElementById('btnOpenChangePassword')?.classList.remove('hidden');
-    
+
     // Update status email pemulihan akun di menu profil
     updateUserEmailBadges();
 
@@ -4024,13 +3998,17 @@
         }
       }
 
-      // 2. Jika server backend lokal tidak aktif, gunakan Firebase Cloud
+      // 2. Prioritas Cloud: Autentikasi langsung ke Supabase Cloud PostgreSQL
       if (!userObj) {
-        if (!window.FirebaseManager || !window.FirebaseManager.isConfigured()) {
-          throw new Error('Koneksi autentikasi belum aktif.');
+        if (window.SupabaseManager && typeof window.SupabaseManager.loginUser === 'function') {
+          userObj = await window.SupabaseManager.loginUser(usernameOrEmail, password);
+          token = `sb_auth_${userObj.role}_${Date.now()}`;
+        } else if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
+          userObj = await window.FirebaseManager.loginUser(usernameOrEmail, password);
+          token = `fb_auth_${userObj.role}_${Date.now()}`;
+        } else {
+          throw new Error('Koneksi autentikasi ke database Supabase belum aktif.');
         }
-        userObj = await window.FirebaseManager.loginUser(usernameOrEmail, password);
-        token = `fb_auth_${userObj.role}_${Date.now()}`;
       }
 
       state.currentUser = userObj;
@@ -4059,8 +4037,8 @@
     } catch (err) {
       if (errBox) {
         errBox.classList.remove('hidden');
-        const isPending = err.code === 'USER_PENDING_APPROVAL' || 
-                          (err.message && err.message.toLowerCase().includes('menunggu persetujuan'));
+        const isPending = err.code === 'USER_PENDING_APPROVAL' ||
+          (err.message && err.message.toLowerCase().includes('menunggu persetujuan'));
 
         if (isPending) {
           const targetUsername = err.pendingUser?.username || usernameOrEmail;
@@ -4118,7 +4096,7 @@
       if (window.location.hash) {
         history.replaceState(null, '', window.location.pathname);
       }
-    } catch (e) {}
+    } catch (e) { }
     state.currentUser = null;
     state.token = null;
     state.myTasksOnlySitac = false;
@@ -4159,7 +4137,7 @@
         if (norm) normSet.add(norm);
       });
       const sorted = Array.from(normSet).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-      pSelect.innerHTML = '<option value="ALL">Semua Pengelola</option>' + 
+      pSelect.innerHTML = '<option value="ALL">Semua Pengelola</option>' +
         sorted.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
     }
 
@@ -4281,7 +4259,7 @@
       if (window.location.hash !== targetHash) {
         history.replaceState(null, '', targetHash);
       }
-    } catch (e) {}
+    } catch (e) { }
 
     // Update active nav button
     document.querySelectorAll('.nav-item').forEach(item => {
@@ -4620,8 +4598,8 @@
     // ── Update Badges & Titles according to filtered period
     const ef = state?.execFilter || { period: 'ALL' };
     const periodLabel = ef.period === 'ALL' ? 'Akumulasi' :
-                        ef.period === 'CUSTOM' ? `${ef.startDate || ''} - ${ef.endDate || ''}` :
-                        `Tahun ${ef.period}`;
+      ef.period === 'CUSTOM' ? `${ef.startDate || ''} - ${ef.endDate || ''}` :
+        `Tahun ${ef.period}`;
 
     const bTopP = document.getElementById('badgeTopPengelola');
     if (bTopP) bTopP.textContent = `Sirkuit Aktif (${(data.collo?.active_count ?? data.top_pengelola?.length ?? 0).toLocaleString('id-ID')})`;
@@ -4698,7 +4676,7 @@
             }
           },
           scales: {
-            x: { ...scaleBase({ ticks: { color: textColor, callback: v => 'Rp' + (v/1e9).toFixed(1)+'M', font:{size:9} } }) },
+            x: { ...scaleBase({ ticks: { color: textColor, callback: v => 'Rp' + (v / 1e9).toFixed(1) + 'M', font: { size: 9 } } }) },
             y: { grid: { display: false }, border: { display: false }, ticks: { color: textColor, font: { size: 9.5 } } }
           }
         }
@@ -4743,7 +4721,7 @@
                 font: { size: 11 }
               }
             },
-            tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} PA (${totalPa > 0 ? ((ctx.raw/totalPa)*100).toFixed(1) : 0}%)` } }
+            tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} PA (${totalPa > 0 ? ((ctx.raw / totalPa) * 100).toFixed(1) : 0}%)` } }
           }
         }
       });
@@ -4801,7 +4779,7 @@
                 font: { size: 10.5 }
               }
             },
-            tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} (${totalCnt > 0 ? ((ctx.raw/totalCnt)*100).toFixed(1) : 0}%)` } }
+            tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} (${totalCnt > 0 ? ((ctx.raw / totalCnt) * 100).toFixed(1) : 0}%)` } }
           }
         }
       });
@@ -4897,7 +4875,7 @@
           interaction: { mode: 'index', intersect: false },
           plugins: { legend: { position: 'top' } },
           scales: {
-            x: { ...scaleBase(), ticks: { color: textColor, font:{size:9.5} } },
+            x: { ...scaleBase(), ticks: { color: textColor, font: { size: 9.5 } } },
             y: { ...scaleBase(), ticks: { color: textColor, precision: 0 } }
           }
         }
@@ -4948,7 +4926,7 @@
           },
           scales: {
             x: { ...scaleBase() },
-            y: { ...scaleBase({ ticks: { color: textColor, callback: v => 'Rp'+(v/1e6).toFixed(0)+'Jt' } }) }
+            y: { ...scaleBase({ ticks: { color: textColor, callback: v => 'Rp' + (v / 1e6).toFixed(0) + 'Jt' } }) }
           }
         }
       });
@@ -5503,7 +5481,7 @@
           },
           scales: {
             x: { grid: { color: gridColor, drawBorder: false }, border: { display: false }, ticks: { color: textColor, font: { size: 10 } } },
-            y: { grid: { color: gridColor, drawBorder: false }, border: { display: false }, ticks: { color: textColor, callback: val => 'Rp ' + (val/1e9).toFixed(1) + 'M' } }
+            y: { grid: { color: gridColor, drawBorder: false }, border: { display: false }, ticks: { color: textColor, callback: val => 'Rp ' + (val / 1e9).toFixed(1) + 'M' } }
           }
         }
       });
@@ -6049,7 +6027,7 @@
         return `${parseInt(parts[2], 10)} ${monthNames[mIdx] || parts[1]} ${parts[0]}`;
       }
       return dateStr;
-    } catch(e) { return dateStr; }
+    } catch (e) { return dateStr; }
   }
 
   async function loadSitacData() {
@@ -6425,7 +6403,7 @@
               position: 'bottom',
               labels: {
                 color: textColor,
-                font: { size: 11, family: 'Outfit, sans-serif' },
+                font: { size: 11, family: 'Inter, sans-serif' },
                 padding: 12
               }
             },
@@ -7247,7 +7225,7 @@
         } else {
           let html = '';
           json.data.forEach((g, idx) => {
-            const stBadge = g.is_selesai === 1 
+            const stBadge = g.is_selesai === 1
               ? `<span class="status-badge status-finish"><i class="fa-solid fa-circle-check"></i> Selesai</span>`
               : `<span class="status-badge status-ongoing"><i class="fa-solid fa-clock"></i> Open / Proses</span>`;
 
@@ -7371,7 +7349,7 @@
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { position: 'bottom', labels: { color: textColor, font: { size: 11, family: 'Outfit, sans-serif' }, padding: 12 } },
+            legend: { position: 'bottom', labels: { color: textColor, font: { size: 11, family: 'Inter, sans-serif' }, padding: 12 } },
             tooltip: {
               callbacks: {
                 label: ctx => ` ${ctx.label}: ${ctx.raw} Tiket (${totalFiltered > 0 ? ((ctx.raw / totalFiltered) * 100).toFixed(1) : 0}%)`
@@ -7530,7 +7508,7 @@
           },
           scales: {
             x: { grid: { color: gridColor, drawBorder: false }, border: { display: false }, ticks: { color: textColor } },
-            y: { grid: { color: gridColor, drawBorder: false }, border: { display: false }, ticks: { color: textColor, callback: val => 'Rp ' + (val/1e6).toFixed(0) + ' Jt' } }
+            y: { grid: { color: gridColor, drawBorder: false }, border: { display: false }, ticks: { color: textColor, callback: val => 'Rp ' + (val / 1e6).toFixed(0) + ' Jt' } }
           }
         }
       });
@@ -8257,10 +8235,10 @@
 
     const colName = type === 'sitac' ? 'sitac_records' : (type === 'gangguan' ? 'gangguan_records' : 'collo_records');
     const targetRec = (window.SITAC_COLLO_DATA?.[colName] || []).find(r => r.id == id) ||
-                      (state.sitac?.data || []).find(s => s.id == id) ||
-                      (state.colleagues?.data || []).find(s => s.id == id) ||
-                      (state.gangguan?.data || []).find(g => g.id == id) ||
-                      (state.collo?.data || []).find(c => c.id == id);
+      (state.sitac?.data || []).find(s => s.id == id) ||
+      (state.colleagues?.data || []).find(s => s.id == id) ||
+      (state.gangguan?.data || []).find(g => g.id == id) ||
+      (state.collo?.data || []).find(c => c.id == id);
 
     if (isLapangan && type === 'collo') {
       showToast('Akses ditolak: Hanya Administrator yang berhak mengedit data Colocation', 'error');
@@ -8277,9 +8255,9 @@
 
     if (type === 'collo') {
       let rec = (contractAlertData?.items || []).find(c => c.id == id) ||
-                (state.collo?.data || []).find(c => c.id == id) ||
-                (state.alerts?.data || []).find(c => c.id == id) ||
-                (state.revSharing?.data || []).find(c => c.id == id) || {};
+        (state.collo?.data || []).find(c => c.id == id) ||
+        (state.alerts?.data || []).find(c => c.id == id) ||
+        (state.revSharing?.data || []).find(c => c.id == id) || {};
       const firstPel = (rec.pelanggan || '').split(/[\r\n]+/)[0]?.replace(/^\d+[\.\)]\s*/, '') || 'Colocation';
       title.textContent = `Edit Data Link #${id} - ${firstPel}`;
       sub.textContent = 'Perbarui identitas sirkuit, nilai finansial sewa, status, dan data administrasi';
@@ -9018,8 +8996,8 @@
             }
           }
           persistNewRecord('gangguan', newRec);
-          if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
-            window.FirebaseManager.addRecord('gangguan_records', newRec).catch(() => {});
+          if (window.SupabaseManager && typeof window.SupabaseManager.addRecord === 'function') {
+            window.SupabaseManager.addRecord('gangguan_records', newRec).catch(e => console.warn('[Supabase add notice]:', e));
           }
           await loadGangguanData();
           if (state.activeView !== 'view-gangguan') switchView('view-gangguan');
@@ -9040,8 +9018,8 @@
             }
           }
           persistNewRecord('sitac', newRec);
-          if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
-            window.FirebaseManager.addRecord('sitac_records', newRec).catch(() => {});
+          if (window.SupabaseManager && typeof window.SupabaseManager.addRecord === 'function') {
+            window.SupabaseManager.addRecord('sitac_records', newRec).catch(e => console.warn('[Supabase add notice]:', e));
           }
           if (leafletMap && mapMarkersLayer) {
             updateMapMarkers();
@@ -9059,8 +9037,8 @@
             if (!exists) window.SITAC_COLLO_DATA.collo_records.unshift(newRec);
           }
           persistNewRecord('collo', newRec);
-          if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
-            window.FirebaseManager.addRecord('collo_records', newRec).catch(() => {});
+          if (window.SupabaseManager && typeof window.SupabaseManager.addRecord === 'function') {
+            window.SupabaseManager.addRecord('collo_records', newRec).catch(e => console.warn('[Supabase add notice]:', e));
           }
           await loadColloData();
           if (state.activeView !== 'view-collo-list') switchView('view-collo-list');
@@ -9086,10 +9064,10 @@
     if (!fileInput.files || !fileInput.files[0]) return;
     const colName = type === 'sitac' ? 'sitac_records' : (type === 'gangguan' ? 'gangguan_records' : 'collo_records');
     const targetRec = (window.SITAC_COLLO_DATA?.[colName] || []).find(r => r.id == id) ||
-                      (state.sitac?.data || []).find(s => s.id == id) ||
-                      (state.colleagues?.data || []).find(s => s.id == id) ||
-                      (state.gangguan?.data || []).find(g => g.id == id) ||
-                      (state.collo?.data || []).find(c => c.id == id);
+      (state.sitac?.data || []).find(s => s.id == id) ||
+      (state.colleagues?.data || []).find(s => s.id == id) ||
+      (state.gangguan?.data || []).find(g => g.id == id) ||
+      (state.collo?.data || []).find(c => c.id == id);
     if (!isTaskEditableByUser(targetRec)) {
       showToast('Akses ditolak: Anda tidak memiliki izin untuk mengunggah bukti pada penugasan ini (Mode Lihat Saja).', 'error');
       fileInput.value = '';
@@ -9150,10 +9128,10 @@
   async function deleteBuktiDirect(type, id) {
     const colName = type === 'sitac' ? 'sitac_records' : (type === 'gangguan' ? 'gangguan_records' : 'collo_records');
     const targetRec = (window.SITAC_COLLO_DATA?.[colName] || []).find(r => r.id == id) ||
-                      (state.sitac?.data || []).find(s => s.id == id) ||
-                      (state.colleagues?.data || []).find(s => s.id == id) ||
-                      (state.gangguan?.data || []).find(g => g.id == id) ||
-                      (state.collo?.data || []).find(c => c.id == id);
+      (state.sitac?.data || []).find(s => s.id == id) ||
+      (state.colleagues?.data || []).find(s => s.id == id) ||
+      (state.gangguan?.data || []).find(g => g.id == id) ||
+      (state.collo?.data || []).find(c => c.id == id);
     if (!isTaskEditableByUser(targetRec)) {
       showToast('Akses ditolak: Anda tidak memiliki izin untuk menghapus bukti pada penugasan ini (Mode Lihat Saja).', 'error');
       return;
@@ -9339,30 +9317,30 @@
 
       const pengelola = rec.pengelola || 'Mitra Pengelola Data Center';
       const sisaHariText = rec.sisa_hari !== undefined ? `${rec.sisa_hari} Hari` : '-';
-      const statusUrgency = (rec.sisa_hari !== undefined && rec.sisa_hari <= 30) ? '🔴 KRITIS (H-30)' : (rec.sisa_hari !== undefined && rec.sisa_hari <= 60) ? '🟠 PERINGATAN (H-60)' : '🟡 PANTAUAN (H-90)';
+      const statusUrgency = (rec.sisa_hari !== undefined && rec.sisa_hari <= 30) ? 'KRITIS (H-30)' : (rec.sisa_hari !== undefined && rec.sisa_hari <= 60) ? 'PERINGATAN (H-60)' : 'PANTAUAN (H-90)';
       const soOrSid = rec.sid ? `SID: ${escapeHtml(rec.sid)}` : rec.no_so ? `SO: ${escapeHtml(rec.no_so)}` : '-';
       const soSidText = (rec.sid && rec.no_so) ? `${rec.sid} / ${rec.no_so}` : (rec.sid || rec.no_so || '-');
-      
+
       targetTitle = 'Pengingat Jatuh Tempo Kontrak';
       targetSubtitle = `${escapeHtml(pengelola)} • ${soOrSid}`;
       defaultPhone = cleanPhoneNumber(rec.telp || '');
 
-      msg = `🔔 *PENGINGAT JATUH TEMPO KONTRAK SEWA*\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `Kepada Yth. Rekan *${pengelola}*,\n\n` +
-            `Menginformasikan bahwa kontrak sewa sirkuit telekomunikasi berikut akan segera jatuh tempo:\n\n` +
-            `▫️ *Pelanggan:* ${rec.pelanggan || '-'}\n` +
-            `▫️ *SID / No SO:* ${soSidText}\n` +
-            `▫️ *Layanan:* ${rec.layanan || rec.jenis_sewa || '-'}\n` +
-            `▫️ *Site / Titik:* ${rec.site || rec.terminating || '-'}\n` +
-            `▫️ *Tgl Jatuh Tempo:* ${rec.end_date || '-'} (*Sisa ${sisaHariText}*)\n` +
-            `▫️ *Status Urgensi:* ${statusUrgency}\n` +
-            `▫️ *PIC Admin:* ${rec.pic_admin || '-'}\n` +
-            `▫️ *Status Proses:* ${rec.proses_admin || 'Running'}\n\n` +
-            `Mohon bantuan konfirmasi terkait proses perpanjangan / penerbitan SPP / PO Baru sirkuit tersebut.\n\n` +
-            `Terima kasih atas kerja sama dan dukungannya.\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `_PT PLN Icon Plus - Telecom Operations Portal_`;
+      msg = `*PENGINGAT JATUH TEMPO KONTRAK SEWA*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `Kepada Yth. Rekan *${pengelola}*,\n\n` +
+        `Menginformasikan bahwa kontrak sewa sirkuit telekomunikasi berikut akan segera jatuh tempo:\n\n` +
+        `- *Pelanggan:* ${rec.pelanggan || '-'}\n` +
+        `- *SID / No SO:* ${soSidText}\n` +
+        `- *Layanan:* ${rec.layanan || rec.jenis_sewa || '-'}\n` +
+        `- *Site / Titik:* ${rec.site || rec.terminating || '-'}\n` +
+        `- *Tgl Jatuh Tempo:* ${rec.end_date || '-'} (*Sisa ${sisaHariText}*)\n` +
+        `- *Status Urgensi:* ${statusUrgency}\n` +
+        `- *PIC Admin:* ${rec.pic_admin || '-'}\n` +
+        `- *Status Proses:* ${rec.proses_admin || 'Running'}\n\n` +
+        `Mohon bantuan konfirmasi terkait proses perpanjangan / penerbitan SPP / PO Baru sirkuit tersebut.\n\n` +
+        `Terima kasih atas kerja sama dan dukungannya.\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `_PT PLN Icon Plus - Telecom Operations Portal_`;
 
     } else if (type === 'collo') {
       const rec = (state.collo?.data || []).find(c => c.id == id) || (state.alerts?.data || []).find(c => c.id == id) || (state.revSharing?.data || []).find(c => c.id == id) || (window.SITAC_COLLO_DATA?.collo_records || []).find(c => c.id == id);
@@ -9375,19 +9353,19 @@
       targetSubtitle = `${escapeHtml(rec.pengelola || '-')} • ${soOrSid}`;
       defaultPhone = cleanPhoneNumber(rec.telp || '');
 
-      msg = `🏢 *INFORMASI KONTRAK SEWA COLOCATION*\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `*Pengelola:* ${rec.pengelola || '-'}\n` +
-            `*Pelanggan:* ${rec.pelanggan || '-'}\n` +
-            `*Status Sirkuit:* ${rec.status || 'ACTIVE'}\n` +
-            `*No SO / SID:* ${soSidText}\n` +
-            `*Layanan:* ${rec.layanan || rec.jenis_sewa || '-'}\n` +
-            `*Biaya Sewa / Thn:* ${formatRupiah(rec.biaya_sewa_tahun)}\n` +
-            `*Masa Berlaku:* ${rec.start_date || '-'} s/d ${rec.end_date || '-'} (Sisa ${rec.sisa_hari !== undefined ? rec.sisa_hari + ' Hari' : '-'})\n` +
-            `*PIC Rekanan:* ${rec.pic_rekanan || '-'} (${rec.telp || '-'})\n` +
-            `*Catatan:* ${rec.keterangan || '-'}\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `_PT PLN Icon Plus - Telecom Operations Portal_`;
+      msg = `*INFORMASI KONTRAK SEWA COLOCATION*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `*Pengelola:* ${rec.pengelola || '-'}\n` +
+        `*Pelanggan:* ${rec.pelanggan || '-'}\n` +
+        `*Status Sirkuit:* ${rec.status || 'ACTIVE'}\n` +
+        `*No SO / SID:* ${soSidText}\n` +
+        `*Layanan:* ${rec.layanan || rec.jenis_sewa || '-'}\n` +
+        `*Biaya Sewa / Thn:* ${formatRupiah(rec.biaya_sewa_tahun)}\n` +
+        `*Masa Berlaku:* ${rec.start_date || '-'} s/d ${rec.end_date || '-'} (Sisa ${rec.sisa_hari !== undefined ? rec.sisa_hari + ' Hari' : '-'})\n` +
+        `*PIC Rekanan:* ${rec.pic_rekanan || '-'} (${rec.telp || '-'})\n` +
+        `*Catatan:* ${rec.keterangan || '-'}\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `_PT PLN Icon Plus - Telecom Operations Portal_`;
 
     } else if (type === 'sitac') {
       const rec = (state.sitac?.data || []).find(s => s.id == id) || (window.SITAC_COLLO_DATA?.sitac_records || []).find(s => s.id == id);
@@ -9400,40 +9378,40 @@
       targetSubtitle = `No PA: ${escapeHtml(rec.no_pa || '-')} • ${escapeHtml(picName)}`;
 
       msg = `*DISPATCH PENUGASAN SITAC & PERIZINAN*\n` +
-            `-----------------------------------------\n` +
-            `Halo Rekan *${picName}*,\n\n` +
-            `Mohon tindak lanjut dan laporan progres berkas perizinan berikut:\n\n` +
-            `- *No PA:* ${rec.no_pa || '-'}\n` +
-            `- *Pelanggan:* ${rec.pelanggan || '-'}\n` +
-            `- *Rute / Lokasi:* ${rec.terminating || '-'}\n` +
-            `- *Status Pengerjaan:* ${rec.progress || 'Ongoing'}\n` +
-            `- *Tgl Disposisi:* ${rec.date_dispos || '-'}\n` +
-            `- *Aging (SLA):* ${rec.durasi_hari !== null && rec.durasi_hari !== undefined ? rec.durasi_hari + ' Hari' : '-'}\n` +
-            `- *Pengajuan Biaya:* ${formatRupiah(rec.biaya_permintaan_awal)}\n` +
-            `- *Target Negosiasi:* ${formatRupiah(rec.biaya_final)}${koordinatLink}\n` +
-            `- *Catatan Lapangan:* ${rec.update_pekerjaan || 'Mohon segera dilaporkan'}\n\n` +
-            `Mohon diupdate apabila terdapat kesepakatan nilai retribusi atau kendala perizinan.\n` +
-            `Terima kasih dan tetap utamakan keselamatan kerja (K3).\n` +
-            `-----------------------------------------\n` +
-            `_PT PLN Icon Plus - Operasional SITAC Lapangan_`;
+        `-----------------------------------------\n` +
+        `Halo Rekan *${picName}*,\n\n` +
+        `Mohon tindak lanjut dan laporan progres berkas perizinan berikut:\n\n` +
+        `- *No PA:* ${rec.no_pa || '-'}\n` +
+        `- *Pelanggan:* ${rec.pelanggan || '-'}\n` +
+        `- *Rute / Lokasi:* ${rec.terminating || '-'}\n` +
+        `- *Status Pengerjaan:* ${rec.progress || 'Ongoing'}\n` +
+        `- *Tgl Disposisi:* ${rec.date_dispos || '-'}\n` +
+        `- *Aging (SLA):* ${rec.durasi_hari !== null && rec.durasi_hari !== undefined ? rec.durasi_hari + ' Hari' : '-'}\n` +
+        `- *Pengajuan Biaya:* ${formatRupiah(rec.biaya_permintaan_awal)}\n` +
+        `- *Target Negosiasi:* ${formatRupiah(rec.biaya_final)}${koordinatLink}\n` +
+        `- *Catatan Lapangan:* ${rec.update_pekerjaan || 'Mohon segera dilaporkan'}\n\n` +
+        `Mohon diupdate apabila terdapat kesepakatan nilai retribusi atau kendala perizinan.\n` +
+        `Terima kasih dan tetap utamakan keselamatan kerja (K3).\n` +
+        `-----------------------------------------\n` +
+        `_PT PLN Icon Plus - Operasional SITAC Lapangan_`;
 
     } else if (type === 'gangguan') {
       const rec = (state.gangguan?.data || []).find(g => g.id == id);
       if (!rec) return;
-      const statusText = rec.is_selesai ? '✅ *STATUS: SELESAI (CLOSED)*' : '⏳ *STATUS: DALAM PENANGANAN (OPEN)*';
+      const statusText = rec.is_selesai ? '*STATUS: SELESAI (CLOSED)*' : '*STATUS: DALAM PENANGANAN (OPEN)*';
       targetTitle = 'Laporan Tiket Gangguan';
       targetSubtitle = `Tiket: ${escapeHtml(rec.no_tiket || '-')}`;
-      msg = `🚨 *LAPORAN INSIDEN GANGGUAN DARURAT*\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `*No Tiket:* ${rec.no_tiket || '-'}\n` +
-            `*Jenis:* ${rec.jenis_gangguan || 'Insiden FO'}\n` +
-            `${statusText}\n` +
-            `*Target SLA:* ${rec.sla_target || 'H+1'}\n` +
-            `*PIC Teknis:* ${rec.pic_perijinan || '-'}\n` +
-            `*Lokasi Kejadian:* ${rec.terminating || '-'}\n` +
-            `*Catatan Lapangan:* ${rec.update_gangguan || '-'}\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `_PT PLN Icon Plus - Telecom Operations Portal_`;
+      msg = `*LAPORAN INSIDEN GANGGUAN DARURAT*\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `*No Tiket:* ${rec.no_tiket || '-'}\n` +
+        `*Jenis:* ${rec.jenis_gangguan || 'Insiden FO'}\n` +
+        `${statusText}\n` +
+        `*Target SLA:* ${rec.sla_target || 'H+1'}\n` +
+        `*PIC Teknis:* ${rec.pic_perijinan || '-'}\n` +
+        `*Lokasi Kejadian:* ${rec.terminating || '-'}\n` +
+        `*Catatan Lapangan:* ${rec.update_gangguan || '-'}\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `_PT PLN Icon Plus - Telecom Operations Portal_`;
     }
 
     const modal = document.getElementById('modalWhatsAppDispatch');
@@ -9471,19 +9449,19 @@
     if (type === 'collo') {
       const isLapangan = state.currentUser?.role === 'lapangan';
       let rec = (state.collo?.data || []).find(c => c.id == id) ||
-                (state.alerts?.data || []).find(c => c.id == id) ||
-                (state.revSharing?.data || []).find(c => c.id == id) ||
-                (window.SITAC_COLLO_DATA?.collo_records || []).find(c => c.id == id);
+        (state.alerts?.data || []).find(c => c.id == id) ||
+        (state.revSharing?.data || []).find(c => c.id == id) ||
+        (window.SITAC_COLLO_DATA?.collo_records || []).find(c => c.id == id);
 
       // Fallback search by fallbackIdentifier or if id is passed as string / SO number
       if (!rec && fallbackIdentifier) {
         rec = (state.collo?.data || []).find(c => c.no_so == fallbackIdentifier || c.sid == fallbackIdentifier) ||
-              (window.SITAC_COLLO_DATA?.collo_records || []).find(c => c.no_so == fallbackIdentifier || c.sid == fallbackIdentifier);
+          (window.SITAC_COLLO_DATA?.collo_records || []).find(c => c.no_so == fallbackIdentifier || c.sid == fallbackIdentifier);
       }
 
       if (!rec && typeof id === 'string') {
         rec = (state.collo?.data || []).find(c => c.no_so == id || c.sid == id) ||
-              (window.SITAC_COLLO_DATA?.collo_records || []).find(c => c.no_so == id || c.sid == id);
+          (window.SITAC_COLLO_DATA?.collo_records || []).find(c => c.no_so == id || c.sid == id);
       }
 
       // Fallback search via network_links
@@ -9697,9 +9675,9 @@
     if (btnEditAction) {
       const colName = type === 'sitac' ? 'sitac_records' : (type === 'gangguan' ? 'gangguan_records' : 'collo_records');
       const targetRec = (window.SITAC_COLLO_DATA?.[colName] || []).find(r => r.id == id) ||
-                        (state.sitac?.data || []).find(s => s.id == id) ||
-                        (state.colleagues?.data || []).find(s => s.id == id) ||
-                        (state.gangguan?.data || []).find(g => g.id == id);
+        (state.sitac?.data || []).find(s => s.id == id) ||
+        (state.colleagues?.data || []).find(s => s.id == id) ||
+        (state.gangguan?.data || []).find(g => g.id == id);
       btnEditAction.style.display = isTaskEditableByUser(targetRec) ? '' : 'none';
     }
 
@@ -9764,10 +9742,10 @@
       persistDeleteRecord(type, id);
       const colName = type === 'collo' ? 'collo_records' : (type === 'sitac' ? 'sitac_records' : 'gangguan_records');
       if (window.SupabaseManager && typeof window.SupabaseManager.deleteRecord === 'function') {
-        window.SupabaseManager.deleteRecord(colName, id).catch(() => {});
+        window.SupabaseManager.deleteRecord(colName, id).catch(() => { });
       }
       if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
-        window.FirebaseManager.deleteRecord(colName, String(id)).catch(() => {});
+        window.FirebaseManager.deleteRecord(colName, String(id)).catch(() => { });
       }
 
       // Close modal if open
@@ -9789,7 +9767,7 @@
       fetch('/api/executive/summary').then(r => r.json()).then(d => {
         state.execData = d;
         if (state.activeView === 'view-executive') renderExecutiveDashboard(d);
-      }).catch(() => {});
+      }).catch(() => { });
 
     } catch (e) {
       alert('Error saat menghapus data: ' + e.message);
@@ -10024,7 +10002,7 @@
         ['Total Biaya Mitra Tahunan (Rp)', c.active_biaya || 0, 'Beban sewa ke mitra datacenter'],
         ['Gross Margin Finansial (Rp)', c.active_margin || 0, `Persentase margin: ${c.margin_pct || 0}%`],
         ['Total Project Assignment (PA)', s.total_pa || 0, 'Semua penugasan perizinan FO'],
-        ['PA Selesai (Finish)', s.finish_count || 0, `Finish rate: ${s.finish_count && s.total_pa ? (s.finish_count/s.total_pa*100).toFixed(1) : 0}%`],
+        ['PA Selesai (Finish)', s.finish_count || 0, `Finish rate: ${s.finish_count && s.total_pa ? (s.finish_count / s.total_pa * 100).toFixed(1) : 0}%`],
         ['Total Penghematan Negosiasi (Rp)', s.total_efisiensi_rupiah || 0, `Efisiensi biaya: ${s.efisiensi_pct || 0}%`],
         ['Total Tiket Gangguan Darurat', g.total_gangguan || 0, 'Total insiden dilaporkan'],
         ['Gangguan Dituntaskan', g.selesai_count || 0, `Resolution rate: ${g.resolution_rate || 0}%`]
@@ -10198,7 +10176,7 @@
         ['Total Biaya Mitra Tahunan', c.active_biaya || 0, 'Beban sewa ke mitra datacenter'],
         ['Gross Margin Finansial', c.active_margin || 0, `Persentase margin: ${c.margin_pct || 0}%`],
         ['Total Project Assignment (PA)', s.total_pa || 0, 'Semua penugasan perizinan FO'],
-        ['PA Selesai (Finish)', s.finish_count || 0, `Finish rate: ${s.finish_count && s.total_pa ? (s.finish_count/s.total_pa*100).toFixed(1) : 0}%`],
+        ['PA Selesai (Finish)', s.finish_count || 0, `Finish rate: ${s.finish_count && s.total_pa ? (s.finish_count / s.total_pa * 100).toFixed(1) : 0}%`],
         ['Total Penghematan Negosiasi', s.total_efisiensi_rupiah || 0, `Efisiensi biaya: ${s.efisiensi_pct || 0}%`],
         ['Total Tiket Gangguan Darurat', g.total_gangguan || 0, 'Total insiden dilaporkan'],
         ['Gangguan Dituntaskan', g.selesai_count || 0, `Resolution rate: ${g.resolution_rate || 0}%`]
@@ -10484,11 +10462,11 @@
     const filterInfo = isAlerts
       ? `Alert Kedaluwarsa (${state.alerts.category || 'CRITICAL'}) | Total: ${records.length} Sirkuit`
       : [
-          `Status: ${status || 'ALL'}`,
-          pengelola && pengelola !== 'ALL' ? `Pengelola: ${pengelola}` : null,
-          jenisSewa && jenisSewa !== 'ALL' ? `Jenis Sewa: ${jenisSewa}` : null,
-          search ? `Pencarian: "${search}"` : null
-        ].filter(Boolean).join(' | ');
+        `Status: ${status || 'ALL'}`,
+        pengelola && pengelola !== 'ALL' ? `Pengelola: ${pengelola}` : null,
+        jenisSewa && jenisSewa !== 'ALL' ? `Jenis Sewa: ${jenisSewa}` : null,
+        search ? `Pencarian: "${search}"` : null
+      ].filter(Boolean).join(' | ');
 
     doc.setFontSize(8.5);
     doc.setTextColor(71, 85, 105);
@@ -10555,7 +10533,7 @@
         10: { cellWidth: 17 },
         11: { halign: 'right', cellWidth: 14 }
       },
-      didParseCell: function(data) {
+      didParseCell: function (data) {
         if (data.row.index === body.length - 1) {
           data.cell.styles.fontStyle = 'bold';
           data.cell.styles.fillColor = [224, 242, 254];
@@ -10602,7 +10580,7 @@
         5: { halign: 'right' },
         7: { halign: 'right' }
       },
-      didParseCell: function(data) {
+      didParseCell: function (data) {
         if (data.section === 'body' && data.column.index === 6) {
           data.cell.styles.textColor = getStatusColor(data.cell.raw);
           data.cell.styles.fontStyle = 'bold';
@@ -10787,7 +10765,7 @@
         8: { cellWidth: 14 },
         9: { halign: 'right', cellWidth: 12 }
       },
-      didParseCell: function(data) {
+      didParseCell: function (data) {
         if (data.row.index === body.length - 1) {
           data.cell.styles.fontStyle = 'bold';
           data.cell.styles.fillColor = [254, 243, 199];
@@ -10858,7 +10836,7 @@
         3: { cellWidth: 65, overflow: 'linebreak' },
         6: { halign: 'right' }
       },
-      didParseCell: function(data) {
+      didParseCell: function (data) {
         if (data.row.index === body.length - 1) {
           data.cell.styles.fontStyle = 'bold';
           data.cell.styles.fillColor = [254, 226, 226];
@@ -11127,14 +11105,14 @@
       });
     }
     // Register form (paneRegister)
-    bindPasswordToggle('btnToggleRegPassword',        'regPassword',        'regPasswordEyeIcon');
+    bindPasswordToggle('btnToggleRegPassword', 'regPassword', 'regPasswordEyeIcon');
     bindPasswordToggle('btnToggleRegPasswordConfirm', 'regPasswordConfirm', 'regPasswordConfirmEyeIcon');
     // Forgot password confirm
     bindPasswordToggle('btnToggleForgotConfirmPw', 'forgotConfirmPassword', 'forgotConfirmEyeIcon');
     // Admin Create User modal
-    bindPasswordToggle('btnToggleAdminCreatePw',        'adminCreatePassword',        'adminCreatePwEyeIcon');
+    bindPasswordToggle('btnToggleAdminCreatePw', 'adminCreatePassword', 'adminCreatePwEyeIcon');
     bindPasswordToggle('btnToggleAdminCreateConfirmPw', 'adminCreateConfirmPassword', 'adminCreateConfirmPwEyeIcon');
-    bindPasswordToggle('btnToggleAdminCreateAdminPw',   'adminCreateAdminPw',         'adminCreateAdminPwEyeIcon');
+    bindPasswordToggle('btnToggleAdminCreateAdminPw', 'adminCreateAdminPw', 'adminCreateAdminPwEyeIcon');
 
     // Timer variables for OTP
     let otpCountdownInterval = null;
@@ -11275,7 +11253,7 @@
         return;
       }
 
-      if (email.startsWith('admin@') || email === 'admin@telecom.ops') {
+      if (email.startsWith('admin@') || email === 'admin@telecom.ops' || email === 'anggienatalia467@gmail.com') {
         if (alertEl) {
           alertEl.className = 'p-3 rounded-lg text-xs bg-rose-500/15 border border-rose-500/30 text-rose-300';
           alertEl.innerHTML = '<i class="fa-solid fa-shield-halved mr-1.5"></i> Akun Administrator diproteksi dan tidak dapat di-reset melalui halaman umum. Silakan hubungi tim IT / Manajemen.';
@@ -11602,12 +11580,12 @@
       }
 
       try {
-        if (!window.FirebaseManager || !window.FirebaseManager.isConfigured()) {
+        if (!window.SupabaseManager || !window.SupabaseManager.isConfigured()) {
           throw new Error('Koneksi Google Firebase belum aktif.');
         }
 
-        // PURE FIREBASE FIRESTORE REGISTRATION
-        const regRes = await window.FirebaseManager.registerUser({
+        // PURE SUPABASE POSTGRESQL REGISTRATION
+        const regRes = await window.SupabaseManager.registerUser({
           full_name: fullName,
           username: username,
           email: email,
@@ -11739,7 +11717,7 @@
       }
 
       try {
-        if (!window.FirebaseManager || !window.FirebaseManager.isConfigured()) {
+        if (!window.SupabaseManager || !window.SupabaseManager.isConfigured()) {
           throw new Error('Koneksi Google Firebase belum aktif.');
         }
 
@@ -11779,12 +11757,11 @@
       const userEl = document.getElementById('myEmailUsername');
       const statusEl = document.getElementById('myEmailCurrentStatus');
       const input = document.getElementById('myEmailInput');
-
       if (nameEl) nameEl.textContent = user.full_name || user.username || 'Pengguna';
       if (userEl) userEl.textContent = `@${user.username || 'user'}`;
       if (statusEl) {
-        statusEl.innerHTML = user.email 
-          ? `Email saat ini: <strong class="text-emerald-400 font-mono">${user.email}</strong>` 
+        statusEl.innerHTML = user.email
+          ? `Email saat ini: <strong class="text-emerald-400 font-mono">${user.email}</strong>`
           : `Email saat ini: <span class="text-amber-400 font-semibold">- Belum Terdaftar -</span>`;
       }
       if (input) {
@@ -11846,7 +11823,6 @@
       if (!user.username) {
         return showAlert('Sesi login tidak valid. Silakan login kembali.', true);
       }
-
       submitBtn.disabled = true;
       submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Menyimpan...';
 
@@ -11867,12 +11843,10 @@
           showToast(d.message, 'success');
         }
 
-        // Update local session
         user.email = newEmail;
         state.currentUser = user;
         localStorage.setItem('telecom_portal_user', JSON.stringify(user));
         updateUserEmailBadges();
-
         setTimeout(() => {
           const modal = document.getElementById('modalUpdateMyEmail');
           if (modal) modal.style.display = 'none';
@@ -11942,7 +11916,7 @@
       try {
         let pending = [];
         if (window.FirebaseManager && window.FirebaseManager.isConfigured()) {
-          pending = await window.FirebaseManager.fetchPendingUsers();
+          pending = await window.SupabaseManager.fetchPendingUsers();
         }
 
         const count = pending.length;
@@ -12020,14 +11994,14 @@
     }
 
     // Handler Setujui PIC
-    window.handleAdminApproveUser = async function(username, fullName) {
+    window.handleAdminApproveUser = async function (username, fullName) {
       if (!confirm(`Setujui permohonan akun PIC untuk "${fullName}" (@${username})?\nSetelah disetujui, teknisi dapat segera login.`)) return;
       const alertBox = document.getElementById('adminPendingAlert');
       try {
-        if (!window.FirebaseManager || !window.FirebaseManager.isConfigured()) {
+        if (!window.SupabaseManager || !window.SupabaseManager.isConfigured()) {
           throw new Error('Koneksi Google Firebase belum aktif.');
         }
-        const res = await window.FirebaseManager.approveUser(username);
+        const res = await window.SupabaseManager.approveUser(username);
         if (alertBox) {
           alertBox.className = 'p-2.5 rounded-lg text-xs border bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
           alertBox.textContent = res.message;
@@ -12045,14 +12019,14 @@
     };
 
     // Handler Tolak PIC
-    window.handleAdminRejectUser = async function(username, fullName) {
+    window.handleAdminRejectUser = async function (username, fullName) {
       if (!confirm(`Tolak dan batalkan permohonan akun PIC "${fullName}" (@${username})?`)) return;
       const alertBox = document.getElementById('adminPendingAlert');
       try {
-        if (!window.FirebaseManager || !window.FirebaseManager.isConfigured()) {
+        if (!window.SupabaseManager || !window.SupabaseManager.isConfigured()) {
           throw new Error('Koneksi Google Firebase belum aktif.');
         }
-        const res = await window.FirebaseManager.rejectUser(username);
+        const res = await window.SupabaseManager.rejectUser(username);
         if (alertBox) {
           alertBox.className = 'p-2.5 rounded-lg text-xs border bg-amber-500/20 text-amber-300 border-amber-500/30';
           alertBox.textContent = res.message;
@@ -12070,7 +12044,7 @@
     };
 
     // Helper: switch tab admin
-    window.switchAdminTab = function(tab) {
+    window.switchAdminTab = function (tab) {
       const panelPending = document.getElementById('tabPanelPending');
       const panelCreate = document.getElementById('formAdminCreateUser');
       const panelEmail = document.getElementById('tabPanelEmail');
@@ -12136,10 +12110,10 @@
     };
 
     // Background badge updater
-    window.checkAdminPendingUsersBadge = async function() {
+    window.checkAdminPendingUsersBadge = async function () {
       try {
         if (!window.FirebaseManager || !window.FirebaseManager.isConfigured()) return;
-        const pending = await window.FirebaseManager.fetchPendingUsers();
+        const pending = await window.SupabaseManager.fetchPendingUsers();
         const count = pending.length;
         const badgeModal = document.getElementById('adminPendingBadge');
         const badgeTools = document.getElementById('toolsPendingUserBadge');
@@ -12170,7 +12144,7 @@
       if (modal) modal.style.display = 'flex';
       loadAdminUserList();
       // Reset fields
-      ['adminResetNewPw','adminResetConfirmPw','adminResetAdminPw','adminDeleteAdminPw','adminCreateUsername','adminCreateDisplayName','adminCreateEmail','adminCreatePassword','adminCreateConfirmPassword','adminCreateAdminPw','adminEmailInput'].forEach(id => {
+      ['adminResetNewPw', 'adminResetConfirmPw', 'adminResetAdminPw', 'adminDeleteAdminPw', 'adminCreateUsername', 'adminCreateDisplayName', 'adminCreateEmail', 'adminCreatePassword', 'adminCreateConfirmPassword', 'adminCreateAdminPw', 'adminEmailInput'].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = '';
       });
       const roleSel = document.getElementById('adminCreateRole');
@@ -12178,7 +12152,7 @@
       const teamRoleInp = document.getElementById('adminCreateTeamRole');
       if (teamRoleInp) teamRoleInp.value = 'Administrator';
 
-      ['adminResetAlert','adminDeleteAlert','adminPendingAlert','adminCreateAlert','adminEmailAlert'].forEach(id => {
+      ['adminResetAlert', 'adminDeleteAlert', 'adminPendingAlert', 'adminCreateAlert', 'adminEmailAlert'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.className = 'p-2.5 rounded-lg text-xs hidden';
       });
@@ -12249,7 +12223,7 @@
       btn.disabled = true;
       btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Mereset di Firebase...';
       try {
-        if (!window.FirebaseManager || !window.FirebaseManager.isConfigured()) {
+        if (!window.SupabaseManager || !window.SupabaseManager.isConfigured()) {
           throw new Error('Koneksi Google Firebase belum aktif.');
         }
 
@@ -12260,7 +12234,7 @@
         const res = await window.FirebaseManager.adminResetPassword(targetUser, newPw);
         showResetAlert(res.message, false);
         showToast(res.message, 'success');
-        ['adminResetNewPw','adminResetConfirmPw','adminResetAdminPw'].forEach(id => {
+        ['adminResetNewPw', 'adminResetConfirmPw', 'adminResetAdminPw'].forEach(id => {
           const el = document.getElementById(id); if (el) el.value = '';
         });
       } catch (err) {
@@ -12295,7 +12269,7 @@
       btn.disabled = true;
       btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Menghapus di Firebase...';
       try {
-        if (!window.FirebaseManager || !window.FirebaseManager.isConfigured()) {
+        if (!window.SupabaseManager || !window.SupabaseManager.isConfigured()) {
           throw new Error('Koneksi Google Firebase belum aktif.');
         }
 
@@ -12334,7 +12308,7 @@
 
     // Admin: Pengaturan form Tambah Akun
     (function setupEmailAutoSuggest() {
-      const usernameInput    = document.getElementById('adminCreateUsername');
+      const usernameInput = document.getElementById('adminCreateUsername');
 
       // Jika username terisi nama orang (ada spasi / huruf kapital), tampilkan hint juga
       usernameInput?.addEventListener('input', () => {
@@ -12598,7 +12572,7 @@
     }
 
     // Helper global untuk klik tombol "Isi Email" di baris daftar PIC
-    window.selectAdminEmailUser = function(username) {
+    window.selectAdminEmailUser = function (username) {
       const select = document.getElementById('adminEmailTargetUser');
       if (select) {
         select.value = username;
@@ -12621,7 +12595,6 @@
       const cardCurrentEmail = document.getElementById('adminEmailCardCurrentEmail');
       const cardStatusBadge = document.getElementById('adminEmailCardStatusBadge');
       const emailInput = document.getElementById('adminEmailInput');
-
       if (!val) {
         if (card) card.classList.add('hidden');
         if (emailInput) emailInput.value = '';
@@ -12646,9 +12619,7 @@
         }
       }
 
-      if (emailInput) {
-        emailInput.value = email;
-      }
+      if (emailInput) emailInput.value = email;
       updateAdminEmailInputStatus();
     });
 
@@ -12775,7 +12746,6 @@
           showToast(d.message, 'success');
         }
 
-        // Jika target user adalah user yang sedang login, update state & badge
         if (state.currentUser?.username?.toLowerCase() === targetUser.toLowerCase()) {
           state.currentUser.email = newEmail;
           localStorage.setItem('telecom_portal_user', JSON.stringify(state.currentUser));
@@ -12915,7 +12885,7 @@
 
       // Cleanly destroy all existing charts so any view recreated or switched to uses current theme colors & borders
       Object.keys(charts).forEach(key => {
-        try { destroyChart(key); } catch (e) {}
+        try { destroyChart(key); } catch (e) { }
       });
 
       if (state.activeView === 'view-executive') loadExecutiveSummary();
@@ -13689,7 +13659,7 @@
 
     // 9. View 9 (WebGIS) Controls & Dual-Layer Event Handlers
     // 9a. Layer Visibility Toggles (SITAC vs Circuits)
-    document.getElementById('btnToggleSitacLayer')?.addEventListener('click', function() {
+    document.getElementById('btnToggleSitacLayer')?.addEventListener('click', function () {
       isSitacLayerVisible = !isSitacLayerVisible;
       this.classList.toggle('active', isSitacLayerVisible);
       const group = document.getElementById('sitacPinFiltersGroup');
@@ -13697,7 +13667,7 @@
       updateMapMarkers();
     });
 
-    document.getElementById('btnToggleCircuitLayer')?.addEventListener('click', function() {
+    document.getElementById('btnToggleCircuitLayer')?.addEventListener('click', function () {
       isCircuitLayerVisible = !isCircuitLayerVisible;
       this.classList.toggle('active', isCircuitLayerVisible);
       const group = document.getElementById('circuitFiltersGroup');
@@ -13847,7 +13817,7 @@
         try {
           const raw = popoverTrigger.getAttribute('data-popover');
           const data = JSON.parse(decodeURIComponent(raw));
-          
+
           if (popoverTitle) popoverTitle.textContent = data.title || 'Daftar Lengkap';
           if (popoverIcon) {
             popoverIcon.className = `fa-solid ${data.icon || 'fa-users'} text-cyan-400 text-xs`;
@@ -13868,7 +13838,7 @@
           const rect = popoverTrigger.getBoundingClientRect();
           const popoverWidth = 330;
           const popoverHeight = 280;
-          
+
           let top = rect.bottom + 6;
           let left = rect.left;
 
@@ -14250,6 +14220,7 @@
       if (menuUserSidebar && menuUserSidebar.classList.contains('show')) {
         menuUserSidebar.classList.remove('show');
         containerUser?.classList.remove('dropdown-open');
+        btnUserSidebar?.setAttribute('aria-expanded', 'false');
         if (userChevron) userChevron.style.transform = '';
       }
     };
@@ -14258,6 +14229,7 @@
       if (menuUserSidebar) {
         menuUserSidebar.classList.add('show');
         containerUser?.classList.add('dropdown-open');
+        btnUserSidebar?.setAttribute('aria-expanded', 'true');
         if (userChevron) userChevron.style.transform = 'rotate(180deg)';
       }
     };
@@ -14545,9 +14517,9 @@
     const filtered = usersList.filter(u => {
       if (!query) return true;
       return (u.username || '').toLowerCase().includes(query) ||
-             (u.full_name || '').toLowerCase().includes(query) ||
-             (u.pic_code || '').toLowerCase().includes(query) ||
-             (u.role || '').toLowerCase().includes(query);
+        (u.full_name || '').toLowerCase().includes(query) ||
+        (u.pic_code || '').toLowerCase().includes(query) ||
+        (u.role || '').toLowerCase().includes(query);
     });
 
     if (filtered.length === 0) {
@@ -14556,7 +14528,7 @@
     }
 
     tbody.innerHTML = filtered.map(u => {
-      const roleBadge = u.role === 'admin' 
+      const roleBadge = u.role === 'admin'
         ? `<span class="px-2 py-0.5 rounded-full text-[10px] bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/30">ADMIN</span>`
         : `<span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">PETUGAS PIC</span>`;
 
@@ -14608,7 +14580,7 @@
     `).join('');
   }
 
-  window.switchDbTab = function(tabName) {
+  window.switchDbTab = function (tabName) {
     ['users', 'tables', 'adduser'].forEach(t => {
       const btnName = `dbTab${t.charAt(0).toUpperCase() + t.slice(1)}`;
       const panelName = `dbTabPanel${t.charAt(0).toUpperCase() + t.slice(1)}`;
@@ -14633,7 +14605,7 @@
     }
   }
 
-  window.openAdminResetForUser = function(targetUser) {
+  window.openAdminResetForUser = function (targetUser) {
     const modal = document.getElementById('modalDatabaseViewer');
     if (modal) modal.style.display = 'none';
     if (typeof window.openAdminUsersModal === 'function') {
@@ -14646,7 +14618,7 @@
     if (select) select.value = targetUser;
   };
 
-  window.openAdminDeleteForUser = function(targetUser) {
+  window.openAdminDeleteForUser = function (targetUser) {
     const modal = document.getElementById('modalDatabaseViewer');
     if (modal) modal.style.display = 'none';
     if (typeof window.openAdminUsersModal === 'function') {
@@ -14706,8 +14678,8 @@
     const filtered = logs.filter(l => {
       if (!query) return true;
       return (l.action || '').toLowerCase().includes(query) ||
-             (l.username || '').toLowerCase().includes(query) ||
-             (l.details || '').toLowerCase().includes(query);
+        (l.username || '').toLowerCase().includes(query) ||
+        (l.details || '').toLowerCase().includes(query);
     });
 
     if (filtered.length === 0) {
@@ -14860,7 +14832,7 @@
   async function downloadImportTemplate(targetModule) {
     if (typeof XLSX === 'undefined') {
       showToast('Menyiapkan template Excel...', 'info');
-      try { await ensureXlsxLoaded(); } catch(e) {}
+      try { await ensureXlsxLoaded(); } catch (e) { }
     }
     if (typeof XLSX === 'undefined') {
       alert('Library SheetJS belum termuat di browser.');
@@ -15125,12 +15097,12 @@
         headers = ['#', 'Status di Web', 'No PA', 'Pelanggan', 'PTL', 'PIC SITAC', 'Biaya Awal', 'Biaya Final', 'Progress'];
         rowRenderer = (r, i) => `
           <tr class="border-b border-white/5 ${r._isDuplicate ? 'bg-amber-500/5' : ''}">
-            <td class="p-1.5 text-slate-500">${i+1}</td>
+            <td class="p-1.5 text-slate-500">${i + 1}</td>
             <td class="p-1.5">
-              ${r._isDuplicate 
-                ? '<span class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-triangle-exclamation text-[9px]"></i> Sudah Ada</span>'
-                : '<span class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-circle-plus text-[9px]"></i> Data Baru</span>'
-              }
+              ${r._isDuplicate
+            ? '<span class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-triangle-exclamation text-[9px]"></i> Sudah Ada</span>'
+            : '<span class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-circle-plus text-[9px]"></i> Data Baru</span>'
+          }
             </td>
             <td class="p-1.5 font-bold ${r._isDuplicate ? 'text-amber-200' : 'text-cyan-300'}">${escapeHtml(r.no_pa || '-')}</td>
             <td class="p-1.5 text-slate-200">${escapeHtml(r.pelanggan || '-')}</td>
@@ -15145,12 +15117,12 @@
         headers = ['#', 'Status di Web', 'Pengelola', 'Pelanggan', 'SID / SO', 'Jenis Sewa', 'Rev Sewa/Thn', 'Status'];
         rowRenderer = (r, i) => `
           <tr class="border-b border-white/5 ${r._isDuplicate ? 'bg-amber-500/5' : ''}">
-            <td class="p-1.5 text-slate-500">${i+1}</td>
+            <td class="p-1.5 text-slate-500">${i + 1}</td>
             <td class="p-1.5">
-              ${r._isDuplicate 
-                ? '<span class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-triangle-exclamation text-[9px]"></i> Sudah Ada</span>'
-                : '<span class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-circle-plus text-[9px]"></i> Data Baru</span>'
-              }
+              ${r._isDuplicate
+            ? '<span class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-triangle-exclamation text-[9px]"></i> Sudah Ada</span>'
+            : '<span class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-circle-plus text-[9px]"></i> Data Baru</span>'
+          }
             </td>
             <td class="p-1.5 font-bold text-slate-100">${escapeHtml(r.pengelola || '-')}</td>
             <td class="p-1.5 text-slate-200">${escapeHtml(r.pelanggan || '-')}</td>
@@ -15164,12 +15136,12 @@
         headers = ['#', 'Status di Web', 'No Tiket', 'Tgl Dispos', 'Terminating / Rute', 'Jenis Gangguan', 'PIC Teknis', 'Biaya', 'Status'];
         rowRenderer = (r, i) => `
           <tr class="border-b border-white/5 ${r._isDuplicate ? 'bg-amber-500/5' : ''}">
-            <td class="p-1.5 text-slate-500">${i+1}</td>
+            <td class="p-1.5 text-slate-500">${i + 1}</td>
             <td class="p-1.5">
-              ${r._isDuplicate 
-                ? '<span class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-triangle-exclamation text-[9px]"></i> Sudah Ada</span>'
-                : '<span class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-circle-plus text-[9px]"></i> Data Baru</span>'
-              }
+              ${r._isDuplicate
+            ? '<span class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-triangle-exclamation text-[9px]"></i> Sudah Ada</span>'
+            : '<span class="px-2 py-0.5 rounded text-[9.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-circle-plus text-[9px]"></i> Data Baru</span>'
+          }
             </td>
             <td class="p-1.5 font-bold ${r._isDuplicate ? 'text-amber-200' : 'text-rose-400'}">${escapeHtml(r.no_tiket || '-')}</td>
             <td class="p-1.5 text-slate-400">${escapeHtml(r.tgl_dispos || '-')}</td>
@@ -15214,7 +15186,7 @@
     }
   }
 
-  window.triggerExcelImportPreview = function(rows, module) {
+  window.triggerExcelImportPreview = function (rows, module) {
     rawExcelRows = rows || [];
     renderImportPreviewTable(module || 'sitac_records');
   };
@@ -15347,11 +15319,11 @@
 
         if (typeof XLSX === 'undefined') {
           showToast('Menyiapkan parser Excel...', 'info');
-          try { await ensureXlsxLoaded(); } catch(e) {}
+          try { await ensureXlsxLoaded(); } catch (e) { }
         }
 
         if (label) label.textContent = `File terpilih: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-        
+
         // Show cancel buttons
         const btnCancelDropzone = document.getElementById('btnCancelImportFile');
         const btnCancelLabel = document.getElementById('btnCancelImportFileLabel');
@@ -15363,9 +15335,9 @@
           dropzone.classList.add('border-emerald-500', 'bg-emerald-950/20');
           dropzone.classList.remove('border-white/10');
         }
-        
+
         const reader = new FileReader();
-        reader.onload = function(evt) {
+        reader.onload = function (evt) {
           try {
             const data = new Uint8Array(evt.target.result);
             const workbook = XLSX.read(data, { type: 'array', cellDates: true });
@@ -15606,7 +15578,6 @@
   // 21. EXECUTIVE OVERVIEW PERIOD FILTER HELPERS
   // =========================================================================
   function setupExecutivePeriodFilter() {
-    const pillContainer = document.getElementById('execPeriodQuickPills');
     const periodSelect = document.getElementById('execFilterPeriod');
     const customWrap = document.getElementById('execCustomDateWrap');
     const btnApplyCustom = document.getElementById('btnApplyExecCustomDate');
@@ -15616,46 +15587,17 @@
     const startYear = 2024;
     const currentVal = state.execFilter?.period || 'ALL';
 
-    // 1. Dynamic generation of quick period pills (auto-adds new years like 2027 when current year advances)
-    if (pillContainer) {
-      let pillsHtml = `<button type="button" class="exec-period-pill ${currentVal === 'ALL' ? 'active' : ''}" data-period="ALL">Semua Periode</button>`;
-      for (let y = startYear; y <= maxYear; y++) {
-        const isActive = currentVal === String(y) ? 'active' : '';
-        pillsHtml += `<button type="button" class="exec-period-pill ${isActive}" data-period="${y}">${y}</button>`;
-      }
-      pillContainer.innerHTML = pillsHtml;
-
-      const quickPeriodPills = pillContainer.querySelectorAll('.exec-period-pill');
-      quickPeriodPills.forEach(pill => {
-        pill.addEventListener('click', () => {
-          const pVal = pill.getAttribute('data-period');
-          quickPeriodPills.forEach(p => p.classList.remove('active'));
-          pill.classList.add('active');
-          if (periodSelect && periodSelect.value !== pVal) {
-            periodSelect.value = pVal;
-            periodSelect.dispatchEvent(new Event('change'));
-          }
-        });
-      });
-    }
-
-    // 2. Dynamic generation of select options with automatic '(Tahun Berjalan)' label
     if (periodSelect) {
       let optionsHtml = `<option value="ALL" ${currentVal === 'ALL' ? 'selected' : ''}>Semua Periode (Akumulasi)</option>`;
-      for (let y = startYear; y <= maxYear; y++) {
-        const isRunning = (y === curYear) ? ' (Tahun Berjalan)' : '';
-        optionsHtml += `<option value="${y}" ${currentVal === String(y) ? 'selected' : ''}>Tahun ${y}${isRunning}</option>`;
+      for (let year = startYear; year <= maxYear; year++) {
+        const isRunning = year === curYear ? ' (Tahun Berjalan)' : '';
+        optionsHtml += `<option value="${year}" ${currentVal === String(year) ? 'selected' : ''}>Tahun ${year}${isRunning}</option>`;
       }
       optionsHtml += `<option value="CUSTOM" ${currentVal === 'CUSTOM' ? 'selected' : ''}>Rentang Tanggal Custom...</option>`;
       periodSelect.innerHTML = optionsHtml;
 
       periodSelect.addEventListener('change', () => {
         const val = periodSelect.value;
-        const quickPeriodPills = document.querySelectorAll('#execPeriodQuickPills .exec-period-pill');
-        quickPeriodPills.forEach(p => {
-          p.classList.toggle('active', p.getAttribute('data-period') === val);
-        });
-
         if (val === 'CUSTOM') {
           if (customWrap) customWrap.classList.remove('hidden');
           if (customWrap) customWrap.classList.add('flex');
@@ -15688,8 +15630,8 @@
     } else if (period === 'CUSTOM') {
       label = `Rentang Khusus (${startStr} s/d ${endStr})`;
     } else if (!isNaN(Number(period))) {
-      const y = Number(period);
-      label = (y === curYear) ? `Tahun ${y} (Tahun Berjalan)` : `Tahun ${y}`;
+      const year = Number(period);
+      label = year === curYear ? `Tahun ${year} (Tahun Berjalan)` : `Tahun ${year}`;
     }
     state.execFilter = {
       period: period,
@@ -15981,7 +15923,7 @@
         const isCollo = res.module === 'collo';
         const iconClass = isCollo ? 'fa-server text-cyan-400 bg-cyan-500/10 border-cyan-500/20' : 'fa-file-signature text-amber-400 bg-amber-500/10 border-amber-500/20';
         const badgeModule = isCollo ? '<span class="text-[9px] uppercase font-bold text-cyan-400 bg-cyan-500/15 border border-cyan-500/30 px-1.5 py-0.5 rounded">Colocation</span>' : '<span class="text-[9px] uppercase font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded">SITAC</span>';
-        
+
         html += `
           <div class="global-search-result-item ${idx === 0 ? 'active-search-item' : ''}" data-index="${idx}">
             <div class="flex items-center gap-3 min-w-0 flex-1">

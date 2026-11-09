@@ -1,3 +1,12 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Legacy / Redundant Subfolders
+frontend/
+backend/
+data/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -8,8 +17,9 @@ __pycache__/
 scratch_*.py
 network_infrastructure.db
 sitac_database.db
-sitac_collo_data.*
+sitac_collo_data.json
 sitac_data.*
+!sitac_collo_data.js
 
 # Office lock files
 ~$*.xlsx
@@ -28,4 +38,5 @@ Thumbs.db
 scratch/
 uploads/
 *.db
+
 

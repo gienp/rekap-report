@@ -23,9 +23,9 @@
       theme: {
         extend: {
           fontFamily: {
-            sans: ['"DM Sans"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
-            display: ['"Outfit"', 'sans-serif'],
-            outfit: ['"Outfit"', 'sans-serif']
+            sans: ['"Inter"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+            display: ['"Inter"', 'sans-serif'],
+            outfit: ['"Inter"', 'sans-serif']
           },
           colors: {
             portal: {
@@ -54,11 +54,11 @@
     }
   </script>
 
-  <!-- Google Fonts: DM Sans, Outfit & Inter (Clearwave Aesthetic) -->
+  <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..800;1,9..40,300..800&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet">
 
   <!-- FontAwesome Icons -->
@@ -72,7 +72,7 @@
   <link rel="preload" href="app.js?v=1029.1707" as="script">
 
   <!-- Custom Portal Stylesheet -->
-  <link rel="stylesheet" href="styles.css?v=12.33">
+  <link rel="stylesheet" href="styles.css?v=12.34">
 
   <!-- ZERO-FLICKER VIEW PERSISTENCE SYNC (ELIMINATES PAGE REFRESH FLASH) -->
   <script>
@@ -149,34 +149,35 @@
         </button>
       </div>
 
-      <!-- Logged-in User Profile Container in Sidebar with Integrated Alat & Pengaturan -->
+      <!-- Logged-in User Profile Container in Sidebar -->
       <div class="mx-3 mt-3 mb-2 relative" id="sidebarUserContainer">
         <div id="sidebarUserProfileCard"
-          class="p-2.5 rounded-xl bg-slate-900/80 border border-white/10 flex items-center justify-between gap-2 transition hover:border-cyan-500/30">
-          <button type="button" id="btnToggleUserToolsSidebar"
-            class="flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer group focus:outline-none"
-            title="Klik untuk membuka menu Alat & Pengaturan Akun">
+          class="p-2.5 rounded-xl bg-slate-900/80 border border-white/10 flex items-center justify-between gap-2 transition">
+          <div class="flex items-center gap-2.5 min-w-0 flex-1">
             <div id="sidebarUserRoleAvatar"
-              class="w-8 h-8 rounded-full flex items-center justify-center text-xs bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shrink-0 group-hover:scale-105 transition-transform">
+              class="w-8 h-8 rounded-full flex items-center justify-center text-xs bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shrink-0">
               <i class="fa-solid fa-shield-halved" id="sidebarUserRoleIcon"></i>
             </div>
             <div class="min-w-0 flex-1 leading-tight">
               <div class="flex items-center gap-1.5">
-                <span class="font-bold text-slate-100 text-xs truncate group-hover:text-cyan-300 transition-colors"
-                  id="sidebarUserNameDisplay">Administrator</span>
-                <i class="fa-solid fa-chevron-down text-[9px] text-slate-400 group-hover:text-cyan-400 transition-transform"
-                  id="sidebarUserChevron"></i>
+                <span class="font-bold text-slate-100 text-xs truncate" id="sidebarUserNameDisplay">Administrator</span>
               </div>
               <div class="text-[9px] uppercase tracking-wider text-cyan-400 font-semibold mt-0.5"
                 id="sidebarUserRoleDisplay">ADMIN</div>
             </div>
-          </button>
-          <!-- Quick Actions inside Sidebar: Theme & Logout -->
+          </div>
+          <!-- Quick Actions inside Sidebar: Account Tools, Theme & Logout -->
           <div class="flex items-center gap-1 shrink-0">
             <button type="button" id="themeToggleBtn"
               class="btn btn-secondary h-8 w-8 !p-0 rounded-lg flex items-center justify-center text-xs text-slate-300 hover:text-amber-300 transition"
               title="Ganti Mode Terang / Gelap">
               <i class="fa-solid fa-moon text-xs"></i>
+            </button>
+            <button type="button" id="btnToggleUserToolsSidebar"
+              class="btn btn-secondary h-8 w-8 !p-0 rounded-lg flex items-center justify-center text-xs text-slate-300 hover:text-cyan-300 transition"
+              title="Alat & pengaturan akun" aria-label="Buka alat dan pengaturan akun"
+              aria-controls="sidebarUserDropdownMenu" aria-expanded="false">
+              <i class="fa-solid fa-chevron-down text-[10px] transition-transform" id="sidebarUserChevron"></i>
             </button>
             <button type="button" id="btnLogout"
               class="btn btn-secondary h-8 w-8 !p-0 rounded-lg flex items-center justify-center text-xs text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/40 transition"
@@ -191,7 +192,7 @@
 
         <!-- Dropdown Menu Alat & Administrasi (Terintegrasi di Tampilan User dengan Animasi Halus) -->
         <div id="sidebarUserDropdownMenu"
-          class="absolute left-0 right-0 top-full mt-1.5 p-1.5 rounded-xl bg-slate-900/95 border border-white/10 shadow-2xl backdrop-blur-xl z-[100] space-y-0.5">
+          class="absolute right-0 top-full mt-1.5 w-64 max-w-[calc(100vw-2rem)] p-1.5 rounded-xl bg-slate-900/95 border border-white/10 shadow-2xl backdrop-blur-xl z-[100] space-y-0.5">
           <div
             class="px-2 py-1 text-[10px] uppercase tracking-wider font-bold text-slate-400 flex items-center justify-between border-b border-white/5 mb-1">
             <span class="flex items-center gap-1.5"><i class="fa-solid fa-sliders text-cyan-400"></i> Alat &amp;
@@ -588,20 +589,13 @@
         <!-- Period Filter & Custom Date Range Toolbar -->
         <div
           class="p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl bg-card border border-subtle flex flex-wrap items-center justify-between gap-2.5 text-xs shadow-sm">
-          <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 w-full sm:w-auto">
+          <div class="flex items-center gap-2 py-0.5 w-full sm:w-auto">
             <i class="fa-solid fa-calendar-days text-cyan-500 text-xs sm:text-sm shrink-0"></i>
             <span class="font-bold text-main shrink-0 text-xs">Periode:</span>
-            <!-- Segmented Quick Pills -->
-            <div class="exec-period-segmented inline-flex shrink-0" id="execPeriodQuickPills">
-              <button type="button" class="exec-period-pill active" data-period="ALL">Semua Periode</button>
-              <button type="button" class="exec-period-pill" data-period="2024">2024</button>
-              <button type="button" class="exec-period-pill" data-period="2025">2025</button>
-              <button type="button" class="exec-period-pill" data-period="2026">2026</button>
-            </div>
           </div>
-          <div class="hidden sm:flex flex-wrap items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <select id="execFilterPeriod"
-              class="filter-input px-3 py-1.5 rounded-xl border border-subtle font-semibold cursor-pointer">
+              class="filter-input px-3 py-1.5 rounded-xl border border-subtle font-semibold cursor-pointer w-full sm:w-auto">
               <option value="ALL">Semua Periode (Akumulasi)</option>
               <option value="2024">Tahun 2024</option>
               <option value="2025">Tahun 2025</option>
@@ -2746,7 +2740,7 @@
                   <option value="Yudiansyah">Yudiansyah</option>
                   <option value="Agih Gahara">Agih Gahara</option>
                   <option value="Hairul Aswan">Hairul Aswan</option>
-                  <option value="__CUSTOM__">➕ Kustomisasi...</option>
+                  <option value="__CUSTOM__">Kustomisasi...</option>
                 </select>
                 <div id="wrapperCustomSitacPic" class="hidden">
                   <div class="relative">
@@ -4606,7 +4600,11 @@
   <!-- 1. Master Dataset & Fallback Engine (Immediate Priority for Instant First Paint) -->
   <script src="sitac_collo_data.js?v=1029.1707"></script>
 
-  <!-- 2. Core Portal Application Engine (Instant Rendering) -->
+  <!-- 2. Supabase Cloud PostgreSQL Client & Integration Engine (Primary Cloud Backend) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js?v=2.0"></script>
+
+  <!-- 3. Core Portal Application Engine (Instant Rendering & Supabase Operations) -->
   <script src="app.js?v=1029.1707"></script>
 
   <!-- 2b. Client-side PDF Generation Engine (jsPDF & AutoTable) -->
@@ -4614,15 +4612,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"
     defer></script>
 
-  <!-- 3. Supabase Cloud PostgreSQL Client & Integration Engine -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase-client.js?v=1.3"></script>
 
-  <!-- 4. Firebase Cloud Synchronization SDK (Non-Blocking Deferred) -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js" defer></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js" defer></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js" defer></script>
-  <script src="firebase-config.js?v=4.0" defer></script>
 </body>
 
 </html>

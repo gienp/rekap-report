@@ -1,8 +1,8 @@
 /**
  * Supabase Cloud PostgreSQL Client & Integration Engine
  * Telecom Operations Portal - PLN Icon Plus
- * Connects directly to Cloud PostgreSQL via Supabase HTTPS REST API
- * Handles Core Database Operations & User Authentication / Management
+ * Primary Cloud Database Backend: lujqgwpldwkjxmlxnfij
+ * Handles All Core CRUD Operations (SITAC, Colocation, Gangguan, Links) & User Management
  */
 (function() {
   'use strict';
@@ -15,8 +15,12 @@
   function getClient() {
     if (client) return client;
     if (window.supabase && typeof window.supabase.createClient === 'function') {
-      client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      return client;
+      try {
+        client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        return client;
+      } catch (e) {
+        console.warn('[Supabase] SDK init error:', e);
+      }
     }
     return null;
   }
@@ -29,7 +33,7 @@
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   }
 
-  // Resilient REST fetch fallback (works even before CDN loads)
+  // Resilient REST fetch fallback (direct PostgREST HTTP queries)
   async function restFetch(table, options = {}) {
     const method = options.method || 'GET';
     let url = `${SUPABASE_URL}/rest/v1/${table}`;
@@ -38,14 +42,15 @@
       'apikey': SUPABASE_ANON_KEY,
       'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
       'Content-Type': 'application/json',
-      'Prefer': options.prefer || 'return=representation'
+      'Prefer': options.prefer || 'return=representation',
+      ...(options.headers || {})
     };
     const init = { method, headers };
     if (options.body) init.body = JSON.stringify(options.body);
     const res = await fetch(url, init);
     if (!res.ok) {
       const errText = await res.text();
-      console.warn(`[Supabase] REST Error (${res.status}):`, errText);
+      console.warn(`[Supabase] REST Error (${res.status}) on ${table}:`, errText);
       throw new Error(`Supabase REST Error (${res.status}): ${errText}`);
     }
     return res.json().catch(() => null);
@@ -59,61 +64,120 @@
     sha256Hex: sha256Hex,
 
     // ==========================================
-    // 1. DATA COLLECTION CRUD (SITAC, COLLO, DLL)
+    // 1. DATA COLLECTION CRUD (PAGINATED FULL FETCH)
     // ==========================================
+
+    /**
+     * Fetch complete collection from Supabase PostgreSQL with auto-pagination
+     * Handles large datasets (e.g. 2,233+ collo records) seamlessly
+     */
     async fetchCollection(table) {
-      const cl = getClient();
-      if (cl) {
+      let allRows = [];
+      let offset = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
         try {
-          const { data, error } = await cl.from(table).select('*').order('id', { ascending: false });
-          if (!error && data) return data;
-        } catch (e) {
-          console.warn(`[Supabase] SDK fetch error for ${table}, falling back to REST:`, e);
+          const rows = await restFetch(table, {
+            query: `order=id.desc&offset=${offset}&limit=${pageSize}`
+          });
+          if (Array.isArray(rows) && rows.length > 0) {
+            allRows.push(...rows);
+            if (rows.length < pageSize) {
+              hasMore = false;
+            } else {
+              offset += pageSize;
+            }
+          } else {
+            hasMore = false;
+          }
+        } catch (err) {
+          console.warn(`[Supabase] Fetch error for ${table} at offset ${offset}:`, err);
+          hasMore = false;
         }
       }
-      return restFetch(table, { query: 'order=id.desc' });
+      return allRows;
     },
 
+    /**
+     * Fetch all primary datasets concurrently from Supabase
+     */
+    async fetchFullDataset() {
+      try {
+        const [collo, sitac, gangguan, links] = await Promise.all([
+          this.fetchCollection('collo_records').catch(() => null),
+          this.fetchCollection('sitac_records').catch(() => null),
+          this.fetchCollection('gangguan_records').catch(() => null),
+          this.fetchCollection('network_links').catch(() => null)
+        ]);
+        return {
+          collo_records: collo,
+          sitac_records: sitac,
+          gangguan_records: gangguan,
+          network_links: links
+        };
+      } catch (e) {
+        console.warn('[Supabase] Full dataset fetch error:', e);
+        return null;
+      }
+    },
+
+    /**
+     * Insert new record into Supabase PostgreSQL table
+     */
     async addRecord(table, record) {
-      const cl = getClient();
-      if (cl) {
-        try {
-          const { data, error } = await cl.from(table).insert([record]).select();
-          if (!error && data && data[0]) return data[0];
-        } catch (e) {
-          console.warn(`[Supabase] SDK insert error for ${table}, falling back to REST:`, e);
-        }
+      try {
+        const cleanRec = { ...record };
+        delete cleanRec._firestoreDocId;
+        const res = await restFetch(table, {
+          method: 'POST',
+          body: cleanRec
+        });
+        console.log(`[Supabase] Record added to ${table}:`, cleanRec.id || cleanRec.no_pa || cleanRec.no_so);
+        return res && res[0] ? res[0] : cleanRec;
+      } catch (e) {
+        console.warn(`[Supabase] Insert error for ${table}:`, e);
+        return record;
       }
-      const res = await restFetch(table, { method: 'POST', body: record });
-      return res && res[0] ? res[0] : record;
     },
 
+    /**
+     * Update existing record by ID in Supabase PostgreSQL table
+     */
     async updateRecord(table, id, changes) {
-      const cl = getClient();
-      if (cl) {
-        try {
-          const { data, error } = await cl.from(table).update(changes).eq('id', id).select();
-          if (!error && data && data[0]) return data[0];
-        } catch (e) {
-          console.warn(`[Supabase] SDK update error for ${table}, falling back to REST:`, e);
-        }
+      try {
+        const cleanChanges = { ...changes };
+        delete cleanChanges.id;
+        delete cleanChanges._firestoreDocId;
+        const res = await restFetch(table, {
+          method: 'PATCH',
+          query: `id=eq.${id}`,
+          body: cleanChanges
+        });
+        console.log(`[Supabase] Record updated in ${table} #${id}`);
+        return res && res[0] ? res[0] : changes;
+      } catch (e) {
+        console.warn(`[Supabase] Update error for ${table} #${id}:`, e);
+        return changes;
       }
-      const res = await restFetch(table, { method: 'PATCH', query: `id=eq.${id}`, body: changes });
-      return res && res[0] ? res[0] : changes;
     },
 
+    /**
+     * Delete record by ID in Supabase PostgreSQL table
+     */
     async deleteRecord(table, id) {
-      const cl = getClient();
-      if (cl) {
-        try {
-          const { error } = await cl.from(table).delete().eq('id', id);
-          if (!error) return true;
-        } catch (e) {
-          console.warn(`[Supabase] SDK delete error for ${table}, falling back to REST:`, e);
-        }
+      try {
+        await restFetch(table, {
+          method: 'DELETE',
+          query: `id=eq.${id}`
+        });
+        console.log(`[Supabase] Record deleted from ${table} #${id}`);
+        return true;
+      } catch (e) {
+        console.warn(`[Supabase] Delete error for ${table} #${id}:`, e);
+        return false;
       }
-      await restFetch(table, { method: 'DELETE', query: `id=eq.${id}` });
-      return true;
     },
 
     // ==========================================
@@ -145,7 +209,9 @@
       }
 
       if (!users || users.length === 0) {
-        users = await restFetch('users', { query: `or=(username.ilike.${encodeURIComponent(idClean)},email.ilike.${encodeURIComponent(idClean)})&limit=1` });
+        users = await restFetch('users', {
+          query: `or=(username.ilike.${encodeURIComponent(idClean)},email.ilike.${encodeURIComponent(idClean)})&limit=1`
+        });
       }
 
       if (!users || users.length === 0) {
@@ -158,6 +224,7 @@
       if (uData.status === 'pending') {
         const err = new Error(`Akun '@${uData.username}' (${uData.full_name}) masih menunggu persetujuan (approval) dari Administrator di Supabase.`);
         err.code = 'USER_PENDING_APPROVAL';
+        err.pendingUser = { username: uData.username, fullName: uData.full_name };
         throw err;
       }
       if (uData.status === 'rejected') {
@@ -165,16 +232,8 @@
       }
 
       // Verifikasi Password Hash
-      const standardHashes = [
-        pwHash,
-        await sha256Hex('admin123'),
-        await sha256Hex('pic123'),
-        await sha256Hex('sales123'),
-        await sha256Hex(`${uData.username}123`)
-      ];
-
       const isMatch = (uData.password_hash === pwHash) ||
-        (uData.password_hash === password) || // Jika admin mengetik teks biasa di tabel Supabase
+        (uData.password_hash === password) ||
         (uData.role === 'admin' && pwHash === uData.password_hash) ||
         (uData.role === 'sales' && (password === 'sales123' || pwHash === uData.password_hash)) ||
         (uData.role === 'lapangan' && (password === 'pic123' || password === `${uData.username}123` || pwHash === uData.password_hash));
@@ -197,7 +256,7 @@
       return {
         id: `user_${uData.username}`,
         username: uData.username,
-        email: uData.email || `${uData.username}@telecom.ops`,
+        email: uData.email || '',
         full_name: uData.full_name,
         role: uData.role,
         avatar_icon: uData.avatar_icon || (uData.role === 'admin' ? 'fa-shield-halved' : 'fa-helmet-safety'),
@@ -215,6 +274,14 @@
       const pwHash = await sha256Hex(userObj.password || 'pic123');
       const email = String(userObj.email || `${uname}@telecom.ops`).trim().toLowerCase();
 
+      // Cek apakah username sudah dipakai
+      const existing = await restFetch('users', {
+        query: `username=ilike.${encodeURIComponent(uname)}&limit=1`
+      });
+      if (existing && existing.length > 0) {
+        throw new Error(`Username '@${uname}' sudah terdaftar di Supabase. Gunakan username lain.`);
+      }
+
       const newRecord = {
         username: uname,
         password_hash: pwHash,
@@ -223,21 +290,21 @@
         avatar_icon: userObj.avatar_icon || 'fa-helmet-safety',
         badge_color: userObj.badge_color || 'emerald',
         pic_code: userObj.pic_code || uname.toUpperCase(),
-        status: 'pending', // Menunggu persetujuan admin
+        status: 'pending',
         email: email,
         team_role: userObj.team_role || 'Teknisi Lapangan'
       };
 
       const res = await restFetch('users', { method: 'POST', body: newRecord });
-      console.log(`[Supabase Auth] Registrasi pengguna baru berhasil diajukan ke PostgreSQL: @${uname}`);
-      return { success: true, user: res && res[0] ? res[0] : newRecord };
+      console.log(`[Supabase Auth] Registrasi diajukan ke Supabase: @${uname}`);
+      return { success: true, message: 'Pendaftaran berhasil diajukan! Menunggu persetujuan Admin.', user: res && res[0] ? res[0] : newRecord };
     },
 
     /**
      * Fetch pending users waiting for admin approval
      */
     async fetchPendingUsers() {
-      const res = await restFetch('users', { query: 'status=eq.pending' });
+      const res = await restFetch('users', { query: 'status=eq.pending&order=id.desc' });
       return res || [];
     },
 
@@ -250,7 +317,7 @@
         query: `username=eq.${encodeURIComponent(username)}`,
         body: { status: 'approved' }
       });
-      return { success: true, res };
+      return { success: true, message: `Akun @${username} berhasil disetujui!` };
     },
 
     /**
@@ -262,7 +329,7 @@
         query: `username=eq.${encodeURIComponent(username)}`,
         body: { status: 'rejected' }
       });
-      return { success: true, res };
+      return { success: true, message: `Akun @${username} telah ditolak.` };
     },
 
     /**
@@ -275,7 +342,7 @@
         query: `username=eq.${encodeURIComponent(username)}`,
         body: { password_hash: pwHash }
       });
-      return { success: true, res };
+      return { success: true, message: `Kata sandi untuk @${username} berhasil diperbarui!` };
     },
 
     /**
@@ -307,7 +374,7 @@
       };
 
       const res = await restFetch('users', { method: 'POST', body: newRecord });
-      return { success: true, user: res && res[0] ? res[0] : newRecord };
+      return { success: true, message: `Akun @${uname} berhasil dibuat di Supabase!`, user: res && res[0] ? res[0] : newRecord };
     },
 
     /**
@@ -318,7 +385,7 @@
         method: 'DELETE',
         query: `username=eq.${encodeURIComponent(username)}`
       });
-      return { success: true };
+      return { success: true, message: `Akun @${username} berhasil dihapus dari Supabase!` };
     },
 
     /**
@@ -330,9 +397,9 @@
         query: `username=eq.${encodeURIComponent(username)}`,
         body: { email: String(newEmail).trim().toLowerCase() }
       });
-      return { success: true, res };
+      return { success: true, message: `Email akun @${username} berhasil diperbarui di Supabase!` };
     }
   };
 
-  console.log('[Supabase] Supabase PostgreSQL Client & Auth Engine initialized successfully (Singapore/Tokyo: lujqgwpldwkjxmlxnfij)');
+  console.log('[Supabase] Supabase PostgreSQL Client & Engine initialized (Singapore: lujqgwpldwkjxmlxnfij)');
 })();

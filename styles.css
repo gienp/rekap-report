@@ -52,7 +52,7 @@
 /* Typography & Corporate Enterprise Atmosphere */
 html,
 body {
-  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
   background-color: var(--bg-app);
   background-image:
     radial-gradient(ellipse 80% 50% at 50% -12%, rgba(2, 132, 199, 0.10) 0%, transparent 65%),
@@ -76,7 +76,7 @@ h2,
 h3,
 h4,
 .brand-title {
-  font-family: 'DM Sans', sans-serif !important;
+  font-family: 'Inter', sans-serif !important;
   letter-spacing: -0.025em;
   font-weight: 700;
 }
@@ -674,7 +674,7 @@ html[data-target-view="view-webgis"] .nav-item[data-view="view-webgis"] {
 .kpi-value {
   font-size: clamp(1.18rem, 1.4vw, 1.65rem);
   font-weight: 800;
-  font-family: 'Outfit', sans-serif !important;
+  font-family: 'Inter', sans-serif !important;
   line-height: 1.2;
   letter-spacing: -0.02em;
   white-space: nowrap;
@@ -908,7 +908,7 @@ html[data-target-view="view-webgis"] .nav-item[data-view="view-webgis"] {
   font-weight: 800;
   line-height: 1.1;
   letter-spacing: -0.03em;
-  font-family: 'Outfit', sans-serif !important;
+  font-family: 'Inter', sans-serif !important;
 }
 
 .bento-currency-value {
@@ -916,7 +916,7 @@ html[data-target-view="view-webgis"] .nav-item[data-view="view-webgis"] {
   font-weight: 800;
   line-height: 1.15;
   letter-spacing: -0.025em;
-  font-family: 'Outfit', sans-serif !important;
+  font-family: 'Inter', sans-serif !important;
   white-space: nowrap;
   max-width: 100%;
   overflow: hidden;
@@ -943,7 +943,7 @@ html[data-target-view="view-webgis"] .nav-item[data-view="view-webgis"] {
   font-weight: 800;
   line-height: 1.1;
   letter-spacing: -0.025em;
-  font-family: 'Outfit', sans-serif !important;
+  font-family: 'Inter', sans-serif !important;
 }
 
 .bento-dual-secondary-val {
@@ -951,7 +951,7 @@ html[data-target-view="view-webgis"] .nav-item[data-view="view-webgis"] {
   font-weight: 800;
   line-height: 1.1;
   letter-spacing: -0.02em;
-  font-family: 'Outfit', sans-serif !important;
+  font-family: 'Inter', sans-serif !important;
 }
 
 .bento-progress-track {
@@ -2471,7 +2471,7 @@ select:focus {
 .topbar-page-title,
 #breadcrumbPageTitle {
   color: var(--text-main) !important;
-  font-family: 'Outfit', sans-serif !important;
+  font-family: 'Inter', sans-serif !important;
   font-weight: 700 !important;
   letter-spacing: -0.02em !important;
 }
@@ -2621,6 +2621,18 @@ select:focus {
 .alert-panel-item {
   padding: 0.65rem 0.85rem;
   transition: background-color 0.2s ease;
+}
+
+#alertNotificationList > .alert-panel-item {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.24);
+}
+
+#alertNotificationList > .alert-panel-item:last-child {
+  border-bottom: 0;
+}
+
+[data-theme="light"] #alertNotificationList > .alert-panel-item {
+  border-bottom-color: #e2e8f0;
 }
 
 .alert-panel-item:hover {
@@ -4585,7 +4597,7 @@ select:focus {
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--text-main);
-  font-family: 'Outfit', sans-serif !important;
+  font-family: 'Inter', sans-serif !important;
   letter-spacing: -0.01em;
   flex: 1;
   min-width: 0;
@@ -4627,7 +4639,7 @@ select:focus {
 .kpi-value {
   font-size: clamp(1.18rem, 1.4vw, 1.65rem);
   font-weight: 800;
-  font-family: 'Outfit', sans-serif !important;
+  font-family: 'Inter', sans-serif !important;
   line-height: 1.2;
   letter-spacing: -0.02em;
   white-space: nowrap;
@@ -4925,7 +4937,7 @@ select:focus {
 
 /* Breadcrumb title premium style */
 #breadcrumbPageTitle {
-  font-family: 'Outfit', sans-serif !important;
+  font-family: 'Inter', sans-serif !important;
   font-weight: 700;
   font-size: 0.95rem;
   letter-spacing: -0.01em;
@@ -4943,7 +4955,7 @@ select:focus {
   background: rgba(15, 23, 42, 0.85);
   border: 1px solid rgba(16, 185, 129, 0.35);
   color: #34d399;
-  font-family: 'Outfit', sans-serif !important;
+  font-family: 'Inter', sans-serif !important;
   letter-spacing: 0.03em;
   box-shadow: 0 0 10px rgba(16, 185, 129, 0.12);
   transition: all 0.2s ease;
@@ -4957,7 +4969,7 @@ select:focus {
 }
 
 #lockedAccountBadgeWrapper span {
-  font-family: 'Outfit', sans-serif !important;
+  font-family: 'Inter', sans-serif !important;
   letter-spacing: 0.04em;
   transition: all 0.2s ease;
 }
@@ -4979,7 +4991,7 @@ select:focus {
    DAYNIGHT INSPIRED EXECUTIVE COMPONENTS
    ========================================================================= */
 
-/* 1. Segmented Theme Switcher [ ☀️ | 🌙 ] */
+/* 1. Segmented Theme Switcher */
 /* Single Icon Theme Toggle (replaces segmented) */
 .theme-toggle-single {
   background: rgba(255, 255, 255, 0.06) !important;
@@ -5187,7 +5199,6 @@ body.role-sales .pic-only,
 body.role-sales .operasional-only,
 body.role-sales #groupSitac,
 body.role-sales #btnMobSitac,
-body.role-sales #btnMobGangguan,
 body.role-sales #btnMobAddData,
 body.role-sales #sitacFilterGroup,
 body.role-sales #btnSitacMyTasks,

@@ -263,9 +263,12 @@ Revisi langsung aktif di internet dalam hitungan detik! 🎉
 
 ---
 
-## 💰 Informasi Kuota & Biaya (Firebase Spark Plan — GRATIS)
+## 💰 Informasi Kuota & Biaya Firebase
 
-Project ini berjalan di atas **Firebase Spark Plan (Free Tier)**:
+Hosting dan Firestore dasar memiliki kuota gratis. Namun pengiriman email
+verifikasi melalui Cloud Functions memerlukan **paket Blaze** dan akun penagihan
+Google Cloud yang terhubung. Penggunaan tetap mengikuti kuota/harga layanan
+Firebase dan Brevo:
 
 | Layanan | Kuota Gratis |
 |---------|-------------|
@@ -273,7 +276,8 @@ Project ini berjalan di atas **Firebase Spark Plan (Free Tier)**:
 | **Cloud Firestore** | 50.000 reads & 20.000 writes per hari |
 | **SSL Certificate** | 100% Gratis selamanya (HTTPS) |
 
-Kapasitas gratis ini **lebih dari cukup** untuk kebutuhan operasional harian seluruh tim telekomunikasi Anda tanpa biaya langganan bulanan.
+Periksa halaman harga Firebase dan Brevo sebelum mengaktifkan layanan. Paket
+Blaze bukan jaminan semua penggunaan tanpa biaya.
 
 ---
 
